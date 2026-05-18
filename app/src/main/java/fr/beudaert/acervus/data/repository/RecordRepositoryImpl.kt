@@ -1,0 +1,166 @@
+package fr.beudaert.acervus.data.repository
+
+import androidx.room.withTransaction
+import fr.beudaert.acervus.data.local.db.AcervusDatabase
+import fr.beudaert.acervus.data.local.db.ArtistDao
+import fr.beudaert.acervus.data.local.db.ArtistEntity
+import fr.beudaert.acervus.data.local.db.RecordDao
+import fr.beudaert.acervus.data.local.db.groupToRecords
+import fr.beudaert.acervus.data.local.db.toEntity
+import fr.beudaert.acervus.domain.model.Record
+import fr.beudaert.acervus.domain.model.RecordArtistEntry
+import fr.beudaert.acervus.domain.model.RecordFilter
+import fr.beudaert.acervus.domain.model.RecordStatus
+import fr.beudaert.acervus.domain.model.normalizeArtistName
+import fr.beudaert.acervus.domain.repository.RecordRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import java.time.Clock
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class RecordRepositoryImpl @Inject constructor(
+    private val database: AcervusDatabase,
+    private val recordDao: RecordDao,
+    private val artistDao: ArtistDao,
+    private val clock: Clock
+) : RecordRepository {
+
+    private fun rawFlow(filter: RecordFilter) =
+        recordDao.observeFilteredJoinRows(
+            query = filter.query.trim(),
+            statusFilter = filter.status.toRecordStatus(),
+            genreFilter = filter.genre,
+            formatFilter = filter.format,
+            notPlayedSince = notPlayedSinceCutoff(filter)
+        )
+
+    override fun observeAll(): Flow<List<Record>> = observeFiltered(RecordFilter())
+
+    override fun observeFiltered(filter: RecordFilter): Flow<List<Record>> =
+        rawFlow(filter).map { rows ->
+            rows.groupToRecords().sortedWith(RECORD_BY_PRIMARY_ARTIST)
+        }
+
+    override fun observeFlattenedByArtist(filter: RecordFilter): Flow<List<RecordArtistEntry>> =
+        rawFlow(filter).map { rows ->
+            val records = rows.groupToRecords()
+            records
+                .flatMap { record ->
+                    record.artists.map { artist ->
+                        RecordArtistEntry(
+                            record = record,
+                            displayedArtist = artist,
+                            featuringArtists = emptyList()
+                        )
+                    }
+                }
+                .sortedWith(ENTRY_BY_DISPLAYED_ARTIST)
+        }
+
+    override fun observeByPrimaryArtist(filter: RecordFilter): Flow<List<RecordArtistEntry>> =
+        rawFlow(filter).map { rows ->
+            rows.groupToRecords()
+                .mapNotNull { record ->
+                    val primary = record.primaryArtist ?: return@mapNotNull null
+                    RecordArtistEntry(
+                        record = record,
+                        displayedArtist = primary,
+                        featuringArtists = record.featuringArtists
+                    )
+                }
+                .sortedWith(ENTRY_BY_DISPLAYED_ARTIST)
+        }
+
+    override fun observeById(id: String): Flow<Record?> =
+        recordDao.observeByIdJoinRows(id).map { rows ->
+            rows.groupToRecords().firstOrNull()
+        }
+
+    override fun observeDistinctGenres(): Flow<List<String>> = recordDao.observeDistinctGenres()
+
+    override fun observeDistinctArtistNames(): Flow<List<String>> = artistDao.observeAllNames()
+
+    override fun observeOwnedCount(): Flow<Int> = recordDao.observeOwnedCount()
+
+    override fun observeWishlistCount(): Flow<Int> = recordDao.observeWishlistCount()
+
+    override suspend fun findByBarcode(barcode: String): Record? =
+        recordDao.findByBarcodeJoinRows(barcode).groupToRecords().firstOrNull()
+
+    override suspend fun upsert(record: Record) {
+        require(record.artists.isNotEmpty()) { "a record must have at least one artist" }
+        database.withTransaction {
+            recordDao.upsertRecord(record.toEntity())
+            val artistIds = record.artists.map { input ->
+                resolveOrCreateArtist(input.name)
+            }
+            recordDao.replaceCrossRefs(record.id, artistIds)
+            artistDao.deleteUnused()
+        }
+    }
+
+    private suspend fun resolveOrCreateArtist(name: String): String {
+        val trimmed = name.trim()
+        require(trimmed.isNotEmpty()) { "artist name must not be blank" }
+        val normalized = normalizeArtistName(trimmed)
+        val existing = artistDao.findByNormalizedName(normalized)
+        if (existing != null) return existing.id
+        val entity = ArtistEntity(
+            id = UUID.randomUUID().toString(),
+            name = trimmed,
+            normalizedName = normalized
+        )
+        artistDao.upsert(entity)
+        return entity.id
+    }
+
+    override suspend fun delete(record: Record) {
+        database.withTransaction {
+            recordDao.deleteById(record.id)
+            artistDao.deleteUnused()
+        }
+    }
+
+    override suspend fun deleteById(id: String) {
+        database.withTransaction {
+            recordDao.deleteById(id)
+            artistDao.deleteUnused()
+        }
+    }
+
+    override suspend fun updateLastPlayed(id: String, ts: Instant?) {
+        recordDao.updateLastPlayed(id, ts)
+    }
+
+    override suspend fun updateStatus(id: String, status: RecordStatus, ts: Instant) {
+        recordDao.updateStatus(id, status, ts)
+    }
+
+    override suspend fun updateRating(id: String, rating: Int?, ts: Instant) {
+        recordDao.updateRating(id, rating, ts)
+    }
+
+    private fun notPlayedSinceCutoff(filter: RecordFilter): Instant? =
+        if (filter.notPlayedSinceSixMonths) {
+            clock.instant().minus(SIX_MONTHS_DAYS, ChronoUnit.DAYS)
+        } else null
+
+    private companion object {
+        const val SIX_MONTHS_DAYS: Long = 183L
+
+        val RECORD_BY_PRIMARY_ARTIST: Comparator<Record> = compareBy(
+            { it.primaryArtist?.name?.lowercase().orEmpty() },
+            { it.title.lowercase() }
+        )
+
+        val ENTRY_BY_DISPLAYED_ARTIST: Comparator<RecordArtistEntry> = compareBy(
+            { it.displayedArtist.name.lowercase() },
+            { it.record.title.lowercase() }
+        )
+    }
+}

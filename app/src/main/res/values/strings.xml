@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Acervus</string>
+    <string name="app_title">Ma collection</string>
+
+    <!-- Collection screen -->
+    <string name="collection_fab_add">Ajouter</string>
+    <string name="collection_search_placeholder">Rechercher dans ma collection</string>
+    <string name="collection_search_clear">Effacer la recherche</string>
+    <string name="collection_search_no_results">Aucun résultat</string>
+    <string name="collection_open_filters">Filtres</string>
+    <string name="collection_empty_title">Aucun disque pour le moment</string>
+    <string name="collection_empty_subtitle">Touchez « Ajouter » pour enregistrer votre premier vinyle.</string>
+    <string name="collection_empty_filtered_title">Aucun résultat</string>
+    <string name="collection_empty_filtered_subtitle">Aucun disque ne correspond aux filtres actifs.</string>
+    <string name="collection_counter">%1$d disques · %2$d souhaités</string>
+    <string name="collection_open_settings">Réglages</string>
+    <string name="collection_row_featuring">feat. %1$s</string>
+    <string name="collection_add_sheet_title">Ajouter un disque</string>
+    <string name="collection_add_manual">Saisie manuelle</string>
+    <string name="collection_add_manual_subtitle">Remplir le formulaire à la main</string>
+    <string name="collection_add_scan">Scanner un code-barres</string>
+    <string name="collection_add_scan_subtitle">EAN/UPC au dos de la pochette</string>
+
+    <!-- Filters bottom sheet -->
+    <string name="filters_title">Filtres</string>
+    <string name="filters_status">Statut</string>
+    <string name="filters_status_all">Tout</string>
+    <string name="filters_status_owned">Collection</string>
+    <string name="filters_status_wishlist">Wishlist</string>
+    <string name="filters_genre_all">Tous</string>
+    <string name="filters_format_all">Tous</string>
+    <string name="filters_not_played_6m">Non écoutés depuis 6 mois</string>
+    <string name="filters_reset">Réinitialiser</string>
+    <string name="filters_apply">Appliquer</string>
+
+    <!-- Add / Edit record -->
+    <string name="add_record_title">Nouveau disque</string>
+    <string name="edit_record_title">Modifier le disque</string>
+    <string name="add_record_section_cover">Jaquette</string>
+    <string name="add_record_section_identity">Identité</string>
+    <string name="add_record_section_edition">Édition</string>
+    <string name="add_record_section_classification">Classification</string>
+    <string name="add_record_section_purchase">Achat</string>
+    <string name="add_record_section_status">Statut</string>
+    <string name="add_record_wishlist_toggle">Dans ma wishlist</string>
+    <string name="add_record_cover_hint">Touchez pour ajouter une jaquette</string>
+    <string name="add_record_cover_take_photo">Prendre une photo</string>
+    <string name="add_record_cover_pick_gallery">Choisir dans la galerie</string>
+    <string name="add_record_cover_remove">Retirer la jaquette</string>
+    <string name="add_record_cover_sheet_title">Jaquette</string>
+    <string name="add_record_rating_hint">Notez ce disque</string>
+
+    <string name="field_artist">Artiste</string>
+    <string name="field_artists">Artistes</string>
+    <string name="field_artists_placeholder">Ajouter un artiste</string>
+    <string name="field_artists_hint">Tapez Entrée ou choisissez une suggestion</string>
+    <string name="field_recording_speed">Vitesse de gravure</string>
+    <string name="add_record_artist_remove">Retirer %1$s</string>
+    <string name="field_title">Titre</string>
+    <string name="field_year">Année</string>
+    <string name="field_label">Label</string>
+    <string name="field_country">Pays</string>
+    <string name="field_genre">Genre</string>
+    <string name="field_format">Format</string>
+    <string name="field_price">Prix d\'achat</string>
+    <string name="field_barcode">Code-barres</string>
+    <string name="field_required">Champ obligatoire</string>
+    <string name="field_invalid">Valeur invalide</string>
+
+    <string name="format_lp_33">33 t</string>
+    <string name="format_single_45">45 t</string>
+    <string name="format_shellac_78">78 t</string>
+    <string name="format_other">Autre</string>
+
+    <string name="recording_speed_33">33 tr/min</string>
+    <string name="recording_speed_45">45 tr/min</string>
+    <string name="recording_speed_78">78 tr/min</string>
+    <string name="recording_speed_other">Autre</string>
+
+    <!-- Detail screen -->
+    <string name="detail_not_found">Disque introuvable</string>
+    <string name="detail_delete_title">Supprimer ce disque ?</string>
+    <string name="detail_delete_message">Cette action est définitive.</string>
+    <string name="detail_rating_star">%1$d étoile(s)</string>
+    <string name="detail_last_played_title">Dernière écoute</string>
+    <string name="detail_last_played_never">Jamais</string>
+    <string name="detail_action_played_now">Je viens de l\'écouter</string>
+    <string name="detail_action_reset_played">Réinitialiser</string>
+    <string name="detail_status_title">Statut</string>
+    <string name="detail_featuring">feat. %1$s</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Réglages</string>
+    <string name="settings_section_collection">Collection</string>
+    <string name="settings_duplicate_albums_title">Dupliquer par artiste</string>
+    <string name="settings_duplicate_albums_description">Un album à plusieurs artistes apparaît sous chacun d\'eux dans la liste. Désactivé, il n\'apparaît que sous l\'artiste principal avec un sous-titre « feat. ».</string>
+
+    <!-- Permissions -->
+    <string name="permission_camera_required_title">Autorisation appareil photo requise</string>
+    <string name="permission_camera_required_message">Pour prendre une photo de la jaquette, autorisez l\'accès à l\'appareil photo dans les paramètres.</string>
+
+    <!-- Scan code-barres -->
+    <string name="scan_title">Scanner un code-barres</string>
+    <string name="scan_hint_align">Alignez le code-barres dans le cadre</string>
+    <string name="scan_status_lookup">Code détecté : %1$s</string>
+    <string name="scan_status_already_present">Déjà dans la collection : %1$s</string>
+    <string name="scan_status_new_record">Nouveau code : %1$s</string>
+    <string name="scan_permission_title">Accès appareil photo refusé</string>
+    <string name="scan_permission_message">Sans accès à l\'appareil photo, le scan de code-barres est impossible. Vous pouvez autoriser l\'accès dans les paramètres système.</string>
+    <string name="scan_permission_retry">Redemander</string>
+
+    <!-- Actions -->
+    <string name="action_save">Enregistrer</string>
+    <string name="action_cancel">Annuler</string>
+    <string name="action_back">Retour</string>
+    <string name="action_edit">Modifier</string>
+    <string name="action_delete">Supprimer</string>
+    <string name="action_more">Plus d\'actions</string>
+</resources>

@@ -1,0 +1,30 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+/.idea/deploymentTargetDropDown.xml
+/.idea/deploymentTargetSelector.xml
+/.idea/misc.xml
+/.idea/inspectionProfiles
+.DS_Store
+/build
+**/build/
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Partie IA
+contexte-ia-vinylcollection.md
+/.claude/
+/.kotlin/
+/.vscode/
+/.idea/
+
+# A supprimer dans un second temps"
+/docs
