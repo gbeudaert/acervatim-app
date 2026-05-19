@@ -25,6 +25,8 @@ data class Record(
     val discogsId: Long? = null,
     val status: ItemStatus = ItemStatus.OWNED,
     val lastPlayedAt: Instant? = null,
+    /** Champs spécifiques au type de collection (cf. [MangaExtras] pour les clés manga). */
+    val extras: Map<String, String> = emptyMap(),
     val createdAt: Instant,
     val updatedAt: Instant
 ) {

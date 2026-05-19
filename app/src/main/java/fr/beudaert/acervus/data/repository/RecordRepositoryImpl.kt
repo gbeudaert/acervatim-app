@@ -7,10 +7,11 @@ import fr.beudaert.acervus.data.local.db.ArtistEntity
 import fr.beudaert.acervus.data.local.db.RecordDao
 import fr.beudaert.acervus.data.local.db.groupToRecords
 import fr.beudaert.acervus.data.local.db.toEntity
+import fr.beudaert.acervus.domain.model.CollectionType
+import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.model.Record
 import fr.beudaert.acervus.domain.model.RecordArtistEntry
 import fr.beudaert.acervus.domain.model.RecordFilter
-import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.model.normalizeArtistName
 import fr.beudaert.acervus.domain.repository.RecordRepository
 import kotlinx.coroutines.flow.Flow
@@ -91,9 +92,14 @@ class RecordRepositoryImpl @Inject constructor(
 
     override fun observeDistinctArtistNames(): Flow<List<String>> = artistDao.observeAllNames()
 
-    override fun observeOwnedCount(): Flow<Int> = recordDao.observeOwnedCount()
+    override fun observeOwnedCount(collectionType: CollectionType?): Flow<Int> =
+        recordDao.observeOwnedCount(collectionType)
 
-    override fun observeWishlistCount(): Flow<Int> = recordDao.observeWishlistCount()
+    override fun observeWishlistCount(collectionType: CollectionType?): Flow<Int> =
+        recordDao.observeWishlistCount(collectionType)
+
+    override fun observeTotalCount(collectionType: CollectionType?): Flow<Int> =
+        recordDao.observeTotalCount(collectionType)
 
     override suspend fun findByBarcode(barcode: String): Record? =
         recordDao.findByBarcodeJoinRows(barcode).groupToRecords().firstOrNull()

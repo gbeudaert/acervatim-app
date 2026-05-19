@@ -5,6 +5,7 @@ import fr.beudaert.acervus.data.local.db.toDomain
 import fr.beudaert.acervus.data.local.db.toEntity
 import fr.beudaert.acervus.domain.model.CollectionType
 import fr.beudaert.acervus.domain.model.Series
+import fr.beudaert.acervus.domain.model.SeriesWithCounts
 import fr.beudaert.acervus.domain.repository.SeriesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -21,6 +22,15 @@ class SeriesRepositoryImpl @Inject constructor(
 
     override fun observeByCollectionType(collectionType: CollectionType): Flow<List<Series>> =
         seriesDao.observeByCollectionType(collectionType).map { list -> list.map { it.toDomain() } }
+
+    override fun observeWithCountsByCollectionType(
+        collectionType: CollectionType
+    ): Flow<List<SeriesWithCounts>> =
+        seriesDao.observeWithCountsByCollectionType(collectionType)
+            .map { list -> list.map { it.toDomain() } }
+
+    override fun observeCountByCollectionType(collectionType: CollectionType): Flow<Int> =
+        seriesDao.observeCountByCollectionType(collectionType)
 
     override suspend fun upsert(series: Series) {
         seriesDao.upsert(series.toEntity())

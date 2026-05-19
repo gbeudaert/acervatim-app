@@ -21,10 +21,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,6 +55,7 @@ import fr.beudaert.acervus.ui.components.RecordCover
 fun SeriesDetailScreen(
     onBack: () -> Unit,
     onOpenVolume: (String) -> Unit,
+    onAddVolume: (seriesId: String, suggestedVolume: Int?) -> Unit,
     viewModel: SeriesDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -60,6 +63,7 @@ fun SeriesDetailScreen(
         state = state,
         onBack = onBack,
         onOpenVolume = onOpenVolume,
+        onAddVolume = onAddVolume,
         onSetStatus = viewModel::onSetStatus
     )
 }
@@ -70,6 +74,7 @@ internal fun SeriesDetailContent(
     state: SeriesDetailUiState,
     onBack: () -> Unit,
     onOpenVolume: (String) -> Unit,
+    onAddVolume: (seriesId: String, suggestedVolume: Int?) -> Unit,
     onSetStatus: (String, fr.beudaert.acervus.domain.model.ItemStatus) -> Unit
 ) {
     Scaffold(
@@ -85,6 +90,17 @@ internal fun SeriesDetailContent(
                     }
                 }
             )
+        },
+        floatingActionButton = {
+            if (state is SeriesDetailUiState.Loaded) {
+                val maxVolume = state.volumes.mapNotNull { it.volumeNumber }.maxOrNull()
+                val suggested = maxVolume?.plus(1) ?: 1
+                ExtendedFloatingActionButton(
+                    onClick = { onAddVolume(state.series.id, suggested) },
+                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    text = { Text(stringResource(R.string.series_detail_add_volume)) }
+                )
+            }
         }
     ) { innerPadding ->
         Box(

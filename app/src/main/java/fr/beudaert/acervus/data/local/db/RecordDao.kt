@@ -103,11 +103,31 @@ interface RecordDao {
     )
     fun observeDistinctGenres(): Flow<List<String>>
 
-    @Query("SELECT COUNT(*) FROM records WHERE status = 'OWNED'")
-    fun observeOwnedCount(): Flow<Int>
+    @Query(
+        """
+        SELECT COUNT(*) FROM records
+        WHERE status = 'OWNED'
+          AND (:collectionType IS NULL OR collectionType = :collectionType)
+        """
+    )
+    fun observeOwnedCount(collectionType: CollectionType? = null): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM records WHERE status = 'WISHLIST'")
-    fun observeWishlistCount(): Flow<Int>
+    @Query(
+        """
+        SELECT COUNT(*) FROM records
+        WHERE status = 'WISHLIST'
+          AND (:collectionType IS NULL OR collectionType = :collectionType)
+        """
+    )
+    fun observeWishlistCount(collectionType: CollectionType? = null): Flow<Int>
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM records
+        WHERE (:collectionType IS NULL OR collectionType = :collectionType)
+        """
+    )
+    fun observeTotalCount(collectionType: CollectionType? = null): Flow<Int>
 
     @Upsert
     suspend fun upsertRecord(record: RecordEntity)

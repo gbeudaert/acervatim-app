@@ -20,14 +20,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.outlined.Album
+import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -35,10 +38,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -55,23 +60,23 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.beudaert.acervus.R
-import kotlinx.coroutines.launch
-import fr.beudaert.acervus.domain.model.AcervusFormat
-import fr.beudaert.acervus.domain.model.Artist
-import fr.beudaert.acervus.domain.model.Record
-import fr.beudaert.acervus.domain.model.RecordArtistEntry
+import fr.beudaert.acervus.domain.model.CollectionType
+import fr.beudaert.acervus.domain.model.ListMode
 import fr.beudaert.acervus.domain.model.RecordFilter
-import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.model.StatusFilter
+import fr.beudaert.acervus.domain.usecase.CollectionTypeStats
 import fr.beudaert.acervus.ui.components.RecordRow
 import fr.beudaert.acervus.ui.theme.AcervusTheme
-import java.time.Instant
+import kotlinx.coroutines.launch
 
 @Composable
 fun CollectionScreen(
     onAddRecord: () -> Unit,
     onScanRecord: () -> Unit,
+    onAddManga: () -> Unit,
+    onAddSeries: (CollectionType) -> Unit,
     onOpenRecord: (String) -> Unit,
+    onOpenSeries: (String) -> Unit,
     onOpenSettings: () -> Unit,
     viewModel: CollectionViewModel = hiltViewModel()
 ) {
@@ -80,18 +85,26 @@ fun CollectionScreen(
     val filter by viewModel.advancedFilter.collectAsStateWithLifecycle()
     val sheetOpen by viewModel.filterSheetOpen.collectAsStateWithLifecycle()
     val genres by viewModel.availableGenres.collectAsStateWithLifecycle()
+    val activeType by viewModel.activeCollectionType.collectAsStateWithLifecycle()
+    val typeStats by viewModel.collectionTypeStats.collectAsStateWithLifecycle()
 
     CollectionScreenContent(
         state = state,
         query = query,
         filter = filter,
+        activeCollectionType = activeType,
+        collectionTypeStats = typeStats,
         onQueryChange = viewModel::onQueryChange,
         onClearQuery = viewModel::onClearQuery,
         onOpenFilters = viewModel::openFilterSheet,
         onOpenSettings = onOpenSettings,
+        onCollectionTypeSelected = viewModel::onCollectionTypeSelected,
         onAddRecord = onAddRecord,
         onScanRecord = onScanRecord,
-        onRecordClick = onOpenRecord
+        onAddManga = onAddManga,
+        onAddSeries = { onAddSeries(activeType) },
+        onRecordClick = onOpenRecord,
+        onSeriesClick = onOpenSeries
     )
 
     if (sheetOpen) {
@@ -111,57 +124,85 @@ internal fun CollectionScreenContent(
     state: CollectionUiState,
     query: String,
     filter: RecordFilter,
+    activeCollectionType: CollectionType,
+    collectionTypeStats: List<CollectionTypeStats>,
     onQueryChange: (String) -> Unit,
     onClearQuery: () -> Unit,
     onOpenFilters: () -> Unit,
     onOpenSettings: () -> Unit,
+    onCollectionTypeSelected: (CollectionType) -> Unit,
     onAddRecord: () -> Unit,
     onScanRecord: () -> Unit,
+    onAddManga: () -> Unit,
+    onAddSeries: () -> Unit,
     onRecordClick: (String) -> Unit,
+    onSeriesClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
     val activeFilterCount = remember(filter) { filter.activeFilterCount() }
     var addSheetVisible by remember { mutableStateOf(false) }
     val addSheetState = rememberModalBottomSheetState()
-    val scope = rememberCoroutineScope()
 
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { addSheetVisible = true },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Filled.Add,
-                        contentDescription = null
-                    )
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            CollectionDrawerContent(
+                activeCollectionType = activeCollectionType,
+                stats = collectionTypeStats,
+                onCollectionTypeSelected = { type ->
+                    onCollectionTypeSelected(type)
+                    scope.launch { drawerState.close() }
                 },
-                text = { Text(stringResource(R.string.collection_fab_add)) }
+                onOpenSettings = {
+                    scope.launch { drawerState.close() }
+                    onOpenSettings()
+                }
             )
         }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            CollectionSearchBar(
-                query = query,
-                onQueryChange = onQueryChange,
-                onClearQuery = onClearQuery,
-                onOpenFilters = onOpenFilters,
-                onOpenSettings = onOpenSettings,
-                activeFilterCount = activeFilterCount,
-                onRecordClick = onRecordClick,
-                state = state
-            )
-            when (state) {
-                CollectionUiState.Loading -> LoadingState()
-                is CollectionUiState.Empty -> EmptyState(hasActiveFilters = state.hasActiveFilters)
-                is CollectionUiState.Content -> ContentList(
-                    state = state,
-                    onRecordClick = onRecordClick
+    ) {
+        Scaffold(
+            modifier = modifier.fillMaxSize(),
+            floatingActionButton = {
+                FabForState(
+                    activeCollectionType = activeCollectionType,
+                    listMode = filter.listMode,
+                    onAddRecord = onAddRecord,
+                    onAddManga = onAddManga,
+                    onAddSeries = onAddSeries,
+                    onOpenAddSheet = { addSheetVisible = true }
                 )
+            }
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                CollectionSearchBar(
+                    query = query,
+                    onQueryChange = onQueryChange,
+                    onClearQuery = onClearQuery,
+                    onOpenFilters = onOpenFilters,
+                    onOpenSettings = onOpenSettings,
+                    onOpenDrawer = { scope.launch { drawerState.open() } },
+                    activeFilterCount = activeFilterCount,
+                    onRecordClick = onRecordClick,
+                    state = state
+                )
+                when (state) {
+                    CollectionUiState.Loading -> LoadingState()
+                    is CollectionUiState.Empty -> EmptyState(state)
+                    is CollectionUiState.FlatContent -> ContentList(
+                        state = state,
+                        onRecordClick = onRecordClick
+                    )
+                    is CollectionUiState.SerialContent -> SerialContentList(
+                        state = state,
+                        onSeriesClick = onSeriesClick
+                    )
+                }
             }
         }
     }
@@ -169,11 +210,15 @@ internal fun CollectionScreenContent(
     if (addSheetVisible) {
         AddSourceBottomSheet(
             sheetState = addSheetState,
+            activeCollectionType = activeCollectionType,
             onDismiss = { addSheetVisible = false },
             onManual = {
                 scope.launch { addSheetState.hide() }.invokeOnCompletion {
                     addSheetVisible = false
-                    onAddRecord()
+                    when (activeCollectionType) {
+                        CollectionType.VINYL -> onAddRecord()
+                        CollectionType.MANGA -> onAddManga()
+                    }
                 }
             },
             onScan = {
@@ -186,10 +231,34 @@ internal fun CollectionScreenContent(
     }
 }
 
+@Composable
+private fun FabForState(
+    activeCollectionType: CollectionType,
+    listMode: ListMode,
+    onAddRecord: () -> Unit,
+    onAddManga: () -> Unit,
+    onAddSeries: () -> Unit,
+    onOpenAddSheet: () -> Unit
+) {
+    // En vue SERIAL on crée une nouvelle série ; en FLAT on propose l'ajout d'un item
+    // (manual + scan via le bottom sheet, identique vinyle/manga modulo le formulaire cible).
+    val (labelRes, action) = when {
+        listMode == ListMode.SERIAL -> R.string.collection_fab_new_series to onAddSeries
+        activeCollectionType == CollectionType.MANGA -> R.string.collection_fab_add_manga to onOpenAddSheet
+        else -> R.string.collection_fab_add to onOpenAddSheet
+    }
+    ExtendedFloatingActionButton(
+        onClick = action,
+        icon = { Icon(imageVector = Icons.Filled.Add, contentDescription = null) },
+        text = { Text(stringResource(labelRes)) }
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddSourceBottomSheet(
     sheetState: androidx.compose.material3.SheetState,
+    activeCollectionType: CollectionType,
     onDismiss: () -> Unit,
     onManual: () -> Unit,
     onScan: () -> Unit
@@ -241,6 +310,7 @@ private fun CollectionSearchBar(
     onClearQuery: () -> Unit,
     onOpenFilters: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenDrawer: () -> Unit,
     activeFilterCount: Int,
     onRecordClick: (String) -> Unit,
     state: CollectionUiState
@@ -261,10 +331,22 @@ private fun CollectionSearchBar(
                 onExpandedChange = { expanded = it },
                 placeholder = { Text(stringResource(R.string.collection_search_placeholder)) },
                 leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = null
-                    )
+                    if (expanded) {
+                        // Quand la SearchBar est étendue, on garde l'icône recherche habituelle ;
+                        // le hamburger n'a plus de cible cliquable utile (drawer masqué par la
+                        // SearchBar plein écran). On laisse Compose afficher l'icône recherche.
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null
+                        )
+                    } else {
+                        IconButton(onClick = onOpenDrawer) {
+                            Icon(
+                                imageVector = Icons.Filled.Menu,
+                                contentDescription = stringResource(R.string.collection_open_drawer)
+                            )
+                        }
+                    }
                 },
                 trailingIcon = {
                     SearchBarTrailing(
@@ -281,7 +363,7 @@ private fun CollectionSearchBar(
         onExpandedChange = { expanded = it }
     ) {
         when (state) {
-            is CollectionUiState.Content -> ContentList(
+            is CollectionUiState.FlatContent -> ContentList(
                 state = state,
                 onRecordClick = { id ->
                     expanded = false
@@ -353,7 +435,29 @@ private fun LoadingState() {
 }
 
 @Composable
-private fun EmptyState(hasActiveFilters: Boolean) {
+private fun EmptyState(state: CollectionUiState.Empty) {
+    val (titleRes, subtitleRes, icon) = when {
+        state.hasActiveFilters -> Triple(
+            R.string.collection_empty_filtered_title,
+            R.string.collection_empty_filtered_subtitle,
+            Icons.Outlined.Album
+        )
+        state.listMode == ListMode.SERIAL -> Triple(
+            R.string.collection_empty_serial_title,
+            R.string.collection_empty_serial_subtitle,
+            Icons.Outlined.Book
+        )
+        state.activeCollectionType == CollectionType.MANGA -> Triple(
+            R.string.collection_empty_manga_title,
+            R.string.collection_empty_manga_subtitle,
+            Icons.Outlined.Book
+        )
+        else -> Triple(
+            R.string.collection_empty_title,
+            R.string.collection_empty_subtitle,
+            Icons.Outlined.Album
+        )
+    }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -365,26 +469,20 @@ private fun EmptyState(hasActiveFilters: Boolean) {
             verticalArrangement = Arrangement.Center
         ) {
             Icon(
-                imageVector = Icons.Outlined.Album,
+                imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(72.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
             Spacer(Modifier.height(16.dp))
             Text(
-                text = stringResource(
-                    if (hasActiveFilters) R.string.collection_empty_filtered_title
-                    else R.string.collection_empty_title
-                ),
+                text = stringResource(titleRes),
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = stringResource(
-                    if (hasActiveFilters) R.string.collection_empty_filtered_subtitle
-                    else R.string.collection_empty_subtitle
-                ),
+                text = stringResource(subtitleRes),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -395,13 +493,16 @@ private fun EmptyState(hasActiveFilters: Boolean) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ContentList(
-    state: CollectionUiState.Content,
+    state: CollectionUiState.FlatContent,
     onRecordClick: (String) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
             text = stringResource(
-                R.string.collection_counter,
+                if (state.activeCollectionType == CollectionType.MANGA)
+                    R.string.collection_counter_manga
+                else
+                    R.string.collection_counter,
                 state.ownedCount,
                 state.wishlistCount
             ),
@@ -430,6 +531,29 @@ private fun ContentList(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SerialContentList(
+    state: CollectionUiState.SerialContent,
+    onSeriesClick: (String) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Text(
+            text = stringResource(
+                R.string.collection_counter_manga,
+                state.ownedCount,
+                state.wishlistCount
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        SeriesGrid(
+            items = state.seriesList,
+            onOpenSeries = onSeriesClick
+        )
     }
 }
 
@@ -463,61 +587,31 @@ private fun RecordFilter.activeFilterCount(): Int {
 private fun CollectionScreenEmptyPreview() {
     AcervusTheme {
         CollectionScreenContent(
-            state = CollectionUiState.Empty(0, 0, hasActiveFilters = false),
+            state = CollectionUiState.Empty(
+                activeCollectionType = CollectionType.VINYL,
+                listMode = ListMode.FLAT,
+                ownedCount = 0,
+                wishlistCount = 0,
+                hasActiveFilters = false
+            ),
             query = "",
             filter = RecordFilter(),
+            activeCollectionType = CollectionType.VINYL,
+            collectionTypeStats = listOf(
+                CollectionTypeStats(CollectionType.VINYL, 0, 0),
+                CollectionTypeStats(CollectionType.MANGA, 0, 0)
+            ),
             onQueryChange = {},
             onClearQuery = {},
             onOpenFilters = {},
             onOpenSettings = {},
+            onCollectionTypeSelected = {},
             onAddRecord = {},
             onScanRecord = {},
-            onRecordClick = {}
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun CollectionScreenContentPreview() {
-    val now = Instant.parse("2026-05-16T10:00:00Z")
-    val pf = Artist("af", "Pink Floyd")
-    val rh = Artist("ar", "Radiohead")
-    val records = listOf(
-        Record(
-            id = "1", artists = listOf(pf), title = "The Dark Side of the Moon",
-            status = ItemStatus.OWNED, createdAt = now, updatedAt = now
-        ),
-        Record(
-            id = "2", artists = listOf(pf), title = "Wish You Were Here",
-            status = ItemStatus.OWNED, createdAt = now, updatedAt = now
-        ),
-        Record(
-            id = "3", artists = listOf(rh), title = "OK Computer",
-            status = ItemStatus.WISHLIST, createdAt = now, updatedAt = now
-        )
-    )
-    val entries = records.map {
-        RecordArtistEntry(
-            record = it,
-            displayedArtist = it.artists.first(),
-            featuringArtists = emptyList()
-        )
-    }
-    val sections = entries.groupBy { it.displayedArtist.name.first().uppercase() }
-        .map { (letter, list) -> CollectionSection(letter, list) }
-    AcervusTheme {
-        CollectionScreenContent(
-            state = CollectionUiState.Content(sections, 2, 1, hasActiveFilters = false),
-            query = "",
-            filter = RecordFilter(),
-            onQueryChange = {},
-            onClearQuery = {},
-            onOpenFilters = {},
-            onOpenSettings = {},
-            onAddRecord = {},
-            onScanRecord = {},
-            onRecordClick = {}
+            onAddManga = {},
+            onAddSeries = {},
+            onRecordClick = {},
+            onSeriesClick = {}
         )
     }
 }

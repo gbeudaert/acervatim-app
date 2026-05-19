@@ -48,6 +48,11 @@ data class RecordEntity(
     val discogsId: Long?,
     val status: ItemStatus,
     val lastPlayedAt: Instant?,
+    /**
+     * Champs spécifiques à un type de collection (ex. manga : isbn, publisherFr, demographic, …).
+     * Sérialisés en JSON via [Converters].
+     */
+    val extras: Map<String, String>,
     val createdAt: Instant,
     val updatedAt: Instant
 )

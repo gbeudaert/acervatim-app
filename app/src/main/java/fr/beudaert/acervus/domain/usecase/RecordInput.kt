@@ -23,5 +23,6 @@ data class RecordInput(
     val coverRemoteUrl: String? = null,
     val barcode: String? = null,
     val discogsId: Long? = null,
-    val status: ItemStatus = ItemStatus.OWNED
+    val status: ItemStatus = ItemStatus.OWNED,
+    val extras: Map<String, String> = emptyMap()
 )

@@ -183,6 +183,7 @@ class RecordDaoTest {
         discogsId = null,
         status = ItemStatus.OWNED,
         lastPlayedAt = null,
+        extras = emptyMap(),
         createdAt = now,
         updatedAt = now
     )

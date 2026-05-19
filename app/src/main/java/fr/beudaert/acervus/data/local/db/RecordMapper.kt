@@ -24,6 +24,7 @@ internal fun RecordEntity.toDomain(artists: List<Artist>): Record = Record(
     discogsId = discogsId,
     status = status,
     lastPlayedAt = lastPlayedAt,
+    extras = extras,
     createdAt = createdAt,
     updatedAt = updatedAt
 )
@@ -48,6 +49,7 @@ internal fun Record.toEntity(): RecordEntity = RecordEntity(
     discogsId = discogsId,
     status = status,
     lastPlayedAt = lastPlayedAt,
+    extras = extras,
     createdAt = createdAt,
     updatedAt = updatedAt
 )

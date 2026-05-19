@@ -1,10 +1,11 @@
 package fr.beudaert.acervus.domain
 
 import fr.beudaert.acervus.domain.model.Artist
+import fr.beudaert.acervus.domain.model.CollectionType
+import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.model.Record
 import fr.beudaert.acervus.domain.model.RecordArtistEntry
 import fr.beudaert.acervus.domain.model.RecordFilter
-import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.model.normalizeArtistName
 import fr.beudaert.acervus.domain.repository.RecordRepository
 import kotlinx.coroutines.flow.Flow
@@ -90,11 +91,24 @@ class FakeRecordRepository : RecordRepository {
                 .sortedBy { it.lowercase() }
         }
 
-    override fun observeOwnedCount(): Flow<Int> =
-        state.map { list -> list.count { it.status == ItemStatus.OWNED } }
+    override fun observeOwnedCount(collectionType: CollectionType?): Flow<Int> =
+        state.map { list ->
+            list.count { r ->
+                r.status == ItemStatus.OWNED && (collectionType == null || r.collectionType == collectionType)
+            }
+        }
 
-    override fun observeWishlistCount(): Flow<Int> =
-        state.map { list -> list.count { it.status == ItemStatus.WISHLIST } }
+    override fun observeWishlistCount(collectionType: CollectionType?): Flow<Int> =
+        state.map { list ->
+            list.count { r ->
+                r.status == ItemStatus.WISHLIST && (collectionType == null || r.collectionType == collectionType)
+            }
+        }
+
+    override fun observeTotalCount(collectionType: CollectionType?): Flow<Int> =
+        state.map { list ->
+            list.count { r -> collectionType == null || r.collectionType == collectionType }
+        }
 
     override suspend fun findByBarcode(barcode: String): Record? =
         state.value.firstOrNull { it.barcode == barcode }

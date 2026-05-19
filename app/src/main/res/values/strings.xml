@@ -53,6 +53,53 @@
     <string name="item_status_ignored">Ignoré</string>
     <string name="item_status_change_title">Changer le statut</string>
 
+    <!-- Collection types & drawer -->
+    <string name="collection_type_vinyl">Vinyles</string>
+    <string name="collection_type_manga">Mangas</string>
+    <string name="collection_open_drawer">Ouvrir le menu</string>
+    <string name="collection_counter_manga">%1$d possédés · %2$d souhaités</string>
+    <string name="collection_empty_serial_title">Aucune série pour le moment</string>
+    <string name="collection_empty_serial_subtitle">Touchez « Nouvelle série » pour créer votre première série.</string>
+    <string name="collection_empty_manga_title">Aucun manga pour le moment</string>
+    <string name="collection_empty_manga_subtitle">Touchez « Ajouter » pour enregistrer votre premier tome.</string>
+    <string name="collection_fab_add_manga">Ajouter</string>
+    <string name="collection_fab_new_series">Nouvelle série</string>
+    <string name="series_grid_volume_count">%1$d / %2$d tomes</string>
+
+    <!-- Series creation/edit screen -->
+    <string name="series_add_title">Nouvelle série</string>
+    <string name="series_edit_title">Modifier la série</string>
+    <string name="series_field_title">Titre</string>
+    <string name="series_field_author">Auteur original</string>
+    <string name="series_field_publication_status">Statut de publication</string>
+    <string name="series_field_publication_status_hint">En cours, terminée, …</string>
+    <string name="series_field_total_volumes">Nombre de tomes annoncés</string>
+    <string name="series_field_total_volumes_hint">Vide si inconnu</string>
+    <string name="series_field_synopsis">Synopsis</string>
+    <string name="series_field_synopsis_hint">Quelques lignes pour situer la série</string>
+    <string name="series_detail_add_volume">Ajouter un tome</string>
+    <string name="series_detail_no_volumes">Aucun tome pour cette série.</string>
+
+    <!-- Manga add/edit screen -->
+    <string name="manga_add_title">Nouveau tome</string>
+    <string name="manga_edit_title">Modifier le tome</string>
+    <string name="manga_field_series">Série</string>
+    <string name="manga_field_series_hint">Choisissez une série ou créez-la</string>
+    <string name="manga_field_series_create_inline">+ Créer la série « %1$s »</string>
+    <string name="manga_field_volume_number">Numéro de tome</string>
+    <string name="manga_field_isbn">ISBN</string>
+    <string name="manga_field_publisher_fr">Éditeur français</string>
+    <string name="manga_field_original_author">Auteur original</string>
+    <string name="manga_field_demographic">Démographie</string>
+    <string name="manga_field_demographic_shonen">Shōnen</string>
+    <string name="manga_field_demographic_shojo">Shōjo</string>
+    <string name="manga_field_demographic_seinen">Seinen</string>
+    <string name="manga_field_demographic_josei">Josei</string>
+    <string name="manga_field_demographic_kodomo">Kodomo</string>
+    <string name="manga_field_demographic_other">Autre</string>
+    <string name="manga_field_page_count">Pages</string>
+    <string name="manga_status_title">Statut</string>
+
     <!-- Add / Edit record -->
     <string name="add_record_title">Nouveau disque</string>
     <string name="edit_record_title">Modifier le disque</string>

@@ -1,5 +1,6 @@
 package fr.beudaert.acervus.domain.repository
 
+import fr.beudaert.acervus.domain.model.CollectionType
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -15,4 +16,12 @@ interface SettingsRepository {
     fun observeDuplicateAlbumsPerArtist(): Flow<Boolean>
 
     suspend fun setDuplicateAlbumsPerArtist(value: Boolean)
+
+    /**
+     * Type de collection actuellement affiché dans la liste principale. Persisté pour restaurer
+     * le dernier type ouvert au prochain lancement.
+     */
+    fun observeActiveCollectionType(): Flow<CollectionType>
+
+    suspend fun setActiveCollectionType(value: CollectionType)
 }

@@ -1,9 +1,10 @@
 package fr.beudaert.acervus.domain.repository
 
+import fr.beudaert.acervus.domain.model.CollectionType
+import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.model.Record
 import fr.beudaert.acervus.domain.model.RecordArtistEntry
 import fr.beudaert.acervus.domain.model.RecordFilter
-import fr.beudaert.acervus.domain.model.ItemStatus
 import kotlinx.coroutines.flow.Flow
 import java.time.Instant
 
@@ -28,9 +29,12 @@ interface RecordRepository {
 
     fun observeDistinctArtistNames(): Flow<List<String>>
 
-    fun observeOwnedCount(): Flow<Int>
+    /** `collectionType` null = toutes collections confondues. */
+    fun observeOwnedCount(collectionType: CollectionType? = null): Flow<Int>
 
-    fun observeWishlistCount(): Flow<Int>
+    fun observeWishlistCount(collectionType: CollectionType? = null): Flow<Int>
+
+    fun observeTotalCount(collectionType: CollectionType? = null): Flow<Int>
 
     suspend fun findByBarcode(barcode: String): Record?
 

@@ -21,6 +21,27 @@ interface SeriesDao {
     )
     fun observeByCollectionType(collectionType: CollectionType): Flow<List<SeriesEntity>>
 
+    @Query("SELECT COUNT(*) FROM series WHERE collectionType = :collectionType")
+    fun observeCountByCollectionType(collectionType: CollectionType): Flow<Int>
+
+    @Query(
+        """
+        SELECT s.*,
+               COALESCE(SUM(CASE WHEN r.status = 'OWNED' THEN 1 ELSE 0 END), 0) AS ownedVolumes,
+               COALESCE(SUM(CASE WHEN r.status = 'WISHLIST' THEN 1 ELSE 0 END), 0) AS wishlistVolumes,
+               COALESCE(SUM(CASE WHEN r.status = 'IGNORED' THEN 1 ELSE 0 END), 0) AS ignoredVolumes,
+               COALESCE(COUNT(r.id), 0) AS totalVolumesInLibrary
+        FROM series s
+        LEFT JOIN records r ON r.seriesId = s.id
+        WHERE s.collectionType = :collectionType
+        GROUP BY s.id
+        ORDER BY s.title COLLATE NOCASE
+        """
+    )
+    fun observeWithCountsByCollectionType(
+        collectionType: CollectionType
+    ): Flow<List<SeriesWithCountsRow>>
+
     @Upsert
     suspend fun upsert(series: SeriesEntity)
 

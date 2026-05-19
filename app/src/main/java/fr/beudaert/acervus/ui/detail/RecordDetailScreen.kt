@@ -68,7 +68,7 @@ import java.time.Instant
 @Composable
 fun RecordDetailScreen(
     onBack: () -> Unit,
-    onEdit: (String) -> Unit,
+    onEdit: (id: String, collectionType: fr.beudaert.acervus.domain.model.CollectionType) -> Unit,
     viewModel: RecordDetailViewModel = hiltViewModel(),
     clock: Clock = Clock.systemDefaultZone()
 ) {
@@ -102,7 +102,7 @@ internal fun RecordDetailContent(
     state: RecordDetailUiState,
     now: Instant,
     onBack: () -> Unit,
-    onEdit: (String) -> Unit,
+    onEdit: (id: String, collectionType: fr.beudaert.acervus.domain.model.CollectionType) -> Unit,
     onMarkAsPlayed: () -> Unit,
     onResetLastPlayed: () -> Unit,
     onWishlistToggle: (Boolean) -> Unit,
@@ -146,7 +146,7 @@ internal fun RecordDetailContent(
                                     },
                                     onClick = {
                                         menuExpanded = false
-                                        onEdit(state.record.id)
+                                        onEdit(state.record.id, state.record.collectionType)
                                     }
                                 )
                                 DropdownMenuItem(
@@ -478,7 +478,7 @@ private fun RecordDetailLoadedPreview() {
             ),
             now = now,
             onBack = {},
-            onEdit = {},
+            onEdit = { _, _ -> },
             onMarkAsPlayed = {},
             onResetLastPlayed = {},
             onWishlistToggle = {},

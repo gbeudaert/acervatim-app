@@ -35,6 +35,7 @@ class UpdateRecordUseCase @Inject constructor(
             barcode = input.barcode?.trim()?.takeIf { it.isNotEmpty() },
             discogsId = input.discogsId,
             status = input.status,
+            extras = input.extras,
             updatedAt = clock.instant()
         )
         repository.upsert(updated)

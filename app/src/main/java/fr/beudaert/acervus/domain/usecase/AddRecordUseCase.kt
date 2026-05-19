@@ -38,6 +38,7 @@ class AddRecordUseCase @Inject constructor(
             barcode = input.barcode?.trim()?.takeIf { it.isNotEmpty() },
             discogsId = input.discogsId,
             status = input.status,
+            extras = input.extras,
             createdAt = now,
             updatedAt = now
         )
