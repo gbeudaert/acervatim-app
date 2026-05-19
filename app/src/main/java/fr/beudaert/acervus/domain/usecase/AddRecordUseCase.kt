@@ -20,6 +20,9 @@ class AddRecordUseCase @Inject constructor(
         val now = clock.instant()
         val record = Record(
             id = id,
+            collectionType = input.collectionType,
+            seriesId = input.seriesId,
+            volumeNumber = input.volumeNumber,
             artists = cleanedArtists.map { Artist(id = "", name = it) },
             title = input.title.trim(),
             genre = input.genre?.trim()?.takeIf { it.isNotEmpty() },

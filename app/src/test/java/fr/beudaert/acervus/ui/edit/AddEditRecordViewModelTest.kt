@@ -8,7 +8,7 @@ import fr.beudaert.acervus.domain.FakeRecordRepository
 import fr.beudaert.acervus.domain.model.AcervusFormat
 import fr.beudaert.acervus.domain.model.Artist
 import fr.beudaert.acervus.domain.model.Record
-import fr.beudaert.acervus.domain.model.RecordStatus
+import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.usecase.AddRecordUseCase
 import fr.beudaert.acervus.domain.usecase.ObserveArtistSuggestionsUseCase
 import fr.beudaert.acervus.domain.usecase.ObserveRecordByIdUseCase
@@ -93,10 +93,10 @@ class AddEditRecordViewModelTest {
         vm.save()
         advanceUntilIdle()
 
-        val items = repository.observeAll().test {
-            val list = awaitItem()
+        var items: List<Record> = emptyList()
+        repository.observeAll().test {
+            items = awaitItem()
             cancelAndIgnoreRemainingEvents()
-            list
         }
         assertEquals(1, items.size)
         val saved = items.first()
@@ -117,12 +117,14 @@ class AddEditRecordViewModelTest {
         vm.save()
         advanceUntilIdle()
 
-        val saved = repository.observeAll().test {
-            val v = awaitItem().single(); cancelAndIgnoreRemainingEvents(); v
+        var saved: Record? = null
+        repository.observeAll().test {
+            saved = awaitItem().single()
+            cancelAndIgnoreRemainingEvents()
         }
         assertEquals(
             listOf("Daft Punk", "Pharrell Williams", "Nile Rodgers"),
-            saved.artists.map { it.name }
+            saved!!.artists.map { it.name }
         )
     }
 
@@ -136,10 +138,12 @@ class AddEditRecordViewModelTest {
         vm.save()
         advanceUntilIdle()
 
-        val saved = repository.observeAll().test {
-            val v = awaitItem().single(); cancelAndIgnoreRemainingEvents(); v
+        var saved: Record? = null
+        repository.observeAll().test {
+            saved = awaitItem().single()
+            cancelAndIgnoreRemainingEvents()
         }
-        assertEquals(listOf("Artist"), saved.artists.map { it.name })
+        assertEquals(listOf("Artist"), saved!!.artists.map { it.name })
     }
 
     @Test
@@ -169,7 +173,7 @@ class AddEditRecordViewModelTest {
             title = "Old Title",
             year = 2000,
             format = AcervusFormat.LP_33,
-            status = RecordStatus.OWNED,
+            status = ItemStatus.OWNED,
             createdAt = createdAt,
             updatedAt = createdAt
         )
@@ -189,15 +193,15 @@ class AddEditRecordViewModelTest {
         vm.save()
         advanceUntilIdle()
 
-        val updated = repository.observeById("rec-42").test {
-            val v = awaitItem()
+        var updated: Record? = null
+        repository.observeById("rec-42").test {
+            updated = awaitItem()
             cancelAndIgnoreRemainingEvents()
-            v
         }
         assertNotNull(updated)
         assertEquals("Brand New Title", updated!!.title)
-        assertEquals(createdAt, updated.createdAt)
-        assertEquals(now, updated.updatedAt)
+        assertEquals(createdAt, updated!!.createdAt)
+        assertEquals(now, updated!!.updatedAt)
     }
 
     @Test
@@ -215,8 +219,10 @@ class AddEditRecordViewModelTest {
         assertEquals(vm.formState.value.recordId, recordId)
         assertEquals("content://test/photo.jpg", uri.toString())
 
-        val list = repository.observeAll().test {
-            val v = awaitItem(); cancelAndIgnoreRemainingEvents(); v
+        var list: List<Record> = emptyList()
+        repository.observeAll().test {
+            list = awaitItem()
+            cancelAndIgnoreRemainingEvents()
         }
         assertEquals(coverStorage.pathFor(recordId), list.single().coverPath)
     }
@@ -228,7 +234,7 @@ class AddEditRecordViewModelTest {
             artists = listOf(Artist("a", "Artist")),
             title = "Title",
             coverPath = "/some/old.jpg",
-            status = RecordStatus.OWNED,
+            status = ItemStatus.OWNED,
             createdAt = now,
             updatedAt = now
         )
@@ -242,8 +248,10 @@ class AddEditRecordViewModelTest {
         vm.save()
         advanceUntilIdle()
 
-        val saved = repository.observeById("rec-1").test {
-            val v = awaitItem(); cancelAndIgnoreRemainingEvents(); v
+        var saved: Record? = null
+        repository.observeById("rec-1").test {
+            saved = awaitItem()
+            cancelAndIgnoreRemainingEvents()
         }
         assertNull(saved?.coverPath)
         assertTrue(coverStorage.saveCalls.isEmpty())
@@ -263,7 +271,7 @@ class AddEditRecordViewModelTest {
             artists = listOf(Artist("a", "Artist")),
             title = "Title",
             barcode = "9999999999999",
-            status = RecordStatus.OWNED,
+            status = ItemStatus.OWNED,
             createdAt = now,
             updatedAt = now
         )
@@ -282,8 +290,10 @@ class AddEditRecordViewModelTest {
         advanceUntilIdle()
 
         assertTrue(vm.formState.value.showValidationErrors)
-        val items = repository.observeAll().test {
-            val v = awaitItem(); cancelAndIgnoreRemainingEvents(); v
+        var items: List<Record> = emptyList()
+        repository.observeAll().test {
+            items = awaitItem()
+            cancelAndIgnoreRemainingEvents()
         }
         assertTrue(items.isEmpty())
     }

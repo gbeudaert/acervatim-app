@@ -17,6 +17,9 @@ class UpdateRecordUseCase @Inject constructor(
         input.rating?.let { require(it in RATING_RANGE) { "rating must be in $RATING_RANGE" } }
 
         val updated = existing.copy(
+            collectionType = input.collectionType,
+            seriesId = input.seriesId,
+            volumeNumber = input.volumeNumber,
             artists = cleanedArtists.map { Artist(id = "", name = it) },
             title = input.title.trim(),
             genre = input.genre?.trim()?.takeIf { it.isNotEmpty() },

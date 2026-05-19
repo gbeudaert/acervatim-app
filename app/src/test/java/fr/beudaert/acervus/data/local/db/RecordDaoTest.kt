@@ -4,7 +4,8 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import app.cash.turbine.test
 import fr.beudaert.acervus.domain.model.AcervusFormat
-import fr.beudaert.acervus.domain.model.RecordStatus
+import fr.beudaert.acervus.domain.model.CollectionType
+import fr.beudaert.acervus.domain.model.ItemStatus
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -44,7 +45,7 @@ class RecordDaoTest {
 
     @Test
     fun `observeFilteredJoinRows emits empty list initially`() = runTest {
-        recordDao.observeFilteredJoinRows("", null, null, null, null).test {
+        recordDao.observeFilteredJoinRows("", null, null, null, null, null).test {
             assertEquals(emptyList<RecordWithArtistsRow>(), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
@@ -55,7 +56,7 @@ class RecordDaoTest {
         val now = Instant.parse("2026-05-16T10:00:00Z")
         insertRecord(id = "rec-1", title = "Get Lucky", artists = listOf("Daft Punk", "Pharrell"), now = now)
 
-        recordDao.observeFilteredJoinRows("", null, null, null, null).test {
+        recordDao.observeFilteredJoinRows("", null, null, null, null, null).test {
             val rows = awaitItem()
             assertEquals(2, rows.size)
             val names = rows.sortedBy { it.position }.map { it.artistName }
@@ -70,7 +71,7 @@ class RecordDaoTest {
         insertRecord("r1", "Animals", listOf("Pink Floyd"), now)
         insertRecord("r2", "Random Access Memories", listOf("Daft Punk", "Nile Rodgers"), now)
 
-        recordDao.observeFilteredJoinRows("nile", null, null, null, null).test {
+        recordDao.observeFilteredJoinRows("nile", null, null, null, null, null).test {
             val rows = awaitItem()
             val recordIds = rows.map { it.record.id }.distinct()
             assertEquals(listOf("r2"), recordIds)
@@ -109,7 +110,7 @@ class RecordDaoTest {
 
         recordDao.deleteById("rec-1")
 
-        recordDao.observeFilteredJoinRows("", null, null, null, null).test {
+        recordDao.observeFilteredJoinRows("", null, null, null, null, null).test {
             assertEquals(emptyList<RecordWithArtistsRow>(), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
@@ -164,6 +165,9 @@ class RecordDaoTest {
         barcode: String? = null
     ): RecordEntity = RecordEntity(
         id = id,
+        collectionType = CollectionType.VINYL,
+        seriesId = null,
+        volumeNumber = null,
         title = title,
         genre = null,
         year = null,
@@ -177,7 +181,7 @@ class RecordDaoTest {
         coverRemoteUrl = null,
         barcode = barcode,
         discogsId = null,
-        status = RecordStatus.OWNED,
+        status = ItemStatus.OWNED,
         lastPlayedAt = null,
         createdAt = now,
         updatedAt = now

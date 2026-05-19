@@ -5,6 +5,9 @@ import fr.beudaert.acervus.domain.model.Record
 
 internal fun RecordEntity.toDomain(artists: List<Artist>): Record = Record(
     id = id,
+    collectionType = collectionType,
+    seriesId = seriesId,
+    volumeNumber = volumeNumber,
     artists = artists,
     title = title,
     genre = genre,
@@ -27,6 +30,9 @@ internal fun RecordEntity.toDomain(artists: List<Artist>): Record = Record(
 
 internal fun Record.toEntity(): RecordEntity = RecordEntity(
     id = id,
+    collectionType = collectionType,
+    seriesId = seriesId,
+    volumeNumber = volumeNumber,
     title = title,
     genre = genre,
     year = year,

@@ -11,6 +11,7 @@ import fr.beudaert.acervus.data.local.db.AcervusDatabase
 import fr.beudaert.acervus.data.local.db.ArtistDao
 import fr.beudaert.acervus.data.local.db.MIGRATION_1_2
 import fr.beudaert.acervus.data.local.db.RecordDao
+import fr.beudaert.acervus.data.local.db.SeriesDao
 import java.time.Clock
 import javax.inject.Singleton
 
@@ -31,6 +32,9 @@ object DatabaseModule {
 
     @Provides
     fun provideArtistDao(db: AcervusDatabase): ArtistDao = db.artistDao()
+
+    @Provides
+    fun provideSeriesDao(db: AcervusDatabase): SeriesDao = db.seriesDao()
 
     @Provides
     @Singleton

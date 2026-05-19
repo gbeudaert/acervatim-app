@@ -4,7 +4,7 @@ import fr.beudaert.acervus.domain.FakeRecordRepository
 import fr.beudaert.acervus.domain.model.AcervusFormat
 import fr.beudaert.acervus.domain.model.Artist
 import fr.beudaert.acervus.domain.model.Record
-import fr.beudaert.acervus.domain.model.RecordStatus
+import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.model.RecordingSpeed
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -31,7 +31,7 @@ class UpdateRecordUseCaseTest {
         recordingSpeed = RecordingSpeed.RPM_33,
         rating = 3,
         coverPath = "/path/to/old.jpg",
-        status = RecordStatus.OWNED,
+        status = ItemStatus.OWNED,
         createdAt = createdAt,
         updatedAt = createdAt
     )
@@ -51,7 +51,7 @@ class UpdateRecordUseCaseTest {
                 recordingSpeed = RecordingSpeed.RPM_45,
                 rating = 5,
                 coverPath = "/path/to/new.jpg",
-                status = RecordStatus.WISHLIST
+                status = ItemStatus.WISHLIST
             )
         )
 
@@ -63,7 +63,7 @@ class UpdateRecordUseCaseTest {
         assertEquals(RecordingSpeed.RPM_45, result.recordingSpeed)
         assertEquals(5, result.rating)
         assertEquals("/path/to/new.jpg", result.coverPath)
-        assertEquals(RecordStatus.WISHLIST, result.status)
+        assertEquals(ItemStatus.WISHLIST, result.status)
         assertEquals(createdAt, result.createdAt)
         assertEquals(updatedInstant, result.updatedAt)
     }

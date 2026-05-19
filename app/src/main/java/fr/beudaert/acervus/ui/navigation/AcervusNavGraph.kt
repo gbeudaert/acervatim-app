@@ -11,6 +11,7 @@ import fr.beudaert.acervus.ui.detail.RecordDetailScreen
 import fr.beudaert.acervus.ui.edit.AddEditRecordScreen
 import fr.beudaert.acervus.ui.list.CollectionScreen
 import fr.beudaert.acervus.ui.scan.BarcodeScanScreen
+import fr.beudaert.acervus.ui.series.SeriesDetailScreen
 import fr.beudaert.acervus.ui.settings.SettingsScreen
 
 @Composable
@@ -66,6 +67,19 @@ fun AcervusNavGraph(
             AddEditRecordScreen(
                 onSaved = { navController.popBackStack() },
                 onCancel = { navController.popBackStack() }
+            )
+        }
+        composable(
+            route = AcervusDestinations.SERIES_DETAIL_ROUTE,
+            arguments = listOf(
+                navArgument(AcervusNavArgs.SERIES_ID) { type = NavType.StringType }
+            )
+        ) {
+            SeriesDetailScreen(
+                onBack = { navController.popBackStack() },
+                onOpenVolume = { id ->
+                    navController.navigate(AcervusDestinations.recordDetail(id))
+                }
             )
         }
         composable(AcervusDestinations.SETTINGS_ROUTE) {

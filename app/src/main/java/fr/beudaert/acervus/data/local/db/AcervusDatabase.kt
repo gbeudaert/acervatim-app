@@ -8,15 +8,17 @@ import androidx.room.TypeConverters
     entities = [
         RecordEntity::class,
         ArtistEntity::class,
-        RecordArtistCrossRef::class
+        RecordArtistCrossRef::class,
+        SeriesEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class AcervusDatabase : RoomDatabase() {
     abstract fun recordDao(): RecordDao
     abstract fun artistDao(): ArtistDao
+    abstract fun seriesDao(): SeriesDao
 
     companion object {
         const val NAME: String = "acervus.db"

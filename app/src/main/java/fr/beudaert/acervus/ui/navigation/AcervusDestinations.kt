@@ -10,6 +10,7 @@ internal object AcervusDestinations {
     const val EDIT_RECORD_ROUTE: String = "record/{${AcervusNavArgs.RECORD_ID}}/edit"
     const val SETTINGS_ROUTE: String = "settings"
     const val SCAN_ROUTE: String = "scan"
+    const val SERIES_DETAIL_ROUTE: String = "series/{${AcervusNavArgs.SERIES_ID}}"
 
     fun addRecord(barcode: String? = null): String {
         val encoded = barcode?.takeIf { it.isNotBlank() }?.let(Uri::encode)
@@ -18,9 +19,11 @@ internal object AcervusDestinations {
 
     fun recordDetail(id: String): String = "record/$id"
     fun editRecord(id: String): String = "record/$id/edit"
+    fun seriesDetail(id: String): String = "series/$id"
 }
 
 internal object AcervusNavArgs {
     const val RECORD_ID: String = "recordId"
     const val BARCODE: String = "barcode"
+    const val SERIES_ID: String = "seriesId"
 }

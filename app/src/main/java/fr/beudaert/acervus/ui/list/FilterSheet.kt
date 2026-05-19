@@ -39,10 +39,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import fr.beudaert.acervus.R
+import fr.beudaert.acervus.domain.model.AcervusFormat
+import fr.beudaert.acervus.domain.model.CollectionType
+import fr.beudaert.acervus.domain.model.ListMode
 import fr.beudaert.acervus.domain.model.RecordFilter
 import fr.beudaert.acervus.domain.model.StatusFilter
-import fr.beudaert.acervus.domain.model.AcervusFormat
 import fr.beudaert.acervus.ui.theme.AcervusTheme
+
+/**
+ * Le toggle FLAT / SERIAL n'est exposé que si au moins un [CollectionType] supporte SERIAL,
+ * conformément à la spec Sprint 7 (« visible selon CollectionType »). Tant qu'une collection
+ * compatible n'est pas activée, on reste implicitement en FLAT.
+ */
+private val SERIAL_TOGGLE_VISIBLE: Boolean =
+    CollectionType.entries.any { it.supportsSerial }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,6 +60,7 @@ internal fun FilterSheet(
     initial: RecordFilter,
     availableGenres: List<String>,
     onApply: (
+        listMode: ListMode,
         status: StatusFilter,
         genre: String?,
         format: AcervusFormat?,
@@ -59,6 +70,7 @@ internal fun FilterSheet(
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var listMode by rememberSaveable(initial) { mutableStateOf(initial.listMode) }
     var status by rememberSaveable(initial) { mutableStateOf(initial.status) }
     var genre by rememberSaveable(initial) { mutableStateOf(initial.genre) }
     var format by rememberSaveable(initial) { mutableStateOf(initial.format) }
@@ -69,19 +81,22 @@ internal fun FilterSheet(
         sheetState = sheetState
     ) {
         FilterSheetContent(
+            listMode = listMode,
             status = status,
             genre = genre,
             format = format,
             notPlayedSinceSixMonths = notPlayed,
             availableGenres = availableGenres,
+            onListModeChange = { listMode = it },
             onStatusChange = { status = it },
             onGenreChange = { genre = it },
             onFormatChange = { format = it },
             onNotPlayedChange = { notPlayed = it },
             onApply = {
-                onApply(status, genre, format, notPlayed)
+                onApply(listMode, status, genre, format, notPlayed)
             },
             onReset = {
+                listMode = ListMode.FLAT
                 status = StatusFilter.ALL
                 genre = null
                 format = null
@@ -95,11 +110,13 @@ internal fun FilterSheet(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun FilterSheetContent(
+    listMode: ListMode,
     status: StatusFilter,
     genre: String?,
     format: AcervusFormat?,
     notPlayedSinceSixMonths: Boolean,
     availableGenres: List<String>,
+    onListModeChange: (ListMode) -> Unit,
     onStatusChange: (StatusFilter) -> Unit,
     onGenreChange: (String?) -> Unit,
     onFormatChange: (AcervusFormat?) -> Unit,
@@ -118,6 +135,11 @@ private fun FilterSheetContent(
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurface
         )
+
+        if (SERIAL_TOGGLE_VISIBLE) {
+            SectionLabel(stringResource(R.string.filters_list_mode))
+            ListModeSegmented(selected = listMode, onSelect = onListModeChange)
+        }
 
         SectionLabel(stringResource(R.string.filters_status))
         StatusSegmented(selected = status, onSelect = onStatusChange)
@@ -169,6 +191,31 @@ private fun SectionLabel(text: String) {
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.primary
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ListModeSegmented(
+    selected: ListMode,
+    onSelect: (ListMode) -> Unit
+) {
+    val options = remember {
+        listOf(
+            ListMode.FLAT to R.string.filters_list_mode_flat,
+            ListMode.SERIAL to R.string.filters_list_mode_serial
+        )
+    }
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        options.forEachIndexed { index, (option, labelRes) ->
+            SegmentedButton(
+                selected = selected == option,
+                onClick = { onSelect(option) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size)
+            ) {
+                Text(stringResource(labelRes))
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -284,11 +331,13 @@ private fun FilterSheetContentPreview() {
     AcervusTheme {
         Box(modifier = Modifier.padding(8.dp)) {
             FilterSheetContent(
+                listMode = ListMode.FLAT,
                 status = StatusFilter.ALL,
                 genre = null,
                 format = null,
                 notPlayedSinceSixMonths = false,
                 availableGenres = listOf("Rock", "Jazz", "Électro"),
+                onListModeChange = {},
                 onStatusChange = {},
                 onGenreChange = {},
                 onFormatChange = {},

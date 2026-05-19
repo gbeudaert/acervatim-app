@@ -1,0 +1,422 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 3,
+    "identityHash": "31f1702261590065e996e09c48929ed5",
+    "entities": [
+      {
+        "tableName": "records",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `collectionType` TEXT NOT NULL, `seriesId` TEXT, `volumeNumber` INTEGER, `title` TEXT NOT NULL, `genre` TEXT, `year` INTEGER, `label` TEXT, `format` TEXT, `recordingSpeed` TEXT, `country` TEXT, `purchasePrice` REAL, `rating` INTEGER, `coverPath` TEXT, `coverRemoteUrl` TEXT, `barcode` TEXT, `discogsId` INTEGER, `status` TEXT NOT NULL, `lastPlayedAt` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`seriesId`) REFERENCES `series`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "collectionType",
+            "columnName": "collectionType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "seriesId",
+            "columnName": "seriesId",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "volumeNumber",
+            "columnName": "volumeNumber",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "genre",
+            "columnName": "genre",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "year",
+            "columnName": "year",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "label",
+            "columnName": "label",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "format",
+            "columnName": "format",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "recordingSpeed",
+            "columnName": "recordingSpeed",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "country",
+            "columnName": "country",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "purchasePrice",
+            "columnName": "purchasePrice",
+            "affinity": "REAL",
+            "notNull": false
+          },
+          {
+            "fieldPath": "rating",
+            "columnName": "rating",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "coverPath",
+            "columnName": "coverPath",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "coverRemoteUrl",
+            "columnName": "coverRemoteUrl",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "barcode",
+            "columnName": "barcode",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "discogsId",
+            "columnName": "discogsId",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastPlayedAt",
+            "columnName": "lastPlayedAt",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_records_title",
+            "unique": false,
+            "columnNames": [
+              "title"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_records_title` ON `${TABLE_NAME}` (`title`)"
+          },
+          {
+            "name": "index_records_status",
+            "unique": false,
+            "columnNames": [
+              "status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_records_status` ON `${TABLE_NAME}` (`status`)"
+          },
+          {
+            "name": "index_records_barcode",
+            "unique": true,
+            "columnNames": [
+              "barcode"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_records_barcode` ON `${TABLE_NAME}` (`barcode`)"
+          },
+          {
+            "name": "index_records_collectionType",
+            "unique": false,
+            "columnNames": [
+              "collectionType"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_records_collectionType` ON `${TABLE_NAME}` (`collectionType`)"
+          },
+          {
+            "name": "index_records_seriesId",
+            "unique": false,
+            "columnNames": [
+              "seriesId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_records_seriesId` ON `${TABLE_NAME}` (`seriesId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "series",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "seriesId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "artists",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `normalized_name` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "normalizedName",
+            "columnName": "normalized_name",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_artists_normalized_name",
+            "unique": true,
+            "columnNames": [
+              "normalized_name"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_artists_normalized_name` ON `${TABLE_NAME}` (`normalized_name`)"
+          }
+        ],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "record_artists",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`recordId` TEXT NOT NULL, `artistId` TEXT NOT NULL, `position` INTEGER NOT NULL, PRIMARY KEY(`recordId`, `artistId`), FOREIGN KEY(`recordId`) REFERENCES `records`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`artistId`) REFERENCES `artists`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "recordId",
+            "columnName": "recordId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "artistId",
+            "columnName": "artistId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "position",
+            "columnName": "position",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "recordId",
+            "artistId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_record_artists_recordId",
+            "unique": false,
+            "columnNames": [
+              "recordId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_record_artists_recordId` ON `${TABLE_NAME}` (`recordId`)"
+          },
+          {
+            "name": "index_record_artists_artistId",
+            "unique": false,
+            "columnNames": [
+              "artistId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_record_artists_artistId` ON `${TABLE_NAME}` (`artistId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "records",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "recordId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "artists",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "artistId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "series",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `collectionType` TEXT NOT NULL, `title` TEXT NOT NULL, `originalAuthor` TEXT, `publicationStatus` TEXT, `totalVolumes` INTEGER, `synopsis` TEXT, `coverPath` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "collectionType",
+            "columnName": "collectionType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "originalAuthor",
+            "columnName": "originalAuthor",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "publicationStatus",
+            "columnName": "publicationStatus",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "totalVolumes",
+            "columnName": "totalVolumes",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "synopsis",
+            "columnName": "synopsis",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "coverPath",
+            "columnName": "coverPath",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_series_collectionType",
+            "unique": false,
+            "columnNames": [
+              "collectionType"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_series_collectionType` ON `${TABLE_NAME}` (`collectionType`)"
+          },
+          {
+            "name": "index_series_title",
+            "unique": false,
+            "columnNames": [
+              "title"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_series_title` ON `${TABLE_NAME}` (`title`)"
+          }
+        ],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '31f1702261590065e996e09c48929ed5')"
+    ]
+  }
+}

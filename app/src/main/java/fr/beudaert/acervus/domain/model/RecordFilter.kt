@@ -5,6 +5,8 @@ import androidx.compose.runtime.Immutable
 @Immutable
 data class RecordFilter(
     val query: String = "",
+    val collectionType: CollectionType? = null,
+    val listMode: ListMode = ListMode.FLAT,
     val status: StatusFilter = StatusFilter.ALL,
     val genre: String? = null,
     val format: AcervusFormat? = null,
@@ -22,9 +24,9 @@ enum class StatusFilter {
     OWNED_ONLY,
     WISHLIST_ONLY;
 
-    fun toRecordStatus(): RecordStatus? = when (this) {
+    fun toItemStatus(): ItemStatus? = when (this) {
         ALL -> null
-        OWNED_ONLY -> RecordStatus.OWNED
-        WISHLIST_ONLY -> RecordStatus.WISHLIST
+        OWNED_ONLY -> ItemStatus.OWNED
+        WISHLIST_ONLY -> ItemStatus.WISHLIST
     }
 }

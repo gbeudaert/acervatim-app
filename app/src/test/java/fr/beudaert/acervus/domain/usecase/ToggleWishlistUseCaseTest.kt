@@ -4,7 +4,7 @@ import app.cash.turbine.test
 import fr.beudaert.acervus.domain.FakeRecordRepository
 import fr.beudaert.acervus.domain.model.Artist
 import fr.beudaert.acervus.domain.model.Record
-import fr.beudaert.acervus.domain.model.RecordStatus
+import fr.beudaert.acervus.domain.model.ItemStatus
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -20,14 +20,14 @@ class ToggleWishlistUseCaseTest {
     @Test
     fun `flips OWNED to WISHLIST and updates timestamp`() = runTest {
         val repo = FakeRecordRepository()
-        repo.upsert(record(status = RecordStatus.OWNED))
+        repo.upsert(record(status = ItemStatus.OWNED))
         val useCase = ToggleWishlistUseCase(repo, clock)
 
         repo.observeById("1").test {
-            assertEquals(RecordStatus.OWNED, awaitItem()?.status)
+            assertEquals(ItemStatus.OWNED, awaitItem()?.status)
             useCase(id = "1", wishlist = true)
             val updated = awaitItem()
-            assertEquals(RecordStatus.WISHLIST, updated?.status)
+            assertEquals(ItemStatus.WISHLIST, updated?.status)
             assertEquals(now, updated?.updatedAt)
             cancelAndIgnoreRemainingEvents()
         }
@@ -36,18 +36,18 @@ class ToggleWishlistUseCaseTest {
     @Test
     fun `flips WISHLIST back to OWNED`() = runTest {
         val repo = FakeRecordRepository()
-        repo.upsert(record(status = RecordStatus.WISHLIST))
+        repo.upsert(record(status = ItemStatus.WISHLIST))
         val useCase = ToggleWishlistUseCase(repo, clock)
 
         useCase(id = "1", wishlist = false)
 
         repo.observeById("1").test {
-            assertEquals(RecordStatus.OWNED, awaitItem()?.status)
+            assertEquals(ItemStatus.OWNED, awaitItem()?.status)
             cancelAndIgnoreRemainingEvents()
         }
     }
 
-    private fun record(status: RecordStatus): Record = Record(
+    private fun record(status: ItemStatus): Record = Record(
         id = "1",
         artists = listOf(Artist("a", "Artist")),
         title = "Title",

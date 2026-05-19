@@ -61,7 +61,7 @@ import fr.beudaert.acervus.domain.model.Artist
 import fr.beudaert.acervus.domain.model.Record
 import fr.beudaert.acervus.domain.model.RecordArtistEntry
 import fr.beudaert.acervus.domain.model.RecordFilter
-import fr.beudaert.acervus.domain.model.RecordStatus
+import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.model.StatusFilter
 import fr.beudaert.acervus.ui.components.RecordRow
 import fr.beudaert.acervus.ui.theme.AcervusTheme
@@ -486,15 +486,15 @@ private fun CollectionScreenContentPreview() {
     val records = listOf(
         Record(
             id = "1", artists = listOf(pf), title = "The Dark Side of the Moon",
-            status = RecordStatus.OWNED, createdAt = now, updatedAt = now
+            status = ItemStatus.OWNED, createdAt = now, updatedAt = now
         ),
         Record(
             id = "2", artists = listOf(pf), title = "Wish You Were Here",
-            status = RecordStatus.OWNED, createdAt = now, updatedAt = now
+            status = ItemStatus.OWNED, createdAt = now, updatedAt = now
         ),
         Record(
             id = "3", artists = listOf(rh), title = "OK Computer",
-            status = RecordStatus.WISHLIST, createdAt = now, updatedAt = now
+            status = ItemStatus.WISHLIST, createdAt = now, updatedAt = now
         )
     )
     val entries = records.map {

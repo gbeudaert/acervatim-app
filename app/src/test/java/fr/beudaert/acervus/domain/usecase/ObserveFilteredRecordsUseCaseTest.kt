@@ -6,7 +6,7 @@ import fr.beudaert.acervus.domain.model.AcervusFormat
 import fr.beudaert.acervus.domain.model.Artist
 import fr.beudaert.acervus.domain.model.Record
 import fr.beudaert.acervus.domain.model.RecordFilter
-import fr.beudaert.acervus.domain.model.RecordStatus
+import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.model.StatusFilter
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -35,14 +35,14 @@ class ObserveFilteredRecordsUseCaseTest {
     @Test
     fun `status filter narrows to wishlist only`() = runTest {
         val repo = FakeRecordRepository()
-        repo.upsert(record(id = "1", artistName = "A", status = RecordStatus.OWNED))
-        repo.upsert(record(id = "2", artistName = "B", status = RecordStatus.WISHLIST))
+        repo.upsert(record(id = "1", artistName = "A", status = ItemStatus.OWNED))
+        repo.upsert(record(id = "2", artistName = "B", status = ItemStatus.WISHLIST))
         val useCase = ObserveFilteredRecordsUseCase(repo)
 
         useCase(RecordFilter(status = StatusFilter.WISHLIST_ONLY)).test {
             val emitted = awaitItem()
             assertEquals(1, emitted.size)
-            assertEquals(RecordStatus.WISHLIST, emitted.first().status)
+            assertEquals(ItemStatus.WISHLIST, emitted.first().status)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -66,7 +66,7 @@ class ObserveFilteredRecordsUseCaseTest {
         id: String,
         artistName: String,
         title: String = "Title",
-        status: RecordStatus = RecordStatus.OWNED,
+        status: ItemStatus = ItemStatus.OWNED,
         format: AcervusFormat? = null
     ): Record = Record(
         id = id,

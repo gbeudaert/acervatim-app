@@ -3,7 +3,7 @@ package fr.beudaert.acervus.domain.repository
 import fr.beudaert.acervus.domain.model.Record
 import fr.beudaert.acervus.domain.model.RecordArtistEntry
 import fr.beudaert.acervus.domain.model.RecordFilter
-import fr.beudaert.acervus.domain.model.RecordStatus
+import fr.beudaert.acervus.domain.model.ItemStatus
 import kotlinx.coroutines.flow.Flow
 import java.time.Instant
 
@@ -20,6 +20,9 @@ interface RecordRepository {
     fun observeByPrimaryArtist(filter: RecordFilter): Flow<List<RecordArtistEntry>>
 
     fun observeById(id: String): Flow<Record?>
+
+    /** Tous les items (tomes) d'une série, triés par numéro de volume. */
+    fun observeBySeriesId(seriesId: String): Flow<List<Record>>
 
     fun observeDistinctGenres(): Flow<List<String>>
 
@@ -39,7 +42,7 @@ interface RecordRepository {
 
     suspend fun updateLastPlayed(id: String, ts: Instant?)
 
-    suspend fun updateStatus(id: String, status: RecordStatus, ts: Instant)
+    suspend fun updateStatus(id: String, status: ItemStatus, ts: Instant)
 
     suspend fun updateRating(id: String, rating: Int?, ts: Instant)
 }

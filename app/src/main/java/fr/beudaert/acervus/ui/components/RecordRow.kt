@@ -30,7 +30,7 @@ import fr.beudaert.acervus.domain.model.AcervusFormat
 import fr.beudaert.acervus.domain.model.Artist
 import fr.beudaert.acervus.domain.model.Record
 import fr.beudaert.acervus.domain.model.RecordArtistEntry
-import fr.beudaert.acervus.domain.model.RecordStatus
+import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.ui.theme.AcervusTheme
 import java.time.Instant
 
@@ -40,7 +40,7 @@ fun RecordRow(
     modifier: Modifier = Modifier
 ) {
     val record = entry.record
-    val isWishlist = record.status == RecordStatus.WISHLIST
+    val isWishlist = record.status == ItemStatus.WISHLIST
     val rowAlpha = when {
         !isWishlist -> 1f
         isSystemInDarkTheme() -> 0.40f
@@ -137,7 +137,7 @@ private fun RecordRowOwnedPreview() {
         artists = listOf(Artist("a1", "Pink Floyd")),
         title = "The Dark Side of the Moon",
         format = AcervusFormat.LP_33,
-        status = RecordStatus.OWNED,
+        status = ItemStatus.OWNED,
         createdAt = now,
         updatedAt = now
     )
@@ -163,7 +163,7 @@ private fun RecordRowFeaturingPreview() {
         artists = listOf(primary) + feat,
         title = "Get Lucky",
         format = AcervusFormat.SINGLE_45,
-        status = RecordStatus.OWNED,
+        status = ItemStatus.OWNED,
         createdAt = now,
         updatedAt = now
     )
@@ -187,7 +187,7 @@ private fun RecordRowWishlistPreview() {
         artists = listOf(Artist("a", "Radiohead")),
         title = "OK Computer",
         format = AcervusFormat.LP_33,
-        status = RecordStatus.WISHLIST,
+        status = ItemStatus.WISHLIST,
         createdAt = now,
         updatedAt = now
     )

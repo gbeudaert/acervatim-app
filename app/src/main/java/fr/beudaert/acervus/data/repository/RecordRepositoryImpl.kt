@@ -10,7 +10,7 @@ import fr.beudaert.acervus.data.local.db.toEntity
 import fr.beudaert.acervus.domain.model.Record
 import fr.beudaert.acervus.domain.model.RecordArtistEntry
 import fr.beudaert.acervus.domain.model.RecordFilter
-import fr.beudaert.acervus.domain.model.RecordStatus
+import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.model.normalizeArtistName
 import fr.beudaert.acervus.domain.repository.RecordRepository
 import kotlinx.coroutines.flow.Flow
@@ -33,7 +33,8 @@ class RecordRepositoryImpl @Inject constructor(
     private fun rawFlow(filter: RecordFilter) =
         recordDao.observeFilteredJoinRows(
             query = filter.query.trim(),
-            statusFilter = filter.status.toRecordStatus(),
+            collectionTypeFilter = filter.collectionType,
+            statusFilter = filter.status.toItemStatus(),
             genreFilter = filter.genre,
             formatFilter = filter.format,
             notPlayedSince = notPlayedSinceCutoff(filter)
@@ -79,6 +80,11 @@ class RecordRepositoryImpl @Inject constructor(
     override fun observeById(id: String): Flow<Record?> =
         recordDao.observeByIdJoinRows(id).map { rows ->
             rows.groupToRecords().firstOrNull()
+        }
+
+    override fun observeBySeriesId(seriesId: String): Flow<List<Record>> =
+        recordDao.observeBySeriesJoinRows(seriesId).map { rows ->
+            rows.groupToRecords().sortedWith(RECORD_BY_VOLUME)
         }
 
     override fun observeDistinctGenres(): Flow<List<String>> = recordDao.observeDistinctGenres()
@@ -137,7 +143,7 @@ class RecordRepositoryImpl @Inject constructor(
         recordDao.updateLastPlayed(id, ts)
     }
 
-    override suspend fun updateStatus(id: String, status: RecordStatus, ts: Instant) {
+    override suspend fun updateStatus(id: String, status: ItemStatus, ts: Instant) {
         recordDao.updateStatus(id, status, ts)
     }
 
@@ -161,6 +167,11 @@ class RecordRepositoryImpl @Inject constructor(
         val ENTRY_BY_DISPLAYED_ARTIST: Comparator<RecordArtistEntry> = compareBy(
             { it.displayedArtist.name.lowercase() },
             { it.record.title.lowercase() }
+        )
+
+        val RECORD_BY_VOLUME: Comparator<Record> = compareBy(
+            { it.volumeNumber ?: Int.MAX_VALUE },
+            { it.title.lowercase() }
         )
     }
 }

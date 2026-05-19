@@ -6,7 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.beudaert.acervus.domain.model.Record
-import fr.beudaert.acervus.domain.model.RecordStatus
+import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.usecase.DeleteRecordUseCase
 import fr.beudaert.acervus.domain.usecase.MarkAsPlayedUseCase
 import fr.beudaert.acervus.domain.usecase.ObserveRecordByIdUseCase
@@ -90,4 +90,4 @@ sealed interface RecordDetailEvent {
     data object Deleted : RecordDetailEvent
 }
 
-internal fun RecordStatus.isWishlist(): Boolean = this == RecordStatus.WISHLIST
+internal fun ItemStatus.isWishlist(): Boolean = this == ItemStatus.WISHLIST

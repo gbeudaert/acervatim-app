@@ -3,7 +3,7 @@ package fr.beudaert.acervus.domain.usecase
 import app.cash.turbine.test
 import fr.beudaert.acervus.domain.FakeRecordRepository
 import fr.beudaert.acervus.domain.model.AcervusFormat
-import fr.beudaert.acervus.domain.model.RecordStatus
+import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.model.RecordingSpeed
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -41,7 +41,7 @@ class AddRecordUseCaseTest {
         assertEquals(AcervusFormat.LP_33, record.format)
         assertEquals(RecordingSpeed.RPM_33, record.recordingSpeed)
         assertEquals(1973, record.year)
-        assertEquals(RecordStatus.OWNED, record.status)
+        assertEquals(ItemStatus.OWNED, record.status)
         assertEquals(fixedInstant, record.createdAt)
         assertEquals(fixedInstant, record.updatedAt)
         assertNull(record.lastPlayedAt)

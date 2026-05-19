@@ -2,7 +2,8 @@ package fr.beudaert.acervus.data.local.db
 
 import androidx.room.TypeConverter
 import fr.beudaert.acervus.domain.model.AcervusFormat
-import fr.beudaert.acervus.domain.model.RecordStatus
+import fr.beudaert.acervus.domain.model.CollectionType
+import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.model.RecordingSpeed
 import java.time.Instant
 
@@ -28,8 +29,14 @@ class Converters {
         value?.let { RecordingSpeed.valueOf(it) }
 
     @TypeConverter
-    fun recordStatusToString(value: RecordStatus): String = value.name
+    fun itemStatusToString(value: ItemStatus): String = value.name
 
     @TypeConverter
-    fun stringToRecordStatus(value: String): RecordStatus = RecordStatus.valueOf(value)
+    fun stringToItemStatus(value: String): ItemStatus = ItemStatus.valueOf(value)
+
+    @TypeConverter
+    fun collectionTypeToString(value: CollectionType): String = value.name
+
+    @TypeConverter
+    fun stringToCollectionType(value: String): CollectionType = CollectionType.valueOf(value)
 }

@@ -3,7 +3,7 @@ package fr.beudaert.acervus.ui.scan
 import fr.beudaert.acervus.domain.FakeRecordRepository
 import fr.beudaert.acervus.domain.model.Artist
 import fr.beudaert.acervus.domain.model.Record
-import fr.beudaert.acervus.domain.model.RecordStatus
+import fr.beudaert.acervus.domain.model.ItemStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -53,7 +53,7 @@ class BarcodeScanViewModelTest {
             artists = listOf(Artist("a", "Artist")),
             title = "Known Album",
             barcode = "0123456789012",
-            status = RecordStatus.OWNED,
+            status = ItemStatus.OWNED,
             createdAt = now,
             updatedAt = now
         )
@@ -89,7 +89,7 @@ class BarcodeScanViewModelTest {
                 artists = listOf(Artist("a", "Artist")),
                 title = "First",
                 barcode = "1111111111111",
-                status = RecordStatus.OWNED,
+                status = ItemStatus.OWNED,
                 createdAt = now,
                 updatedAt = now
             )

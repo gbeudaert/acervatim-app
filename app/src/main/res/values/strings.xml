@@ -33,6 +33,25 @@
     <string name="filters_not_played_6m">Non écoutés depuis 6 mois</string>
     <string name="filters_reset">Réinitialiser</string>
     <string name="filters_apply">Appliquer</string>
+    <string name="filters_list_mode">Affichage</string>
+    <string name="filters_list_mode_flat">Liste</string>
+    <string name="filters_list_mode_serial">Séries</string>
+
+    <!-- Series detail screen -->
+    <string name="series_detail_title">Série</string>
+    <string name="series_detail_not_found">Série introuvable</string>
+    <string name="series_detail_volumes">Tomes</string>
+    <string name="series_detail_volume_label">Tome %1$d</string>
+    <string name="series_detail_volume_no_number">Tome ?</string>
+    <string name="series_detail_total_volumes">%1$d tomes annoncés</string>
+    <string name="series_detail_collapse">Replier</string>
+    <string name="series_detail_expand">Déplier</string>
+
+    <!-- Item status (used in volume tile context menu) -->
+    <string name="item_status_owned">Possédé</string>
+    <string name="item_status_wishlist">Wishlist</string>
+    <string name="item_status_ignored">Ignoré</string>
+    <string name="item_status_change_title">Changer le statut</string>
 
     <!-- Add / Edit record -->
     <string name="add_record_title">Nouveau disque</string>

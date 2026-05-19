@@ -90,7 +90,7 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import fr.beudaert.acervus.R
 import fr.beudaert.acervus.domain.model.AcervusFormat
-import fr.beudaert.acervus.domain.model.RecordStatus
+import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.model.RecordingSpeed
 import fr.beudaert.acervus.domain.model.normalizeArtistName
 import fr.beudaert.acervus.ui.theme.AcervusTheme
@@ -309,7 +309,7 @@ internal fun AddEditRecordContent(
                     modifier = Modifier.weight(1f)
                 )
                 Switch(
-                    checked = state.status == RecordStatus.WISHLIST,
+                    checked = state.status == ItemStatus.WISHLIST,
                     onCheckedChange = onWishlistToggle
                 )
             }

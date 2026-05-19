@@ -7,7 +7,8 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
 import fr.beudaert.acervus.domain.model.AcervusFormat
-import fr.beudaert.acervus.domain.model.RecordStatus
+import fr.beudaert.acervus.domain.model.CollectionType
+import fr.beudaert.acervus.domain.model.ItemStatus
 import kotlinx.coroutines.flow.Flow
 import java.time.Instant
 
@@ -17,12 +18,13 @@ interface RecordDao {
     /**
      * Renvoie toutes les paires (disque × artiste) correspondant au filtre.
      * Le repository regroupe par disque pour reconstruire le modèle domaine.
+     *
+     * `collectionTypeFilter` null = toutes collections confondues (rare ; utilisé pour les
+     * statistiques globales). En usage courant on filtre toujours sur la collection active.
      */
     @Query(
         """
-        SELECT r.id, r.title, r.genre, r.year, r.label, r.format, r.recordingSpeed,
-               r.country, r.purchasePrice, r.rating, r.coverPath, r.coverRemoteUrl,
-               r.barcode, r.discogsId, r.status, r.lastPlayedAt, r.createdAt, r.updatedAt,
+        SELECT r.*,
                a.id AS artist_id, a.name AS artist_name, ra.position AS artist_position
         FROM records r
         INNER JOIN record_artists ra ON ra.recordId = r.id
@@ -36,6 +38,7 @@ interface RecordDao {
                     WHERE ra2.recordId = r.id AND a2.name LIKE '%' || :query || '%'
                 )
             )
+          AND (:collectionTypeFilter IS NULL OR r.collectionType = :collectionTypeFilter)
           AND (:statusFilter IS NULL OR r.status = :statusFilter)
           AND (:genreFilter IS NULL OR r.genre = :genreFilter)
           AND (:formatFilter IS NULL OR r.format = :formatFilter)
@@ -45,7 +48,8 @@ interface RecordDao {
     )
     fun observeFilteredJoinRows(
         query: String,
-        statusFilter: RecordStatus?,
+        collectionTypeFilter: CollectionType?,
+        statusFilter: ItemStatus?,
         genreFilter: String?,
         formatFilter: AcervusFormat?,
         notPlayedSince: Instant?
@@ -53,9 +57,7 @@ interface RecordDao {
 
     @Query(
         """
-        SELECT r.id, r.title, r.genre, r.year, r.label, r.format, r.recordingSpeed,
-               r.country, r.purchasePrice, r.rating, r.coverPath, r.coverRemoteUrl,
-               r.barcode, r.discogsId, r.status, r.lastPlayedAt, r.createdAt, r.updatedAt,
+        SELECT r.*,
                a.id AS artist_id, a.name AS artist_name, ra.position AS artist_position
         FROM records r
         INNER JOIN record_artists ra ON ra.recordId = r.id
@@ -68,9 +70,20 @@ interface RecordDao {
 
     @Query(
         """
-        SELECT r.id, r.title, r.genre, r.year, r.label, r.format, r.recordingSpeed,
-               r.country, r.purchasePrice, r.rating, r.coverPath, r.coverRemoteUrl,
-               r.barcode, r.discogsId, r.status, r.lastPlayedAt, r.createdAt, r.updatedAt,
+        SELECT r.*,
+               a.id AS artist_id, a.name AS artist_name, ra.position AS artist_position
+        FROM records r
+        INNER JOIN record_artists ra ON ra.recordId = r.id
+        INNER JOIN artists a ON a.id = ra.artistId
+        WHERE r.seriesId = :seriesId
+        ORDER BY r.volumeNumber, r.id, ra.position
+        """
+    )
+    fun observeBySeriesJoinRows(seriesId: String): Flow<List<RecordWithArtistsRow>>
+
+    @Query(
+        """
+        SELECT r.*,
                a.id AS artist_id, a.name AS artist_name, ra.position AS artist_position
         FROM records r
         INNER JOIN record_artists ra ON ra.recordId = r.id
@@ -112,7 +125,7 @@ interface RecordDao {
     suspend fun updateLastPlayed(id: String, ts: Instant?)
 
     @Query("UPDATE records SET status = :status, updatedAt = :ts WHERE id = :id")
-    suspend fun updateStatus(id: String, status: RecordStatus, ts: Instant)
+    suspend fun updateStatus(id: String, status: ItemStatus, ts: Instant)
 
     @Query("UPDATE records SET rating = :rating, updatedAt = :ts WHERE id = :id")
     suspend fun updateRating(id: String, rating: Int?, ts: Instant)

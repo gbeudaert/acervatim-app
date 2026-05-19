@@ -4,7 +4,7 @@ import fr.beudaert.acervus.domain.model.Artist
 import fr.beudaert.acervus.domain.model.Record
 import fr.beudaert.acervus.domain.model.RecordArtistEntry
 import fr.beudaert.acervus.domain.model.RecordFilter
-import fr.beudaert.acervus.domain.model.RecordStatus
+import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.model.normalizeArtistName
 import fr.beudaert.acervus.domain.repository.RecordRepository
 import kotlinx.coroutines.flow.Flow
@@ -70,6 +70,12 @@ class FakeRecordRepository : RecordRepository {
     override fun observeById(id: String): Flow<Record?> =
         state.map { list -> list.firstOrNull { it.id == id } }
 
+    override fun observeBySeriesId(seriesId: String): Flow<List<Record>> =
+        state.map { list ->
+            list.filter { it.seriesId == seriesId }
+                .sortedWith(compareBy({ it.volumeNumber ?: Int.MAX_VALUE }, { it.title.lowercase() }))
+        }
+
     override fun observeDistinctGenres(): Flow<List<String>> =
         state.map { list ->
             list.mapNotNull { it.genre?.trim()?.takeIf { g -> g.isNotEmpty() } }
@@ -85,10 +91,10 @@ class FakeRecordRepository : RecordRepository {
         }
 
     override fun observeOwnedCount(): Flow<Int> =
-        state.map { list -> list.count { it.status == RecordStatus.OWNED } }
+        state.map { list -> list.count { it.status == ItemStatus.OWNED } }
 
     override fun observeWishlistCount(): Flow<Int> =
-        state.map { list -> list.count { it.status == RecordStatus.WISHLIST } }
+        state.map { list -> list.count { it.status == ItemStatus.WISHLIST } }
 
     override suspend fun findByBarcode(barcode: String): Record? =
         state.value.firstOrNull { it.barcode == barcode }
@@ -130,7 +136,7 @@ class FakeRecordRepository : RecordRepository {
         }
     }
 
-    override suspend fun updateStatus(id: String, status: RecordStatus, ts: Instant) {
+    override suspend fun updateStatus(id: String, status: ItemStatus, ts: Instant) {
         state.update { current ->
             current.map { if (it.id == id) it.copy(status = status, updatedAt = ts) else it }
         }
@@ -148,7 +154,8 @@ class FakeRecordRepository : RecordRepository {
                 r.title.contains(q, ignoreCase = true) ||
                 r.artists.any { it.name.contains(q, ignoreCase = true) }
         queryMatches &&
-                (filter.status.toRecordStatus()?.let { it == r.status } ?: true) &&
+                (filter.collectionType?.let { it == r.collectionType } ?: true) &&
+                (filter.status.toItemStatus()?.let { it == r.status } ?: true) &&
                 (filter.genre?.let { it == r.genre } ?: true) &&
                 (filter.format?.let { it == r.format } ?: true)
     }

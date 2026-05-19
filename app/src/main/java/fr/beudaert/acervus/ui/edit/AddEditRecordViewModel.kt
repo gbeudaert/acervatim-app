@@ -9,7 +9,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.beudaert.acervus.data.local.storage.CoverStorage
 import fr.beudaert.acervus.domain.model.AcervusFormat
 import fr.beudaert.acervus.domain.model.Record
-import fr.beudaert.acervus.domain.model.RecordStatus
+import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.model.RecordingSpeed
 import fr.beudaert.acervus.domain.model.normalizeArtistName
 import fr.beudaert.acervus.domain.usecase.AddRecordUseCase
@@ -116,7 +116,7 @@ class AddEditRecordViewModel @Inject constructor(
         _formState.update { it.copy(purchasePrice = cleaned) }
     }
     fun onWishlistToggle(value: Boolean) = _formState.update {
-        it.copy(status = if (value) RecordStatus.WISHLIST else RecordStatus.OWNED)
+        it.copy(status = if (value) ItemStatus.WISHLIST else ItemStatus.OWNED)
     }
 
     fun onCoverPicked(uriString: String) = _formState.update {
@@ -168,6 +168,10 @@ data class AddRecordFormState(
     val recordId: String = "",
     val isEditing: Boolean = false,
     val isLoading: Boolean = false,
+    val collectionType: fr.beudaert.acervus.domain.model.CollectionType =
+        fr.beudaert.acervus.domain.model.CollectionType.VINYL,
+    val seriesId: String? = null,
+    val volumeNumber: Int? = null,
     val artists: List<String> = emptyList(),
     val artistInput: String = "",
     val title: String = "",
@@ -180,7 +184,7 @@ data class AddRecordFormState(
     val rating: Int = 0,
     val purchasePrice: String = "",
     val barcode: String = "",
-    val status: RecordStatus = RecordStatus.OWNED,
+    val status: ItemStatus = ItemStatus.OWNED,
     val persistedCoverPath: String? = null,
     val pendingCoverUri: String? = null,
     val coverRemoteUrl: String? = null,
@@ -209,6 +213,9 @@ internal fun AddRecordFormState.toInput(coverPath: String?): RecordInput {
     return RecordInput(
         artists = finalArtists,
         title = title,
+        collectionType = collectionType,
+        seriesId = seriesId,
+        volumeNumber = volumeNumber,
         genre = genre,
         year = year.toIntOrNull(),
         label = label,
@@ -229,6 +236,9 @@ internal fun AddRecordFormState.fromRecord(record: Record): AddRecordFormState =
     recordId = record.id,
     isEditing = true,
     isLoading = false,
+    collectionType = record.collectionType,
+    seriesId = record.seriesId,
+    volumeNumber = record.volumeNumber,
     artists = record.artists.map { it.name },
     artistInput = "",
     title = record.title,

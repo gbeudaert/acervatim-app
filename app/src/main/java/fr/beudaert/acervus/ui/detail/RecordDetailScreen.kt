@@ -57,7 +57,7 @@ import fr.beudaert.acervus.R
 import fr.beudaert.acervus.domain.model.AcervusFormat
 import fr.beudaert.acervus.domain.model.Artist
 import fr.beudaert.acervus.domain.model.Record
-import fr.beudaert.acervus.domain.model.RecordStatus
+import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.model.RecordingSpeed
 import fr.beudaert.acervus.ui.components.RecordCover
 import fr.beudaert.acervus.ui.theme.AcervusTheme
@@ -405,7 +405,7 @@ private fun LastPlayedSection(
 
 @Composable
 private fun StatusSection(
-    status: RecordStatus,
+    status: ItemStatus,
     onWishlistToggle: (Boolean) -> Unit
 ) {
     Row(
@@ -470,7 +470,7 @@ private fun RecordDetailLoadedPreview() {
                     country = "UK",
                     purchasePrice = 35.0,
                     rating = 5,
-                    status = RecordStatus.OWNED,
+                    status = ItemStatus.OWNED,
                     lastPlayedAt = played,
                     createdAt = played,
                     updatedAt = now

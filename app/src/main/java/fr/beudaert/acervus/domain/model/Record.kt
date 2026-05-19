@@ -6,6 +6,9 @@ import java.time.Instant
 @Immutable
 data class Record(
     val id: String,
+    val collectionType: CollectionType = CollectionType.VINYL,
+    val seriesId: String? = null,
+    val volumeNumber: Int? = null,
     val artists: List<Artist>,
     val title: String,
     val genre: String? = null,
@@ -20,7 +23,7 @@ data class Record(
     val coverRemoteUrl: String? = null,
     val barcode: String? = null,
     val discogsId: Long? = null,
-    val status: RecordStatus = RecordStatus.OWNED,
+    val status: ItemStatus = ItemStatus.OWNED,
     val lastPlayedAt: Instant? = null,
     val createdAt: Instant,
     val updatedAt: Instant

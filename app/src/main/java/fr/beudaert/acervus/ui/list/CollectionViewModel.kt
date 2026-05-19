@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.beudaert.acervus.domain.model.AcervusFormat
+import fr.beudaert.acervus.domain.model.ListMode
 import fr.beudaert.acervus.domain.model.RecordArtistEntry
 import fr.beudaert.acervus.domain.model.RecordFilter
 import fr.beudaert.acervus.domain.model.StatusFilter
@@ -82,6 +83,7 @@ class CollectionViewModel @Inject constructor(
     }
 
     fun applyFilter(
+        listMode: ListMode,
         status: StatusFilter,
         genre: String?,
         format: AcervusFormat?,
@@ -89,6 +91,7 @@ class CollectionViewModel @Inject constructor(
     ) {
         _advancedFilter.update {
             it.copy(
+                listMode = listMode,
                 status = status,
                 genre = genre,
                 format = format,
