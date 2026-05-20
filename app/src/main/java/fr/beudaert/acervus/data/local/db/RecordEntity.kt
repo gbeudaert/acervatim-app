@@ -16,6 +16,7 @@ import java.time.Instant
         Index(value = ["title"]),
         Index(value = ["status"]),
         Index(value = ["barcode"], unique = true),
+        Index(value = ["isbn"], unique = true),
         Index(value = ["collectionType"]),
         Index(value = ["seriesId"])
     ],
@@ -45,12 +46,20 @@ data class RecordEntity(
     val coverPath: String?,
     val coverRemoteUrl: String?,
     val barcode: String?,
+    /**
+     * Identifiant naturel pour les livres / mangas (ISBN-10 ou ISBN-13). Unique en base
+     * pour bloquer les doublons. Distinct de `barcode` car certains tomes ont un EAN-13
+     * = ISBN-13 (même valeur) mais d'autres ont uniquement l'ISBN au dos sans code-barres.
+     * Stocké normalisé (sans tirets ni espaces) côté domain pour faciliter le matching.
+     */
+    val isbn: String?,
     val discogsId: Long?,
     val status: ItemStatus,
     val lastPlayedAt: Instant?,
     /**
-     * Champs spécifiques à un type de collection (ex. manga : isbn, publisherFr, demographic, …).
-     * Sérialisés en JSON via [Converters].
+     * Champs spécifiques à un type de collection (ex. manga : publisherFr, demographic, pageCount, …).
+     * Sérialisés en JSON via [Converters]. L'ISBN, autrefois ici, est désormais en colonne
+     * first-class pour l'indice unique.
      */
     val extras: Map<String, String>,
     val createdAt: Instant,

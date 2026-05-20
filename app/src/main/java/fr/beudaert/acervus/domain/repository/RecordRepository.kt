@@ -38,11 +38,20 @@ interface RecordRepository {
 
     suspend fun findByBarcode(barcode: String): Record?
 
+    /** Renvoie le tome / livre portant cet ISBN (forme normalisée), null sinon. */
+    suspend fun findByIsbn(isbn: String): Record?
+
+    /** Snapshot non-réactif de tous les disques (utilisé par l'export backup). */
+    suspend fun listAll(): List<Record>
+
     suspend fun upsert(record: Record)
 
     suspend fun delete(record: Record)
 
     suspend fun deleteById(id: String)
+
+    /** Supprime tous les disques + cross-refs artistes + artistes orphelins. Utilisé par l'import backup. */
+    suspend fun deleteAll()
 
     suspend fun updateLastPlayed(id: String, ts: Instant?)
 

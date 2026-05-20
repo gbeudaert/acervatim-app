@@ -22,6 +22,12 @@ data class Record(
     val coverPath: String? = null,
     val coverRemoteUrl: String? = null,
     val barcode: String? = null,
+    /**
+     * Identifiant naturel pour un livre/tome (ISBN-10 ou ISBN-13). Unique en base — sert
+     * à bloquer les doublons côté manga. Stocké sous sa forme normalisée (sans tirets ni
+     * espaces) ; utiliser [normalizeIsbn] avant d'écrire.
+     */
+    val isbn: String? = null,
     val discogsId: Long? = null,
     val status: ItemStatus = ItemStatus.OWNED,
     val lastPlayedAt: Instant? = null,

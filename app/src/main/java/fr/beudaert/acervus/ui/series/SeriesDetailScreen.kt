@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.CircularProgressIndicator
@@ -56,6 +57,7 @@ fun SeriesDetailScreen(
     onBack: () -> Unit,
     onOpenVolume: (String) -> Unit,
     onAddVolume: (seriesId: String, suggestedVolume: Int?) -> Unit,
+    onEditSeries: (String) -> Unit,
     viewModel: SeriesDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -64,6 +66,7 @@ fun SeriesDetailScreen(
         onBack = onBack,
         onOpenVolume = onOpenVolume,
         onAddVolume = onAddVolume,
+        onEditSeries = onEditSeries,
         onSetStatus = viewModel::onSetStatus
     )
 }
@@ -75,6 +78,7 @@ internal fun SeriesDetailContent(
     onBack: () -> Unit,
     onOpenVolume: (String) -> Unit,
     onAddVolume: (seriesId: String, suggestedVolume: Int?) -> Unit,
+    onEditSeries: (String) -> Unit,
     onSetStatus: (String, fr.beudaert.acervus.domain.model.ItemStatus) -> Unit
 ) {
     Scaffold(
@@ -87,6 +91,18 @@ internal fun SeriesDetailContent(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.action_back)
                         )
+                    }
+                },
+                actions = {
+                    // Édition de la série (jaquette, total tomes, synopsis, …). N'apparaît qu'une
+                    // fois la série chargée — sinon on n'a pas d'id à passer à AddEditSeriesScreen.
+                    if (state is SeriesDetailUiState.Loaded) {
+                        IconButton(onClick = { onEditSeries(state.series.id) }) {
+                            Icon(
+                                imageVector = Icons.Filled.Edit,
+                                contentDescription = stringResource(R.string.action_edit)
+                            )
+                        }
                     }
                 }
             )
@@ -157,7 +173,7 @@ private fun LoadedContent(
                 text = stringResource(R.string.series_detail_volumes),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
             )
         }
         items(items = volumes, key = { it.id }) { record ->
@@ -187,11 +203,14 @@ private fun SeriesHeader(
                 cornerRadius = 8.dp,
                 cacheKey = "series-${series.id}",
                 modifier = Modifier
-                    .size(96.dp)
+                    .height(128.dp)
                     .aspectRatio(0.75f)
             )
-            Spacer(Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
+            Spacer(Modifier.width(20.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
                 Text(
                     text = series.title,
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
@@ -223,7 +242,7 @@ private fun SeriesHeader(
             }
         }
         if (expanded && !series.synopsis.isNullOrBlank()) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(16.dp))
             val scrollState = rememberScrollState()
             Text(
                 text = series.synopsis,

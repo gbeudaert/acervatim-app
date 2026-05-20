@@ -36,6 +36,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -45,6 +47,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,6 +61,7 @@ import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.model.MangaDemographic
 import fr.beudaert.acervus.domain.model.Series
 import fr.beudaert.acervus.ui.components.CoverPicker
+import kotlinx.coroutines.launch
 
 @Composable
 fun AddEditMangaScreen(
@@ -70,6 +74,10 @@ fun AddEditMangaScreen(
     val series by viewModel.availableSeries.collectAsStateWithLifecycle()
     val event by viewModel.events.collectAsStateWithLifecycle()
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val duplicateMessage = stringResource(R.string.duplicate_isbn_message)
+
     LaunchedEffect(event) {
         when (val e = event) {
             is AddMangaEvent.Saved -> {
@@ -80,6 +88,10 @@ fun AddEditMangaScreen(
                 viewModel.onEventConsumed()
                 onCancel()
             }
+            is AddMangaEvent.DuplicateIsbn -> {
+                viewModel.onEventConsumed()
+                scope.launch { snackbarHostState.showSnackbar(duplicateMessage) }
+            }
             null -> Unit
         }
     }
@@ -87,6 +99,7 @@ fun AddEditMangaScreen(
     AddEditMangaContent(
         state = state,
         availableSeries = series,
+        snackbarHostState = snackbarHostState,
         onTitleChange = viewModel::onTitleChange,
         onSeriesSelected = viewModel::onSeriesSelected,
         onAddSeries = onAddSeries,
@@ -110,6 +123,7 @@ fun AddEditMangaScreen(
 private fun AddEditMangaContent(
     state: AddMangaFormState,
     availableSeries: List<Series>,
+    snackbarHostState: SnackbarHostState,
     onTitleChange: (String) -> Unit,
     onSeriesSelected: (String?) -> Unit,
     onAddSeries: () -> Unit,
@@ -130,6 +144,7 @@ private fun AddEditMangaContent(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(titleRes)) },

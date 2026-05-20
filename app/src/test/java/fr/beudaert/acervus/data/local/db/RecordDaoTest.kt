@@ -180,6 +180,7 @@ class RecordDaoTest {
         coverPath = null,
         coverRemoteUrl = null,
         barcode = barcode,
+        isbn = null,
         discogsId = null,
         status = ItemStatus.OWNED,
         lastPlayedAt = null,

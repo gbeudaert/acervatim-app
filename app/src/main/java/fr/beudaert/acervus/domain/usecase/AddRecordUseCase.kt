@@ -2,10 +2,23 @@ package fr.beudaert.acervus.domain.usecase
 
 import fr.beudaert.acervus.domain.model.Artist
 import fr.beudaert.acervus.domain.model.Record
+import fr.beudaert.acervus.domain.model.normalizeIsbn
 import fr.beudaert.acervus.domain.repository.RecordRepository
 import java.time.Clock
 import java.util.UUID
 import javax.inject.Inject
+
+/**
+ * Signale qu'un autre [Record] possède déjà cette valeur unique.
+ * Le caller (ViewModel) est responsable de surfacer un message + offrir « ouvrir l'existant ».
+ */
+class DuplicateRecordException(
+    val existingRecordId: String,
+    val field: Field,
+    message: String
+) : Exception(message) {
+    enum class Field { BARCODE, ISBN }
+}
 
 class AddRecordUseCase @Inject constructor(
     private val repository: RecordRepository,
@@ -16,6 +29,30 @@ class AddRecordUseCase @Inject constructor(
         require(cleanedArtists.isNotEmpty()) { "at least one artist is required" }
         require(input.title.isNotBlank()) { "title must not be blank" }
         input.rating?.let { require(it in RATING_RANGE) { "rating must be in $RATING_RANGE" } }
+
+        val barcode = input.barcode?.trim()?.takeIf { it.isNotEmpty() }
+        val isbn = normalizeIsbn(input.isbn)
+
+        // Pre-check unicité côté domaine pour fournir une erreur typée au lieu d'une SQLite
+        // ConstraintException brute.
+        if (barcode != null) {
+            repository.findByBarcode(barcode)?.let { existing ->
+                throw DuplicateRecordException(
+                    existingRecordId = existing.id,
+                    field = DuplicateRecordException.Field.BARCODE,
+                    message = "Barcode $barcode already exists (id=${existing.id})"
+                )
+            }
+        }
+        if (isbn != null) {
+            repository.findByIsbn(isbn)?.let { existing ->
+                throw DuplicateRecordException(
+                    existingRecordId = existing.id,
+                    field = DuplicateRecordException.Field.ISBN,
+                    message = "ISBN $isbn already exists (id=${existing.id})"
+                )
+            }
+        }
 
         val now = clock.instant()
         val record = Record(
@@ -35,7 +72,8 @@ class AddRecordUseCase @Inject constructor(
             rating = input.rating,
             coverPath = input.coverPath,
             coverRemoteUrl = input.coverRemoteUrl,
-            barcode = input.barcode?.trim()?.takeIf { it.isNotEmpty() },
+            barcode = barcode,
+            isbn = isbn,
             discogsId = input.discogsId,
             status = input.status,
             extras = input.extras,

@@ -1,5 +1,6 @@
 package fr.beudaert.acervus.domain
 
+import fr.beudaert.acervus.data.local.db.normalizeSeriesKey
 import fr.beudaert.acervus.domain.model.CollectionType
 import fr.beudaert.acervus.domain.model.Series
 import fr.beudaert.acervus.domain.model.SeriesWithCounts
@@ -65,6 +66,22 @@ class FakeSeriesRepository(
     override fun observeCountByCollectionType(collectionType: CollectionType): Flow<Int> =
         state.asStateFlow().map { list -> list.count { it.collectionType == collectionType } }
 
+    override suspend fun findByNaturalKey(
+        collectionType: CollectionType,
+        title: String,
+        originalAuthor: String?
+    ): Series? {
+        val nt = normalizeSeriesKey(title)
+        val na = normalizeSeriesKey(originalAuthor)
+        return state.value.firstOrNull { s ->
+            s.collectionType == collectionType &&
+                normalizeSeriesKey(s.title) == nt &&
+                normalizeSeriesKey(s.originalAuthor) == na
+        }
+    }
+
+    override suspend fun listAll(): List<Series> = state.value
+
     override suspend fun upsert(series: Series) {
         state.update { current ->
             val idx = current.indexOfFirst { it.id == series.id }
@@ -75,5 +92,9 @@ class FakeSeriesRepository(
 
     override suspend fun deleteById(id: String) {
         state.update { current -> current.filterNot { it.id == id } }
+    }
+
+    override suspend fun deleteAll() {
+        state.value = emptyList()
     }
 }

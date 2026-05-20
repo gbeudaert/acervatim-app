@@ -119,4 +119,54 @@ class UpsertSeriesUseCaseTest {
         assertNotEquals(createdAt, updated.updatedAt)
         assertEquals("Renamed", updated.title)
     }
+
+    @Test
+    fun `duplicate natural key is rejected with DuplicateSeriesException`() = runTest {
+        val repo = FakeSeriesRepository()
+        val useCase = UpsertSeriesUseCase(repo, clock)
+        val first = useCase(
+            SeriesInput(
+                title = "Berserk",
+                collectionType = CollectionType.MANGA,
+                originalAuthor = "Kentarō Miura"
+            )
+        )
+        try {
+            useCase(
+                SeriesInput(
+                    title = "  berserk ",                 // casse + espaces différents
+                    collectionType = CollectionType.MANGA,
+                    originalAuthor = "Kentaro Miura"      // accent retiré
+                )
+            )
+            fail("Expected DuplicateSeriesException")
+        } catch (e: DuplicateSeriesException) {
+            assertEquals(first.id, e.existingSeriesId)
+        }
+    }
+
+    @Test
+    fun `update of an existing series does not raise duplicate on its own key`() = runTest {
+        val repo = FakeSeriesRepository()
+        val useCase = UpsertSeriesUseCase(repo, clock)
+        val initial = useCase(
+            SeriesInput(
+                title = "Vagabond",
+                collectionType = CollectionType.MANGA,
+                originalAuthor = "Takehiko Inoue"
+            )
+        )
+        // Modifier le synopsis sans toucher à la clé naturelle ne doit pas déclencher de doublon.
+        val updated = useCase(
+            SeriesInput(
+                title = "Vagabond",
+                collectionType = CollectionType.MANGA,
+                originalAuthor = "Takehiko Inoue",
+                synopsis = "Musashi en quête de l'invincibilité."
+            ),
+            existing = initial
+        )
+        assertEquals(initial.id, updated.id)
+        assertEquals("Musashi en quête de l'invincibilité.", updated.synopsis)
+    }
 }

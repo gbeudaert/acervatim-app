@@ -42,9 +42,35 @@ interface SeriesDao {
         collectionType: CollectionType
     ): Flow<List<SeriesWithCountsRow>>
 
+    /**
+     * Recherche par clé naturelle (cf. index unique sur
+     * `(collectionType, normalizedTitle, normalizedAuthor)`). Le caller doit normaliser ses
+     * arguments via `normalizeSeriesKey` avant l'appel.
+     */
+    @Query(
+        """
+        SELECT * FROM series
+        WHERE collectionType = :collectionType
+          AND normalizedTitle = :normalizedTitle
+          AND normalizedAuthor = :normalizedAuthor
+        LIMIT 1
+        """
+    )
+    suspend fun findByNaturalKey(
+        collectionType: CollectionType,
+        normalizedTitle: String,
+        normalizedAuthor: String
+    ): SeriesEntity?
+
+    @Query("SELECT * FROM series ORDER BY title COLLATE NOCASE")
+    suspend fun listAll(): List<SeriesEntity>
+
     @Upsert
     suspend fun upsert(series: SeriesEntity)
 
     @Query("DELETE FROM series WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM series")
+    suspend fun deleteAll()
 }

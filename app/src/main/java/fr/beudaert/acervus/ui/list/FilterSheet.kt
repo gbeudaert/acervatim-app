@@ -46,18 +46,11 @@ import fr.beudaert.acervus.domain.model.RecordFilter
 import fr.beudaert.acervus.domain.model.StatusFilter
 import fr.beudaert.acervus.ui.theme.AcervusTheme
 
-/**
- * Le toggle FLAT / SERIAL n'est exposé que si au moins un [CollectionType] supporte SERIAL,
- * conformément à la spec Sprint 7 (« visible selon CollectionType »). Tant qu'une collection
- * compatible n'est pas activée, on reste implicitement en FLAT.
- */
-private val SERIAL_TOGGLE_VISIBLE: Boolean =
-    CollectionType.entries.any { it.supportsSerial }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun FilterSheet(
     initial: RecordFilter,
+    activeCollectionType: CollectionType,
     availableGenres: List<String>,
     onApply: (
         listMode: ListMode,
@@ -82,6 +75,7 @@ internal fun FilterSheet(
     ) {
         FilterSheetContent(
             listMode = listMode,
+            listModeToggleVisible = activeCollectionType.supportsSerial,
             status = status,
             genre = genre,
             format = format,
@@ -96,7 +90,7 @@ internal fun FilterSheet(
                 onApply(listMode, status, genre, format, notPlayed)
             },
             onReset = {
-                listMode = ListMode.FLAT
+                listMode = activeCollectionType.defaultListMode
                 status = StatusFilter.ALL
                 genre = null
                 format = null
@@ -111,6 +105,7 @@ internal fun FilterSheet(
 @Composable
 private fun FilterSheetContent(
     listMode: ListMode,
+    listModeToggleVisible: Boolean,
     status: StatusFilter,
     genre: String?,
     format: AcervusFormat?,
@@ -136,7 +131,7 @@ private fun FilterSheetContent(
             color = MaterialTheme.colorScheme.onSurface
         )
 
-        if (SERIAL_TOGGLE_VISIBLE) {
+        if (listModeToggleVisible) {
             SectionLabel(stringResource(R.string.filters_list_mode))
             ListModeSegmented(selected = listMode, onSelect = onListModeChange)
         }
@@ -332,6 +327,7 @@ private fun FilterSheetContentPreview() {
         Box(modifier = Modifier.padding(8.dp)) {
             FilterSheetContent(
                 listMode = ListMode.FLAT,
+                listModeToggleVisible = true,
                 status = StatusFilter.ALL,
                 genre = null,
                 format = null,

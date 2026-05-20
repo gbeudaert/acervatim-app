@@ -104,6 +104,12 @@ class RecordRepositoryImpl @Inject constructor(
     override suspend fun findByBarcode(barcode: String): Record? =
         recordDao.findByBarcodeJoinRows(barcode).groupToRecords().firstOrNull()
 
+    override suspend fun findByIsbn(isbn: String): Record? =
+        recordDao.findByIsbnJoinRows(isbn).groupToRecords().firstOrNull()
+
+    override suspend fun listAll(): List<Record> =
+        recordDao.listAllJoinRows().groupToRecords()
+
     override suspend fun upsert(record: Record) {
         require(record.artists.isNotEmpty()) { "a record must have at least one artist" }
         database.withTransaction {
@@ -141,6 +147,13 @@ class RecordRepositoryImpl @Inject constructor(
     override suspend fun deleteById(id: String) {
         database.withTransaction {
             recordDao.deleteById(id)
+            artistDao.deleteUnused()
+        }
+    }
+
+    override suspend fun deleteAll() {
+        database.withTransaction {
+            recordDao.deleteAll()
             artistDao.deleteUnused()
         }
     }

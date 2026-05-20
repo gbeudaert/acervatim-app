@@ -16,6 +16,7 @@ import fr.beudaert.acervus.domain.model.Series
 import fr.beudaert.acervus.domain.model.readInt
 import fr.beudaert.acervus.domain.model.readString
 import fr.beudaert.acervus.domain.usecase.AddRecordUseCase
+import fr.beudaert.acervus.domain.usecase.DuplicateRecordException
 import fr.beudaert.acervus.domain.usecase.ObserveRecordByIdUseCase
 import fr.beudaert.acervus.domain.usecase.ObserveSeriesByCollectionTypeUseCase
 import fr.beudaert.acervus.domain.usecase.RecordInput
@@ -127,12 +128,16 @@ class AddEditMangaViewModel @Inject constructor(
             val coverPath = resolveCoverPath(current)
             val input = current.toInput(coverPath = coverPath)
             val existing = originalRecord
-            if (existing == null) {
-                addRecord(input, id = current.recordId)
-            } else {
-                updateRecord(existing, input)
+            try {
+                if (existing == null) {
+                    addRecord(input, id = current.recordId)
+                } else {
+                    updateRecord(existing, input)
+                }
+                _events.value = AddMangaEvent.Saved(current.recordId)
+            } catch (e: DuplicateRecordException) {
+                _events.value = AddMangaEvent.DuplicateIsbn(e.existingRecordId)
             }
-            _events.value = AddMangaEvent.Saved(current.recordId)
         }
     }
 
@@ -174,7 +179,6 @@ data class AddMangaFormState(
 
 internal fun AddMangaFormState.toInput(coverPath: String?): RecordInput {
     val extras = buildMap {
-        if (isbn.isNotBlank()) put(MangaExtras.KEY_ISBN, isbn.trim())
         if (publisherFr.isNotBlank()) put(MangaExtras.KEY_PUBLISHER_FR, publisherFr.trim())
         if (originalAuthor.isNotBlank()) put(MangaExtras.KEY_ORIGINAL_AUTHOR, originalAuthor.trim())
         demographic?.let { put(MangaExtras.KEY_DEMOGRAPHIC, it.name) }
@@ -189,7 +193,9 @@ internal fun AddMangaFormState.toInput(coverPath: String?): RecordInput {
         collectionType = CollectionType.MANGA,
         seriesId = seriesId,
         volumeNumber = volumeNumber.toIntOrNull(),
-        barcode = isbn.trim().takeIf { it.isNotEmpty() },
+        // ISBN est désormais first-class et porte l'unicité. On n'écrit plus le barcode pour
+        // un tome (le `Record.barcode` reste utile pour le vinyle uniquement).
+        isbn = isbn.trim().takeIf { it.isNotEmpty() },
         coverPath = coverPath,
         rating = rating.takeIf { it > 0 },
         status = status,
@@ -207,8 +213,7 @@ internal fun AddMangaFormState.fromRecord(record: Record): AddMangaFormState = c
     originalAuthor = record.extras.readString(MangaExtras.KEY_ORIGINAL_AUTHOR)
         ?: record.artists.firstOrNull()?.name.orEmpty(),
     publisherFr = record.extras.readString(MangaExtras.KEY_PUBLISHER_FR).orEmpty(),
-    isbn = record.extras.readString(MangaExtras.KEY_ISBN)
-        ?: record.barcode.orEmpty(),
+    isbn = record.isbn.orEmpty(),
     demographic = MangaDemographic.fromExtras(record.extras[MangaExtras.KEY_DEMOGRAPHIC]),
     pageCount = record.extras.readInt(MangaExtras.KEY_PAGE_COUNT)?.toString().orEmpty(),
     rating = record.rating ?: 0,
@@ -221,4 +226,6 @@ internal fun AddMangaFormState.fromRecord(record: Record): AddMangaFormState = c
 sealed interface AddMangaEvent {
     data class Saved(val recordId: String) : AddMangaEvent
     data object NotFound : AddMangaEvent
+    /** Un autre tome porte déjà cet ISBN. `existingRecordId` permet à l'UI de proposer "Ouvrir". */
+    data class DuplicateIsbn(val existingRecordId: String) : AddMangaEvent
 }

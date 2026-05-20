@@ -110,6 +110,7 @@ fun CollectionScreen(
     if (sheetOpen) {
         FilterSheet(
             initial = filter,
+            activeCollectionType = activeType,
             availableGenres = genres,
             onApply = viewModel::applyFilter,
             onReset = viewModel::resetFilter,

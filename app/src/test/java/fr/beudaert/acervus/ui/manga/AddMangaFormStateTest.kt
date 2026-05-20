@@ -12,8 +12,9 @@ import org.junit.Test
 import java.time.Instant
 
 /**
- * Vérifie le mapping form ⇄ Record pour les tomes manga. Les champs manga-spécifiques sont
- * stockés dans `extras` et doivent survivre à un aller-retour fromRecord → toInput.
+ * Vérifie le mapping form ⇄ Record pour les tomes manga. Depuis Sprint 9, l'ISBN est promu
+ * en colonne first-class de [Record] (unique en base) ; les autres champs manga restent dans
+ * `extras`, et doivent survivre à un aller-retour fromRecord → toInput.
  */
 class AddMangaFormStateTest {
 
@@ -41,13 +42,14 @@ class AddMangaFormStateTest {
         assertEquals("berserk", input.seriesId)
         assertEquals(5, input.volumeNumber)
         assertEquals("Tome 5", input.title)
-        assertEquals("9782723423052", input.barcode)
+        // ISBN est désormais first-class : il ne va plus dans barcode ni dans extras.
+        assertNull(input.barcode)
+        assertEquals("9782723423052", input.isbn)
         assertEquals(4, input.rating)
         assertEquals(ItemStatus.OWNED, input.status)
         assertEquals("/cover/r1.jpg", input.coverPath)
         assertEquals(listOf("Kentarō Miura"), input.artists)
 
-        assertEquals("9782723423052", input.extras[MangaExtras.KEY_ISBN])
         assertEquals("Glénat", input.extras[MangaExtras.KEY_PUBLISHER_FR])
         assertEquals("Kentarō Miura", input.extras[MangaExtras.KEY_ORIGINAL_AUTHOR])
         assertEquals("SEINEN", input.extras[MangaExtras.KEY_DEMOGRAPHIC])
@@ -83,8 +85,8 @@ class AddMangaFormStateTest {
             rating = 5,
             coverPath = "/cover/r1.jpg",
             barcode = null,
+            isbn = "9782723423052",
             extras = mapOf(
-                MangaExtras.KEY_ISBN to "9782723423052",
                 MangaExtras.KEY_PUBLISHER_FR to "Glénat",
                 MangaExtras.KEY_ORIGINAL_AUTHOR to "Kentarō Miura",
                 MangaExtras.KEY_DEMOGRAPHIC to "SEINEN",
@@ -112,14 +114,15 @@ class AddMangaFormStateTest {
     }
 
     @Test
-    fun `fromRecord falls back to record barcode when ISBN extra absent`() {
+    fun `fromRecord reads ISBN from first-class column`() {
         val record = Record(
             id = "r1",
             collectionType = CollectionType.MANGA,
             seriesId = "berserk",
             artists = listOf(Artist("a", "Author")),
             title = "Tome 1",
-            barcode = "9784088770734",
+            barcode = null,
+            isbn = "9784088770734",
             status = ItemStatus.OWNED,
             createdAt = now,
             updatedAt = now
@@ -127,7 +130,6 @@ class AddMangaFormStateTest {
 
         val state = AddMangaFormState().fromRecord(record)
 
-        // Aucune entrée ISBN dans les extras → fallback sur le barcode lu en base.
         assertEquals("9784088770734", state.isbn)
         assertNull(state.demographic)
     }

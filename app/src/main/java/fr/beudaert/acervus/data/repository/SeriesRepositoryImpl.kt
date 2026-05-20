@@ -1,6 +1,7 @@
 package fr.beudaert.acervus.data.repository
 
 import fr.beudaert.acervus.data.local.db.SeriesDao
+import fr.beudaert.acervus.data.local.db.normalizeSeriesKey
 import fr.beudaert.acervus.data.local.db.toDomain
 import fr.beudaert.acervus.data.local.db.toEntity
 import fr.beudaert.acervus.domain.model.CollectionType
@@ -32,11 +33,28 @@ class SeriesRepositoryImpl @Inject constructor(
     override fun observeCountByCollectionType(collectionType: CollectionType): Flow<Int> =
         seriesDao.observeCountByCollectionType(collectionType)
 
+    override suspend fun findByNaturalKey(
+        collectionType: CollectionType,
+        title: String,
+        originalAuthor: String?
+    ): Series? = seriesDao.findByNaturalKey(
+        collectionType = collectionType,
+        normalizedTitle = normalizeSeriesKey(title),
+        normalizedAuthor = normalizeSeriesKey(originalAuthor)
+    )?.toDomain()
+
+    override suspend fun listAll(): List<Series> =
+        seriesDao.listAll().map { it.toDomain() }
+
     override suspend fun upsert(series: Series) {
         seriesDao.upsert(series.toEntity())
     }
 
     override suspend fun deleteById(id: String) {
         seriesDao.deleteById(id)
+    }
+
+    override suspend fun deleteAll() {
+        seriesDao.deleteAll()
     }
 }

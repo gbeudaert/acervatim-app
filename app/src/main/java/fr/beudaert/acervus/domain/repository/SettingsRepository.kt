@@ -1,6 +1,7 @@
 package fr.beudaert.acervus.domain.repository
 
 import fr.beudaert.acervus.domain.model.CollectionType
+import fr.beudaert.acervus.domain.model.ListMode
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -24,4 +25,12 @@ interface SettingsRepository {
     fun observeActiveCollectionType(): Flow<CollectionType>
 
     suspend fun setActiveCollectionType(value: CollectionType)
+
+    /**
+     * Mode de référencement (FLAT / SERIAL) choisi pour un [CollectionType] donné.
+     * Renvoie [CollectionType.defaultListMode] si aucun choix n'a été persisté pour ce type.
+     */
+    fun observeListMode(type: CollectionType): Flow<ListMode>
+
+    suspend fun setListMode(type: CollectionType, mode: ListMode)
 }

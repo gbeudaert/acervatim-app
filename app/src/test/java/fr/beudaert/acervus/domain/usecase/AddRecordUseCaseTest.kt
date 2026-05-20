@@ -152,4 +152,37 @@ class AddRecordUseCaseTest {
             assertTrue(expected.message!!.contains("title"))
         }
     }
+
+    @Test
+    fun `duplicate barcode is rejected with DuplicateRecordException`() = runTest {
+        val repo = FakeRecordRepository()
+        val useCase = AddRecordUseCase(repo, clock)
+        val first = useCase(
+            RecordInput(artists = listOf("Artist"), title = "A", barcode = "1234567890")
+        )
+        try {
+            useCase(RecordInput(artists = listOf("Other"), title = "B", barcode = "1234567890"))
+            fail("Expected DuplicateRecordException")
+        } catch (e: DuplicateRecordException) {
+            assertEquals(DuplicateRecordException.Field.BARCODE, e.field)
+            assertEquals(first.id, e.existingRecordId)
+        }
+    }
+
+    @Test
+    fun `duplicate ISBN is rejected with DuplicateRecordException`() = runTest {
+        val repo = FakeRecordRepository()
+        val useCase = AddRecordUseCase(repo, clock)
+        // L'ISBN doit être normalisé (sans tirets) avant la comparaison.
+        val first = useCase(
+            RecordInput(artists = listOf("Author"), title = "Tome 1", isbn = "978-2-7234-1234-5")
+        )
+        try {
+            useCase(RecordInput(artists = listOf("Author"), title = "Tome 1 bis", isbn = "9782723412345"))
+            fail("Expected DuplicateRecordException")
+        } catch (e: DuplicateRecordException) {
+            assertEquals(DuplicateRecordException.Field.ISBN, e.field)
+            assertEquals(first.id, e.existingRecordId)
+        }
+    }
 }

@@ -161,6 +161,31 @@
     <string name="settings_section_collection">Collection</string>
     <string name="settings_duplicate_albums_title">Dupliquer par artiste</string>
     <string name="settings_duplicate_albums_description">Un album à plusieurs artistes apparaît sous chacun d\'eux dans la liste. Désactivé, il n\'apparaît que sous l\'artiste principal avec un sous-titre « feat. ».</string>
+    <string name="settings_section_view_per_collection">Vue par collection</string>
+    <string name="settings_section_view_per_collection_description">Choisir l\'affichage par défaut de chaque collection. Le mode reste modifiable depuis les filtres de la liste.</string>
+
+    <!-- Backup / Restore (Sprint 9) -->
+    <string name="settings_section_data">Données</string>
+    <string name="settings_section_data_description">Sauvegarder l\'ensemble de la collection dans un fichier (.zip) ou restaurer une sauvegarde existante.</string>
+    <string name="settings_data_export">Exporter la collection</string>
+    <string name="settings_data_export_subtitle">Génère un fichier de sauvegarde avec les fiches et les jaquettes.</string>
+    <string name="settings_data_import">Restaurer depuis une sauvegarde</string>
+    <string name="settings_data_import_subtitle">Remplace toute la collection actuelle par le contenu du fichier.</string>
+    <string name="settings_data_busy">Opération en cours…</string>
+    <string name="backup_default_filename">acervus-backup-%1$s.zip</string>
+    <string name="backup_export_success">Sauvegarde exportée (%1$d disques, %2$d séries).</string>
+    <string name="backup_export_error">Échec de l\'export : %1$s</string>
+    <string name="backup_import_confirm_title">Restaurer cette sauvegarde ?</string>
+    <string name="backup_import_confirm_message">Toute votre collection actuelle sera remplacée par le contenu du fichier. Cette action est irréversible.</string>
+    <string name="backup_import_confirm_cta">Restaurer</string>
+    <string name="backup_import_cancel">Annuler</string>
+    <string name="backup_import_success">Sauvegarde restaurée (%1$d disques, %2$d séries).</string>
+    <string name="backup_import_error">Échec de l\'import : %1$s</string>
+
+    <!-- Duplicates detection (Sprint 9) -->
+    <string name="duplicate_isbn_message">Un tome avec cet ISBN existe déjà dans votre collection.</string>
+    <string name="duplicate_series_message">Une série du même titre et auteur existe déjà.</string>
+    <string name="duplicate_open_existing">Ouvrir</string>
 
     <!-- Permissions -->
     <string name="permission_camera_required_title">Autorisation appareil photo requise</string>

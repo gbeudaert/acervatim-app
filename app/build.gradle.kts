@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -103,6 +104,9 @@ dependencies {
 
     // DataStore Preferences (user settings)
     implementation(libs.androidx.datastore.preferences)
+
+    // JSON serialization (backup export / import)
+    implementation(libs.kotlinx.serialization.json)
 
     // Hilt
     implementation(libs.hilt.android)

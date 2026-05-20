@@ -113,6 +113,11 @@ class FakeRecordRepository : RecordRepository {
     override suspend fun findByBarcode(barcode: String): Record? =
         state.value.firstOrNull { it.barcode == barcode }
 
+    override suspend fun findByIsbn(isbn: String): Record? =
+        state.value.firstOrNull { it.isbn == isbn }
+
+    override suspend fun listAll(): List<Record> = state.value
+
     override suspend fun upsert(record: Record) {
         // Normalize artist ids: reuse existing ids by normalized_name, else generate.
         val canonicalArtists = record.artists.map { input ->
@@ -140,6 +145,10 @@ class FakeRecordRepository : RecordRepository {
 
     override suspend fun deleteById(id: String) {
         state.update { current -> current.filterNot { it.id == id } }
+    }
+
+    override suspend fun deleteAll() {
+        state.value = emptyList()
     }
 
     override suspend fun updateLastPlayed(id: String, ts: Instant?) {

@@ -96,6 +96,19 @@ interface RecordDao {
 
     @Query(
         """
+        SELECT r.*,
+               a.id AS artist_id, a.name AS artist_name, ra.position AS artist_position
+        FROM records r
+        INNER JOIN record_artists ra ON ra.recordId = r.id
+        INNER JOIN artists a ON a.id = ra.artistId
+        WHERE r.isbn = :isbn
+        ORDER BY ra.position
+        """
+    )
+    suspend fun findByIsbnJoinRows(isbn: String): List<RecordWithArtistsRow>
+
+    @Query(
+        """
         SELECT DISTINCT genre FROM records
         WHERE genre IS NOT NULL AND TRIM(genre) != ''
         ORDER BY genre COLLATE NOCASE
@@ -140,6 +153,21 @@ interface RecordDao {
 
     @Query("DELETE FROM records WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    @Query(
+        """
+        SELECT r.*,
+               a.id AS artist_id, a.name AS artist_name, ra.position AS artist_position
+        FROM records r
+        INNER JOIN record_artists ra ON ra.recordId = r.id
+        INNER JOIN artists a ON a.id = ra.artistId
+        ORDER BY r.id, ra.position
+        """
+    )
+    suspend fun listAllJoinRows(): List<RecordWithArtistsRow>
+
+    @Query("DELETE FROM records")
+    suspend fun deleteAll()
 
     @Query("UPDATE records SET lastPlayedAt = :ts, updatedAt = :ts WHERE id = :id")
     suspend fun updateLastPlayed(id: String, ts: Instant?)

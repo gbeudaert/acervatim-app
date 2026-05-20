@@ -103,6 +103,9 @@ fun AcervusNavGraph(
                             volumeNumber = suggested
                         )
                     )
+                },
+                onEditSeries = { id ->
+                    navController.navigate(AcervusDestinations.editSeries(id))
                 }
             )
         }

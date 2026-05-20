@@ -10,7 +10,12 @@ import java.time.Instant
     tableName = "series",
     indices = [
         Index(value = ["collectionType"]),
-        Index(value = ["title"])
+        Index(value = ["title"]),
+        Index(
+            value = ["collectionType", "normalizedTitle", "normalizedAuthor"],
+            unique = true,
+            name = "index_series_natural_key"
+        )
     ]
 )
 data class SeriesEntity(
@@ -18,6 +23,15 @@ data class SeriesEntity(
     val collectionType: CollectionType,
     val title: String,
     val originalAuthor: String?,
+    /**
+     * Forme normalisée (lowercase + trim) de [title]. Sert exclusivement à porter
+     * l'unique composite « clé naturelle » (collectionType, normalizedTitle, normalizedAuthor)
+     * pour bloquer la création de doublons en SQL (Room ne supporte pas `COLLATE NOCASE`
+     * directement dans un [Index]).
+     */
+    val normalizedTitle: String,
+    /** Forme normalisée de [originalAuthor]. `""` si auteur null/vide. */
+    val normalizedAuthor: String,
     val publicationStatus: String?,
     val totalVolumes: Int?,
     val synopsis: String?,

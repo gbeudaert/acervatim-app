@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import fr.beudaert.acervus.domain.model.CollectionType
+import fr.beudaert.acervus.domain.model.ListMode
 import fr.beudaert.acervus.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -37,6 +38,23 @@ class DataStoreSettingsRepository @Inject constructor(
             prefs[KEY_ACTIVE_COLLECTION_TYPE] = value.name
         }
     }
+
+    override fun observeListMode(type: CollectionType): Flow<ListMode> {
+        val key = listModeKey(type)
+        return dataStore.data.map { prefs ->
+            val raw = prefs[key]
+            raw?.let { runCatching { ListMode.valueOf(it) }.getOrNull() } ?: type.defaultListMode
+        }
+    }
+
+    override suspend fun setListMode(type: CollectionType, mode: ListMode) {
+        dataStore.edit { prefs ->
+            prefs[listModeKey(type)] = mode.name
+        }
+    }
+
+    private fun listModeKey(type: CollectionType) =
+        stringPreferencesKey("list_mode_${type.name}")
 
     private companion object {
         val KEY_DUPLICATE_ALBUMS_PER_ARTIST = booleanPreferencesKey("duplicate_albums_per_artist")

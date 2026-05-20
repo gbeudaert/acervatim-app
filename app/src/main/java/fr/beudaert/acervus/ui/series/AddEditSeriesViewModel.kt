@@ -9,6 +9,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.beudaert.acervus.data.local.storage.CoverStorage
 import fr.beudaert.acervus.domain.model.CollectionType
 import fr.beudaert.acervus.domain.model.Series
+import fr.beudaert.acervus.domain.usecase.DuplicateSeriesException
 import fr.beudaert.acervus.domain.usecase.ObserveSeriesByIdUseCase
 import fr.beudaert.acervus.domain.usecase.SeriesInput
 import fr.beudaert.acervus.domain.usecase.UpsertSeriesUseCase
@@ -105,8 +106,12 @@ class AddEditSeriesViewModel @Inject constructor(
                 synopsis = current.synopsis,
                 coverPath = coverPath
             )
-            val saved = upsertSeries(input, existing = originalSeries)
-            _events.value = AddSeriesEvent.Saved(saved.id)
+            try {
+                val saved = upsertSeries(input, existing = originalSeries)
+                _events.value = AddSeriesEvent.Saved(saved.id)
+            } catch (e: DuplicateSeriesException) {
+                _events.value = AddSeriesEvent.DuplicateExists(e.existingSeriesId)
+            }
         }
     }
 
@@ -160,4 +165,6 @@ internal fun AddSeriesFormState.fromSeries(series: Series): AddSeriesFormState =
 sealed interface AddSeriesEvent {
     data class Saved(val seriesId: String) : AddSeriesEvent
     data object NotFound : AddSeriesEvent
+    /** Une autre série partage la même clé naturelle. `existingSeriesId` permet d'ouvrir l'existante. */
+    data class DuplicateExists(val existingSeriesId: String) : AddSeriesEvent
 }

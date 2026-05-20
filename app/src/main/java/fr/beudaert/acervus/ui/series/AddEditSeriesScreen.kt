@@ -23,6 +23,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -30,6 +32,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -39,6 +43,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.beudaert.acervus.R
 import fr.beudaert.acervus.ui.components.CoverPicker
+import kotlinx.coroutines.launch
 
 @Composable
 fun AddEditSeriesScreen(
@@ -48,6 +53,10 @@ fun AddEditSeriesScreen(
 ) {
     val state by viewModel.formState.collectAsStateWithLifecycle()
     val event by viewModel.events.collectAsStateWithLifecycle()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val duplicateMessage = stringResource(R.string.duplicate_series_message)
 
     LaunchedEffect(event) {
         when (val e = event) {
@@ -59,12 +68,17 @@ fun AddEditSeriesScreen(
                 viewModel.onEventConsumed()
                 onCancel()
             }
+            is AddSeriesEvent.DuplicateExists -> {
+                viewModel.onEventConsumed()
+                scope.launch { snackbarHostState.showSnackbar(duplicateMessage) }
+            }
             null -> Unit
         }
     }
 
     AddEditSeriesContent(
         state = state,
+        snackbarHostState = snackbarHostState,
         onTitleChange = viewModel::onTitleChange,
         onAuthorChange = viewModel::onAuthorChange,
         onPublicationStatusChange = viewModel::onPublicationStatusChange,
@@ -81,6 +95,7 @@ fun AddEditSeriesScreen(
 @Composable
 private fun AddEditSeriesContent(
     state: AddSeriesFormState,
+    snackbarHostState: SnackbarHostState,
     onTitleChange: (String) -> Unit,
     onAuthorChange: (String) -> Unit,
     onPublicationStatusChange: (String) -> Unit,
@@ -95,6 +110,7 @@ private fun AddEditSeriesContent(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(titleRes)) },

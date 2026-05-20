@@ -8,7 +8,7 @@ package fr.beudaert.acervus.domain.model
  * évitent les fautes de frappe à l'usage et permettent de centraliser la valeur des clés.
  */
 object MangaExtras {
-    const val KEY_ISBN: String = "isbn"
+    // ISBN n'est plus dans extras : promu en colonne first-class `Record.isbn` (unique en base).
     const val KEY_PUBLISHER_FR: String = "publisherFr"
     const val KEY_ORIGINAL_AUTHOR: String = "originalAuthor"
     const val KEY_DEMOGRAPHIC: String = "demographic"
