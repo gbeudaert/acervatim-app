@@ -26,5 +26,7 @@ contexte-ia-vinylcollection.md
 /.vscode/
 /.idea/
 
-# A supprimer dans un second temps"
-/docs
+# Notes internes de roadmap : sprints, déploiement Play Store, etc.
+# Le contexte global (docs/contexte-global.md) reste versionné ; tout ce qui
+# vit sous docs/interne/ est local et n'est pas commité.
+/docs/interne/

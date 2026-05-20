@@ -4,7 +4,7 @@ package fr.beudaert.acervus.domain.model
  * Clés des champs manga stockés dans [Record.extras].
  *
  * On reste sur des `Map<String, String>` à dessein : c'est l'extension naturelle pour les
- * spécificités d'un type de collection (cf. §4 de `contexte-ia-acervus.md`). Les helpers ci-dessous
+ * spécificités d'un type de collection (cf. §4 de `docs/contexte-global.md`). Les helpers ci-dessous
  * évitent les fautes de frappe à l'usage et permettent de centraliser la valeur des clés.
  */
 object MangaExtras {

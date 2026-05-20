@@ -1,6 +1,13 @@
-# Contexte IA — Acervus
+# Contexte IA — Acervus (contexte global)
 
 > Document de référence destiné à un assistant IA développeur (Claude Code, Cursor, etc.) pour générer, faire évoluer et maintenir **Acervus**, une application Android multi-collections.
+>
+> Ce fichier décrit l'app de façon stable (vision, stack, architecture, modèle, UI, règles métier, conventions). À charger **dans tout contexte de travail** — sprint, correction d'anomalie, étude d'évolution.
+>
+> **La roadmap (sprints réalisés + planifiés) vit dans `docs/interne/` (dossier local non versionné).** Chaque fichier est autoportant et référence ce contexte global. Liste indicative :
+> - `docs/interne/sprint-realises.md` — historique des sprints 1 à 8.
+> - `docs/interne/sprint-09-polish-vinyle-manga-play-store.md` à `sprint-16-au-dela.md` — un fichier par sprint planifié.
+> - `docs/interne/playstore-deployment.md` — guide de déploiement Play Store.
 
 **Étymologie.** *Acervus* (latin, masc., 2ᵉ déclinaison) : « tas, monceau, amas » — par extension, « accumulation, multitude ». Donne aussi son nom au *paradoxe sorite* en logique : à partir de combien de grains a-t-on un tas ?
 
@@ -381,7 +388,7 @@ Acervus est conçue pour gérer plusieurs types de collections. Chaque type a un
 
 **Mode "série" (SERIAL)** — une série = une entrée dans la liste, qui regroupe ses volumes.
 - Liste des séries possédées/suivies, chaque ligne affichant la progression (`Berserk 28/42`).
-- Tap sur une série → écran dédié avec la grille des tomes.
+- Tap sur une série → écran dédié avec un **header rétractable** de présentation de la série (jaquette, note, description, métadonnées) au-dessus d'une **liste de tomes** qui suit les mêmes règles que la liste principale (wishlist, filtres, recherche, tri…).
 - Convient quand l'objet collectionné a une forte structure sérielle (manga, BD série longue).
 
 #### Mode par défaut et bascule par type
@@ -417,10 +424,32 @@ Tap sur une ligne → **écran "Détail série"**.
 
 #### Écran Détail série (vue SERIAL)
 
-Affichage en grille (ou liste verticale dense) de **tous les tomes connus** de la série, possédés ou non. Chaque tome est représenté par un tile :
+L'écran est composé de deux zones empilées verticalement :
 
+**1. Header rétractable de présentation de la série** (collapsible, comportement `CollapsingToolbar` / scroll behavior Compose)
+
+Contient :
+- Jaquette de la série (cover représentative, généralement tome 1).
+- Titre, auteur principal, statut de publication (`En cours`, `Terminée`…).
+- Note moyenne et/ou note personnelle.
+- Description / synopsis (tronqué + bouton "voir plus" si long).
+- Métadonnées série : genres, éditeur, nombre de tomes connus, année de début.
+- Compteur global de progression (`28 / 42 tomes possédés`, badge wishlist si applicable).
+
+Le header se réduit progressivement au scroll pour laisser place à la liste. Une fois pleinement réduit, ne reste qu'une AppBar compacte avec titre série + actions.
+
+**2. Liste de tomes** (réutilise le composant et les règles de la liste principale)
+
+Affichage de **tous les tomes connus** de la série, possédés ou non. Réutilise strictement les mêmes mécanismes que la liste principale :
+- Mêmes filtres (statut OWNED / WISHLIST / IGNORED, recherche texte, tri).
+- Même affichage du grisage wishlist, des badges, etc.
+- Même interaction de bascule d'état (tap long / menu contextuel).
+- Tap sur un tome → écran détail du tome (item).
+
+Chaque ligne de tome affiche :
 - Cover du tome (ou placeholder si pas connue).
 - Numéro de tome bien visible (`#12`).
+- Titre du tome si différent du nom de série.
 - État visuel de possession (cf. ci-dessous).
 
 #### Les trois états de possession (vue SERIAL)
@@ -665,9 +694,77 @@ interface AuthStore {
 
 L'écran **Réglages → Comptes & sources** liste tous les `MetadataProvider` enregistrés, indique `isConfigured()` (vert/gris), et propose les actions (saisir token, se connecter, se déconnecter). Côté code, ce sont les providers qui exposent leur **propre écran de configuration** via une petite abstraction `ProviderSetupScreen` (composable injecté), pour éviter de coder à la main chaque flow d'auth dans l'écran de réglages.
 
-#### Migration future vers backend
+#### Backend Acervus — proxy unique des API externes (cible v2)
 
-Quand le backend sera prêt, on ajoute une nouvelle implémentation `BackendMetadataProvider` qui parle à ton API et qui, en interne, appelle Discogs côté serveur. **Côté app, rien d'autre ne change** : on bascule le `@Binds` dans `ProviderModule`, on retire le `DiscogsProvider` direct, l'usecase et les écrans ne bougent pas. L'`AuthStore` change de stratégie (token de session backend au lieu de token Discogs).
+> Une fois la couche métier locale stabilisée (vinyle + manga + vue série), on introduit un **backend dédié** qui devient **le seul point de contact réseau de l'application**. L'app Android ne parle plus jamais directement à Discogs, Google Books, AniList, Rebrickable, BGG, ComicVine, TMDB, etc. : elle parle uniquement à l'API Acervus, qui proxifie / enrichit / cache.
+>
+> Spécifications techniques détaillées : voir **`guide-implementation-backend-aws.md`** (stack AWS serverless TypeScript + DynamoDB, IaC OpenTofu en 3 stacks, ~0-2 €/mois en usage solo).
+
+**Stack backend**
+
+| Couche | Choix |
+|---|---|
+| Runtime | Node.js 20 ARM64 (Lambda Graviton) |
+| Langage | TypeScript |
+| Persistance | DynamoDB on-demand (6 tables : users, collections, items, oauth_credentials, api_cache, rate_limit_buckets, + subscriptions/premium_grants optionnelles) |
+| API | API Gateway HTTP API + Lambda Authorizer JWT |
+| Auth utilisateur | Google Sign-In (id_token) → JWT interne (sub Google haché HMAC-SHA-256 + pepper SSM, privacy-first) |
+| Chiffrement | AES-256-GCM via clé SSM pour les tokens OAuth tiers |
+| IaC | OpenTofu (stacks `stateful` / `platform` / `app`) |
+| Région | `eu-west-3` (Paris) |
+
+**Périmètre fonctionnel**
+
+Le backend remplit cinq rôles, dans cet ordre de priorité :
+
+1. **Proxy d'API externes** — un seul endpoint `/search?type=...&q=...` côté app, qui route en interne vers Discogs / Google Books / AniList / Rebrickable / BGG / ComicVine / TMDB selon le `CollectionType` et la stratégie configurée (`SingleProvider`, `Fallback`, `EnrichChain`). Les clés d'API et secrets restent côté serveur, jamais embarqués dans l'APK.
+2. **Cache partagé** — table `api_cache` DynamoDB avec TTL natif : une recherche faite par un utilisateur bénéficie à tous. Réduit drastiquement la charge sur les API tierces et améliore les temps de réponse côté app.
+3. **Throttling centralisé** — table `rate_limit_buckets` (token bucket par couple `user#provider`) qui protège les quotas de chaque API (notamment Discogs 60 req/min, BGG, Comic Vine).
+4. **OAuth complexes côté serveur** — notamment **Discogs OAuth 1.0a** (signatures HMAC-SHA1, nonce, timestamp) : impossible à faire proprement sur device sans embarquer les consumer secrets ; le backend gère le flow et stocke les tokens chiffrés en `oauth_credentials`.
+5. **Services additionnels** — synchronisation multi-appareils des collections/items, gestion du statut **premium** (Google Play Billing + table `premium_grants` d'overrides admin), futures features collaboratives.
+
+**Périmètre de données**
+
+- **Identité minimale** : aucun email, nom, ou photo stockés. Seul un `google_sub` haché (HMAC-SHA-256 + pepper) sert d'identifiant de login, le `user_id` interne est un UUID opaque.
+- **Données utilisateur** : collections et items, structure miroir de la base Room locale (`unified_data` correspond aux champs de `CollectionItem`).
+- **Pas d'images stockées côté backend** : les jaquettes restent référencées par URL externe ou stockées sur l'appareil (`filesDir/covers/`).
+
+**Impact côté app — minimal**
+
+L'abstraction `MetadataProvider` est conçue dès le MVP pour absorber ce changement :
+
+```kotlin
+// data/remote/providers/backend/BackendMetadataProvider.kt
+class BackendMetadataProvider @Inject constructor(
+    private val api: AcervusBackendApi,
+    private val authStore: BackendAuthStore     // JWT de session, refresh, etc.
+) : MetadataProvider {
+    override val id = "acervus-backend"
+    override val supportedTypes = CollectionType.values().toSet()
+    // L'app ne distingue plus le type côté providers, le backend route.
+    override suspend fun search(query: MetadataQuery) = runCatching {
+        api.search(query.toBackendDto(), authStore.token()).map { it.toMetadataResult() }
+    }
+    // …
+}
+```
+
+Au moment de la bascule, on retire les `@Binds` des providers directs (à ce stade, seul `DiscogsProvider` existe en local côté app — les providers manga, LEGO, BGG, BD… sont ajoutés directement côté backend) du `ProviderModule` Hilt et on laisse uniquement `BackendMetadataProvider`. **Aucun changement dans le domaine, les usecases ou les écrans.** L'`AuthStore` change de stratégie : token de session backend (JWT issu de Google Sign-In) au lieu des tokens par provider.
+
+**Mode dégradé hors-ligne**
+
+L'app reste 100% offline-first pour la lecture/édition locale. Le backend n'est sollicité que pour les actions explicites d'enrichissement (recherche, scan, import par ID). En l'absence de connexion ou de session backend valide :
+- `BackendMetadataProvider.isConfigured()` retourne `false`,
+- les écrans masquent les boutons d'enrichissement et basculent en saisie manuelle,
+- aucune fonctionnalité locale (liste, détail, wishlist, dernière écoute, import/export local) n'est bloquée.
+
+**Statut premium et features payantes (anticipation)**
+
+Le backend prévoit deux sources de premium combinées en OR logique :
+- `subscriptions` : géré exclusivement par Google Play Billing (webhook RTDN + cron de re-vérification toutes les 6h).
+- `premium_grants` : overrides manuels (toi-même, beta-testeurs, comp, support) gérés via un script local TypeScript.
+
+Le statut effectif est résolu côté backend par `getPremiumStatus(userId)` et inclus dans le JWT émis au login (TTL court, ~15 min) pour éviter une lecture DynamoDB sur les endpoints chauds. Côté app, un middleware équivalent gate les features premium (sync multi-appareils, providers premium, exports avancés…).
 
 #### Politique réseau
 
@@ -825,117 +922,6 @@ Pas de permissions au lancement. Tout est demandé contextuellement.
 - **Format** : ktlint + detekt en pre-commit.
 
 ---
-
-## 11. Roadmap
-
-> **État du projet (2026-05-18) : Sprint 6 en cours.** Le projet a démarré sous le nom **VinylCollection**, puis a été renommé **Acervus** au Sprint 4. La numérotation des sprints suit l'historique réel du dépôt et diffère donc de la roadmap cible initiale (où le rebranding et le sprint multi-artistes n'étaient pas anticipés).
-
-### Sprints réalisés
-
-#### Sprint 1 — Fondations [TERMINÉ]
-- Setup projet (initialement `fr.beudaert.mvc`), thème Material You seedé, navigation Compose.
-- Room + entité `Record` + DAO + repository.
-- Écran liste vide + FAB.
-- Écran ajout manuel basique.
-
-#### Sprint 2 — Expérience liste [TERMINÉ]
-- SearchBar Material3 flottante + filtres bottom sheet.
-- Sticky headers alphabétiques.
-- Affichage grisé wishlist.
-- Écran détail complet.
-
-#### Sprint 3 — Médias [TERMINÉ]
-- `CoverStorage` + prise photo + galerie.
-- Coil + placeholders.
-- Édition complète d'un disque.
-
-#### Sprint 4 — Refactoring général & rebranding "Acervus" [TERMINÉ]
-- Renommage application : `VinylCollection` → **`Acervus`** (latin *acervus* = amas, collection — neutre vis-à-vis du type de média, cohérent avec l'abstraction `MetadataProvider` multi-collections).
-- Renommage du package Kotlin : `fr.beudaert.mvc.*` → `fr.beudaert.acervus.*` (déplacement des sources `app/src/main/java/fr/beudaert/mvc/` → `…/acervus/`, idem `src/test/`).
-- Mise à jour Gradle : `namespace = "fr.beudaert.acervus"`, `applicationId = "fr.beudaert.acervus"`.
-- Renommage des classes typées "Vinyl" / "Mvc" :
-  - `MvcApplication` → `AcervusApplication`
-  - `VinylDatabase` → `AcervusDatabase` (nom de fichier SQLite : `vinyl_collection.db` → `acervus.db` — acceptable car pas encore de release Play Store)
-  - `VinylTheme` / `VinylTypography` / `VinylShapes` → `AcervusTheme` / `AcervusTypography` / `AcervusShapes`
-  - `VinylFormat` → `AcervusFormat`
-  - `VinylNavGraph` / `VinylDestinations` → `AcervusNavGraph` / `AcervusDestinations`
-- `AndroidManifest.xml` : `.MvcApplication` → `.AcervusApplication`, thème `@style/Theme.Mvc` → `@style/Theme.Acervus`.
-- Ressources : `app_name` → `"Acervus"` dans `strings.xml` (FR + EN si présent), style `Theme.Mvc` → `Theme.Acervus` dans `themes.xml`.
-- Mise à jour de tous les imports, des tests, et de la documentation (`README.md`, `CLAUDE.md`, ce fichier).
-- Nettoyage du dossier `app/build/` après rename (code généré obsolète, Hilt + Room régénèrent au prochain build).
-
-#### Sprint 5 — Multi-artistes & métadonnées étendues [TERMINÉ]
-- Saisie de plusieurs auteurs/artistes par disque (duo, collaborations).
-- Enregistrement des auteurs dans une table dédiée (`artists`) avec auto-complétion lors de la création/édition d'un album.
-- Champ "type d'enregistrement" (vitesse de gravure) distinct du format physique : certains 33t sont gravés à 45 tr/min — il faut pouvoir le tracer (`RecordingSpeed { RPM_33, RPM_45, RPM_78, OTHER }`).
-- Migration Room : table `artists`, table de jointure `record_artists` (n-n), nouvelle colonne `recording_speed` sur `records`.
-- UI : champ artistes en `ChipGroup` éditable avec suggestions (DropdownMenu sur frappe), nouveau segmented button "Vitesse" dans le formulaire d'édition.
-- **Affichage liste — albums multi-artistes** : toggle dans les Réglages `duplicate_albums_per_artist` (clé DataStore), **activé par défaut**.
-  - **ON (défaut)** : un album à 3 artistes apparaît 3 fois dans la `LazyColumn` (sous chaque lettre du sticky header). Compteur global = `COUNT(DISTINCT record_id)` pour ne compter qu'une fois.
-  - **OFF** : l'album n'apparaît que sous son artiste principal (premier de la liste `record_artists`, ordre préservé via colonne `position`). Les autres artistes sont affichés en sous-titre (`feat. …`).
-  - Implémentation : le DAO expose deux requêtes (`observeFlattenedByArtist()` vs `observeByPrimaryArtist()`), le ViewModel choisit selon le flag du `SettingsRepository`. Clé Compose des lignes = `"$recordId#$artistId"` en mode ON pour éviter les conflits de recomposition.
-
-### Sprint en cours
-
-#### Sprint 6 — Sources externes (abstraction + scan code-barres) [EN COURS]
-- Abstraction `MetadataProvider`, `ProviderRegistry`, `AuthStore` en place (cf. §6).
-- Scan code-barres (ML Kit) — pleine page caméra + overlay viseur.
-- **`DiscogsProvider`** comme première implémentation de l'abstraction.
-- Au scan : déduplication sur `barcode` puis requête Discogs `database/search?barcode=…` si connexion, sinon formulaire pré-rempli.
-
-> **Implémentation arrêtée à ce sprint à ce jour.** Les sprints suivants sont planifiés, non implémentés.
-
-### Sprints planifiés
-
-#### Sprint 7 — Polish vinyle, Import/Export & préparation Play Store [PLANIFIÉ]
-- Animations transitions liste→détail (`SharedTransitionLayout`).
-- Tests UI complets.
-- Accessibilité (contentDescription, TalkBack).
-- Import / Export CSV+JSON (préparation portabilité données utilisateur).
-- Préparation Play Store (icônes, captures, fiche).
-
-#### Sprint 8 — Activer une 2ᵉ collection (LEGO) [PLANIFIÉ]
-- Écran de sélection de collection à la création.
-- `RebrickableProvider` (REST/JSON, le plus simple à intégrer).
-- Mapper `MetadataResult → CollectionItem` dédié à `LEGO_SET`.
-- Réglages : ajout d'API key, gestion `AuthStore` provider.
-- **Valide l'abstraction** sans introduire de complexité supplémentaire.
-- À ce stade, refactor `Record → CollectionItem` (introduction de `collectionType`, `seriesId`, `volumeNumber` nullables).
-
-#### Sprint 9 — Modes de référencement : vue série & 3 états [PLANIFIÉ]
-- Table `SeriesEntity` + DAO.
-- Toggle FLAT / SERIAL dans les filtres (visible selon `CollectionType`).
-- Écran "Détail série" (grille des tomes).
-- États OWNED / WISHLIST / **IGNORED** opérationnels en vue SERIAL.
-- Migration Room : enum `RecordStatus → ItemStatus` (ajout IGNORED).
-- Bascule d'état via tap long sur tile.
-
-#### Sprint 10 — Providers chaînés (manga) [PLANIFIÉ]
-- `GoogleBooksProvider` (REST/JSON, sans clé).
-- `AniListProvider` (GraphQL via Apollo Kotlin).
-- `ProviderStrategy.EnrichChain` implémenté dans `EnrichRecordFromExternalSource`.
-- Test bout-en-bout : scan ISBN d'un tome → Google Books → AniList enrich → `CollectionItem` complet avec `seriesId`.
-
-#### Sprint 11 — BoardGameGeek [PLANIFIÉ]
-- Démarche d'enregistrement application BGG (à lancer **en amont** — vu le délai de réponse, idéalement dès le début du sprint 8).
-- `BggProvider` (XMLAPI2, parsing `xmlutil`).
-- `RateLimitInterceptor` configurable par provider.
-- Retry HTTP 202 avec backoff exponentiel.
-- Cache local agressif (TTL 90j).
-
-#### Sprint 12 — BD [PLANIFIÉ]
-- Activation `COMIC` sur `GoogleBooksProvider` (réutilisation).
-- `ComicVineProvider` en fallback pour comics US.
-- Vue SERIAL pour les longues séries BD (Tintin, Astérix, XIII, Largo Winch…).
-
-#### Sprint 13+ — Backend & au-delà [PLANIFIÉ]
-- Évaluation backend Acervus pour proxifier les providers (gestion centralisée des clés, throttling, cache partagé).
-- Bascule progressive : `BackendMetadataProvider` remplaçant ou enveloppant les providers directs.
-- Synchronisation multi-appareils (post-MVP, post-backend).
-- Vue transverse "créateurs" (auteurs, artistes, mangakas) cross-collection.
-
----
-
 ## 12. Instructions pour l'assistant IA
 
 Quand on te demande d'implémenter ou de modifier une partie de cette app :
@@ -951,4 +937,4 @@ Quand on te demande d'implémenter ou de modifier une partie de cette app :
 
 ---
 
-*Fin du contexte. Version 1.1 — fusion vision cible Acervus + historique réel du projet (Sprint 6 en cours).*
+*Fin du contexte global. Version 1.3 — éclatement du document monolithique `contexte-ia-acervus.md` en un contexte global stable (ce fichier) et une roadmap répartie en un fichier par sprint (`sprint-realises.md` pour l'historique, `sprint-XX-…md` pour chaque sprint planifié). Aucun changement de fond sur les sections 1-10 et 12 par rapport à la 1.2.*
