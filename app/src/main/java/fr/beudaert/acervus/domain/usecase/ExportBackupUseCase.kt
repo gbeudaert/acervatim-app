@@ -1,7 +1,6 @@
 package fr.beudaert.acervus.domain.usecase
 
-import fr.beudaert.acervus.data.backup.BackupCoverIo
-import fr.beudaert.acervus.data.backup.BackupZip
+import fr.beudaert.acervus.domain.repository.BackupGateway
 import fr.beudaert.acervus.domain.repository.RecordRepository
 import fr.beudaert.acervus.domain.repository.SeriesRepository
 import kotlinx.coroutines.CoroutineDispatcher
@@ -14,7 +13,7 @@ import javax.inject.Inject
 class ExportBackupUseCase @Inject constructor(
     private val recordRepository: RecordRepository,
     private val seriesRepository: SeriesRepository,
-    private val coverIo: BackupCoverIo,
+    private val backupGateway: BackupGateway,
     private val clock: Clock
 ) {
     internal var ioDispatcher: CoroutineDispatcher = Dispatchers.IO
@@ -30,15 +29,14 @@ class ExportBackupUseCase @Inject constructor(
     ): Result = withContext(ioDispatcher) {
         val records = recordRepository.listAll()
         val series = seriesRepository.listAll()
-        BackupZip.write(
+        val summary = backupGateway.export(
             output = output,
             records = records,
             series = series,
-            coverFileResolver = { path -> coverIo.resolveExistingCover(path) },
             exportedAt = clock.instant(),
             appVersionName = appVersionName
         )
-        Result(recordCount = records.size, seriesCount = series.size)
+        Result(recordCount = summary.recordCount, seriesCount = summary.seriesCount)
     }
 
     data class Result(val recordCount: Int, val seriesCount: Int)

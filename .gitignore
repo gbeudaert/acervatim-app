@@ -30,3 +30,6 @@ contexte-ia-vinylcollection.md
 # Le contexte global (docs/contexte-global.md) reste versionné ; tout ce qui
 # vit sous docs/interne/ est local et n'est pas commité.
 /docs/interne/
+
+# Rapports de code review générés localement (multi-agents) — non versionnés.
+/docs/review/

@@ -1,9 +1,8 @@
 package fr.beudaert.acervus.ui.edit
 
-import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
-import fr.beudaert.acervus.data.local.storage.CoverStorage
+import fr.beudaert.acervus.domain.repository.CoverStorage
 import fr.beudaert.acervus.domain.FakeRecordRepository
 import fr.beudaert.acervus.domain.model.AcervusFormat
 import fr.beudaert.acervus.domain.model.Artist
@@ -217,7 +216,7 @@ class AddEditRecordViewModelTest {
         assertEquals(1, coverStorage.saveCalls.size)
         val (recordId, uri) = coverStorage.saveCalls.single()
         assertEquals(vm.formState.value.recordId, recordId)
-        assertEquals("content://test/photo.jpg", uri.toString())
+        assertEquals("content://test/photo.jpg", uri)
 
         var list: List<Record> = emptyList()
         repository.observeAll().test {
@@ -300,11 +299,11 @@ class AddEditRecordViewModelTest {
 }
 
 private class FakeCoverStorage : CoverStorage {
-    val saveCalls = mutableListOf<Pair<String, Uri>>()
+    val saveCalls = mutableListOf<Pair<String, String>>()
     private val deleteCalls = mutableListOf<String>()
 
-    override suspend fun saveFromUri(recordId: String, uri: Uri): String {
-        saveCalls += recordId to uri
+    override suspend fun saveFromUri(recordId: String, uriString: String): String {
+        saveCalls += recordId to uriString
         return pathFor(recordId)
     }
 

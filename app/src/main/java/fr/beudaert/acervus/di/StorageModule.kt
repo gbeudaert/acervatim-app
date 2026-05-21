@@ -6,8 +6,10 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import fr.beudaert.acervus.data.backup.BackupCoverIo
 import fr.beudaert.acervus.data.backup.BackupCoverIoImpl
-import fr.beudaert.acervus.data.local.storage.CoverStorage
+import fr.beudaert.acervus.data.backup.BackupGatewayImpl
 import fr.beudaert.acervus.data.local.storage.CoverStorageImpl
+import fr.beudaert.acervus.domain.repository.BackupGateway
+import fr.beudaert.acervus.domain.repository.CoverStorage
 import javax.inject.Singleton
 
 @Module
@@ -21,4 +23,8 @@ abstract class StorageModule {
     @Binds
     @Singleton
     abstract fun bindBackupCoverIo(impl: BackupCoverIoImpl): BackupCoverIo
+
+    @Binds
+    @Singleton
+    abstract fun bindBackupGateway(impl: BackupGatewayImpl): BackupGateway
 }

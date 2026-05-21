@@ -7,6 +7,7 @@ import android.graphics.Matrix
 import android.net.Uri
 import androidx.exifinterface.media.ExifInterface
 import dagger.hilt.android.qualifiers.ApplicationContext
+import fr.beudaert.acervus.domain.repository.CoverStorage
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -28,8 +29,9 @@ class CoverStorageImpl @Inject constructor(
     override fun pathFor(recordId: String): String =
         File(coversDir(), "$recordId$EXT").absolutePath
 
-    override suspend fun saveFromUri(recordId: String, uri: Uri): String =
+    override suspend fun saveFromUri(recordId: String, uriString: String): String =
         withContext(ioDispatcher) {
+            val uri = Uri.parse(uriString)
             val resolver = context.contentResolver
             val bitmap = resolver.openInputStream(uri)?.use { decodeDownsampled(it) }
                 ?: throw IOException("Cannot open URI: $uri")

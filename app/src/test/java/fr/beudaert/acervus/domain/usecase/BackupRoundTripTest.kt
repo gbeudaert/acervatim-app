@@ -1,6 +1,8 @@
 package fr.beudaert.acervus.domain.usecase
 
 import fr.beudaert.acervus.data.backup.BackupCoverIo
+import fr.beudaert.acervus.data.backup.BackupGatewayImpl
+import fr.beudaert.acervus.data.backup.BackupZip
 import fr.beudaert.acervus.domain.FakeRecordRepository
 import fr.beudaert.acervus.domain.FakeSeriesRepository
 import fr.beudaert.acervus.domain.model.AcervusFormat
@@ -101,9 +103,10 @@ class BackupRoundTripTest {
             )
         )
 
-        val export = ExportBackupUseCase(recordRepo, seriesRepo, coverIo, clock)
+        val gateway = BackupGatewayImpl(coverIo)
+        val export = ExportBackupUseCase(recordRepo, seriesRepo, gateway, clock)
             .apply { ioDispatcher = UnconfinedTestDispatcher() }
-        val import = ImportBackupUseCase(recordRepo, seriesRepo, coverIo)
+        val import = ImportBackupUseCase(recordRepo, seriesRepo, gateway)
             .apply { ioDispatcher = UnconfinedTestDispatcher() }
 
         // 1. Export
@@ -158,14 +161,70 @@ class BackupRoundTripTest {
     }
 
     @Test
+    fun `import rejects malicious record id without wiping existing data`() = runTest {
+        val recordRepo = FakeRecordRepository()
+        val seriesRepo = FakeSeriesRepository()
+        val coverIo = FakeBackupCoverIo(tempFolder.root)
+
+        // Donnée existante à protéger : doit survivre à un import malformé.
+        val existing = Record(
+            id = UUID.randomUUID().toString(),
+            collectionType = CollectionType.VINYL,
+            artists = listOf(Artist(id = "x", name = "Keep me")),
+            title = "Existing — must not be wiped",
+            status = ItemStatus.OWNED,
+            createdAt = fixedInstant,
+            updatedAt = fixedInstant
+        )
+        recordRepo.upsert(existing)
+
+        // Backup malicieux : id contenant un path traversal (`../...`).
+        val malicious = Record(
+            id = "../../../databases/acervus",
+            collectionType = CollectionType.VINYL,
+            artists = listOf(Artist(id = "y", name = "Evil")),
+            title = "Pwn",
+            status = ItemStatus.OWNED,
+            createdAt = fixedInstant,
+            updatedAt = fixedInstant
+        )
+        val buffer = ByteArrayOutputStream()
+        BackupZip.write(
+            output = buffer,
+            records = listOf(malicious),
+            series = emptyList(),
+            coverFileResolver = { null },
+            exportedAt = fixedInstant,
+            appVersionName = "evil"
+        )
+
+        val gateway = BackupGatewayImpl(coverIo)
+        val import = ImportBackupUseCase(recordRepo, seriesRepo, gateway)
+            .apply { ioDispatcher = UnconfinedTestDispatcher() }
+
+        val error = try {
+            import(ByteArrayInputStream(buffer.toByteArray()))
+            null
+        } catch (e: IllegalArgumentException) {
+            e
+        }
+        assertNotNull("l'import doit refuser un id malicieux", error)
+
+        // Crucial : la donnée pré-existante NE doit PAS avoir été effacée.
+        assertEquals(1, recordRepo.listAll().size)
+        assertEquals(existing.id, recordRepo.listAll().single().id)
+    }
+
+    @Test
     fun `import wipes existing data before restoring`() = runTest {
         val recordRepo = FakeRecordRepository()
         val seriesRepo = FakeSeriesRepository()
         val coverIo = FakeBackupCoverIo(tempFolder.root)
 
-        val export = ExportBackupUseCase(recordRepo, seriesRepo, coverIo, clock)
+        val gateway = BackupGatewayImpl(coverIo)
+        val export = ExportBackupUseCase(recordRepo, seriesRepo, gateway, clock)
             .apply { ioDispatcher = UnconfinedTestDispatcher() }
-        val import = ImportBackupUseCase(recordRepo, seriesRepo, coverIo)
+        val import = ImportBackupUseCase(recordRepo, seriesRepo, gateway)
             .apply { ioDispatcher = UnconfinedTestDispatcher() }
 
         // Export d'un état VIDE.

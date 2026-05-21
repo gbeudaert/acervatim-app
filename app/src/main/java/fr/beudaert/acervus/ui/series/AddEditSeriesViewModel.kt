@@ -1,12 +1,11 @@
 package fr.beudaert.acervus.ui.series
 
-import android.net.Uri
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import fr.beudaert.acervus.data.local.storage.CoverStorage
+import fr.beudaert.acervus.domain.repository.CoverStorage
 import fr.beudaert.acervus.domain.model.CollectionType
 import fr.beudaert.acervus.domain.model.Series
 import fr.beudaert.acervus.domain.usecase.DuplicateSeriesException
@@ -120,7 +119,7 @@ class AddEditSeriesViewModel @Inject constructor(
         if (pending != null) {
             // Le coverPath des séries partage le même répertoire que celui des records :
             // l'id est unique (UUID), aucune collision possible.
-            return coverStorage.saveFromUri(state.seriesId, Uri.parse(pending))
+            return coverStorage.saveFromUri(state.seriesId, pending)
         }
         return state.persistedCoverPath
     }

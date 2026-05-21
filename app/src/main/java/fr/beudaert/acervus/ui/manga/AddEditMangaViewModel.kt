@@ -1,12 +1,11 @@
 package fr.beudaert.acervus.ui.manga
 
-import android.net.Uri
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import fr.beudaert.acervus.data.local.storage.CoverStorage
+import fr.beudaert.acervus.domain.repository.CoverStorage
 import fr.beudaert.acervus.domain.model.CollectionType
 import fr.beudaert.acervus.domain.model.ItemStatus
 import fr.beudaert.acervus.domain.model.MangaDemographic
@@ -144,7 +143,7 @@ class AddEditMangaViewModel @Inject constructor(
     private suspend fun resolveCoverPath(state: AddMangaFormState): String? {
         val pending = state.pendingCoverUri
         if (pending != null) {
-            return coverStorage.saveFromUri(state.recordId, Uri.parse(pending))
+            return coverStorage.saveFromUri(state.recordId, pending)
         }
         return state.persistedCoverPath
     }

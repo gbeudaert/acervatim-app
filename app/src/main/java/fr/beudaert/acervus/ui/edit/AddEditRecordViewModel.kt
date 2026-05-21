@@ -1,12 +1,11 @@
 package fr.beudaert.acervus.ui.edit
 
-import android.net.Uri
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import fr.beudaert.acervus.data.local.storage.CoverStorage
+import fr.beudaert.acervus.domain.repository.CoverStorage
 import fr.beudaert.acervus.domain.model.AcervusFormat
 import fr.beudaert.acervus.domain.model.Record
 import fr.beudaert.acervus.domain.model.ItemStatus
@@ -157,7 +156,7 @@ class AddEditRecordViewModel @Inject constructor(
     private suspend fun resolveCoverPath(state: AddRecordFormState): String? {
         val pending = state.pendingCoverUri
         if (pending != null) {
-            return coverStorage.saveFromUri(state.recordId, Uri.parse(pending))
+            return coverStorage.saveFromUri(state.recordId, pending)
         }
         return state.persistedCoverPath
     }

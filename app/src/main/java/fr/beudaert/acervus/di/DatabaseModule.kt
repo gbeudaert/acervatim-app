@@ -24,7 +24,6 @@ object DatabaseModule {
     fun provideAcervusDatabase(@ApplicationContext context: Context): AcervusDatabase =
         Room.databaseBuilder(context, AcervusDatabase::class.java, AcervusDatabase.NAME)
             .addMigrations(MIGRATION_1_2)
-            .fallbackToDestructiveMigration()
             .build()
 
     @Provides
