@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Acervus</string>
+    <string name="app_name">Acervatim</string>
     <string name="app_title">Ma collection</string>
 
     <!-- Collection screen -->
@@ -172,7 +172,7 @@
     <string name="settings_data_import">Restaurer depuis une sauvegarde</string>
     <string name="settings_data_import_subtitle">Remplace toute la collection actuelle par le contenu du fichier.</string>
     <string name="settings_data_busy">Opération en cours…</string>
-    <string name="backup_default_filename">acervus-backup-%1$s.zip</string>
+    <string name="backup_default_filename">acervatim-backup-%1$s.zip</string>
     <string name="backup_export_success">Sauvegarde exportée (%1$d disques, %2$d séries).</string>
     <string name="backup_export_error">Échec de l\'export : %1$s</string>
     <string name="backup_import_confirm_title">Restaurer cette sauvegarde ?</string>
@@ -208,4 +208,33 @@
     <string name="action_edit">Modifier</string>
     <string name="action_delete">Supprimer</string>
     <string name="action_more">Plus d\'actions</string>
+
+    <!-- Compte & synchronisation (branchement backend) -->
+    <!--
+      ID client OAuth de type Web de la console Google Cloud (NON secret, peut être commité).
+      À remplacer par la vraie valeur du projet Google Cloud avant d'utiliser la connexion.
+    -->
+    <string name="google_server_client_id" translatable="false">REPLACE_WITH_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com</string>
+    <string name="account_title">Compte &amp; synchronisation</string>
+    <string name="account_open">Compte</string>
+    <string name="account_signed_out_title">Synchronisez votre collection</string>
+    <string name="account_signed_out_subtitle">Connectez-vous avec Google pour sauvegarder et retrouver votre collection sur tous vos appareils. L\'app reste utilisable sans connexion.</string>
+    <string name="account_sign_in">Se connecter avec Google</string>
+    <string name="account_sign_in_error">Échec de la connexion : %1$s</string>
+    <string name="account_sign_in_cancelled">Connexion annulée.</string>
+    <string name="account_signed_in_as">Connecté · %1$s</string>
+    <string name="account_session_expired">Session expirée — reconnectez-vous pour synchroniser.</string>
+    <string name="account_sign_out">Se déconnecter</string>
+    <string name="account_delete">Supprimer mon compte</string>
+    <string name="account_delete_confirm_title">Supprimer le compte ?</string>
+    <string name="account_delete_confirm_message">Toutes vos données côté serveur seront définitivement supprimées. Votre collection locale est conservée.</string>
+    <string name="account_delete_success">Compte supprimé côté serveur.</string>
+    <string name="account_delete_error">Échec de la suppression : %1$s</string>
+
+    <string name="sync_now">Synchroniser maintenant</string>
+    <string name="sync_status_idle">Jamais synchronisé</string>
+    <string name="sync_status_running">Synchronisation en cours…</string>
+    <string name="sync_status_last">Dernière synchro : %1$s</string>
+    <string name="sync_status_error">Échec de la synchro : %1$s</string>
+    <string name="sync_requires_sign_in">Connectez-vous pour synchroniser.</string>
 </resources>

@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "acervus"
+rootProject.name = "acervatim"
 include(":app")

@@ -1,6 +1,6 @@
-# Acervus
+# Acervatim
 
-> *acervus* (lat.) — un amas, une collection.
+> *acervatim* (lat.) — en monceaux, par accumulation. De *acervus* « tas, amas, collection ».
 
 Application Android open source pour cataloguer vos collections. Démarre par les **disques vinyles**, conçue pour s'étendre à d'autres types de collections (livres, jeux, BD…).
 
@@ -29,7 +29,7 @@ Suivez l'avancement via les *issues* et la [roadmap](#roadmap).
 
 ---
 
-## Pourquoi Acervus ?
+## Pourquoi Acervatim ?
 
 - **100 % hors-ligne** par défaut : vos données restent sur votre appareil, aucune télémétrie, aucun compte.
 - **Multi-collections** : la même app sert demain à gérer vinyles, livres, jeux vidéo, BD… Le modèle de données est pensé pour ça.
@@ -40,7 +40,7 @@ Suivez l'avancement via les *issues* et la [roadmap](#roadmap).
 
 ## Deux phases de fonctionnement
 
-Acervus est conçu autour de deux modes complémentaires.
+Acervatim est conçu autour de deux modes complémentaires.
 
 ### 1. Mode hors-ligne (par défaut, MVP)
 
@@ -52,7 +52,7 @@ Tout fonctionne sans connexion. L'utilisateur saisit manuellement les fiches :
 - Import / export local en CSV / JSON
 - Aucune permission réseau requise pour ce mode
 
-C'est le scénario garanti : Acervus reste utilisable même sans internet, sans compte, sans serveur.
+C'est le scénario garanti : Acervatim reste utilisable même sans internet, sans compte, sans serveur.
 
 ### 2. Mode en ligne (planifié, opt-in)
 
@@ -93,7 +93,7 @@ Versions précises : voir [`gradle/libs.versions.toml`](gradle/libs.versions.tom
 ## Architecture en bref
 
 ```
-app/src/main/java/fr/beudaert/acervus/
+app/src/main/java/fr/beudaert/acervatim/
 ├── di/                # Modules Hilt
 ├── data/              # Room, stockage local, providers réseau
 ├── domain/            # Modèles, usecases, contrats provider
@@ -118,8 +118,8 @@ app/src/main/java/fr/beudaert/acervus/
 ### Cloner et lancer (Windows / PowerShell)
 
 ```powershell
-git clone https://github.com/<user>/acervus.git
-cd acervus
+git clone https://github.com/<user>/acervatim.git
+cd acervatim
 .\gradlew.bat assembleDebug          # build APK debug
 .\gradlew.bat installDebug           # installer sur appareil/émulateur
 .\gradlew.bat test                   # tests unitaires

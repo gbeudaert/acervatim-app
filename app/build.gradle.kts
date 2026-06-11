@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "fr.beudaert.acervus"
+    namespace = "fr.beudaert.acervatim"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "fr.beudaert.acervus"
+        applicationId = "fr.beudaert.acervatim"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
@@ -25,12 +25,17 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Backend de développement (émulateur → host machine via 10.0.2.2, ou host de staging).
+            buildConfigField("String", "API_BASE_URL", "\"https://api-dev.acervatim.fr/\"")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            buildConfigField("String", "API_BASE_URL", "\"https://api.acervatim.fr/\"")
         }
     }
 
@@ -46,6 +51,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     testOptions {
@@ -105,8 +111,25 @@ dependencies {
     // DataStore Preferences (user settings)
     implementation(libs.androidx.datastore.preferences)
 
-    // JSON serialization (backup export / import)
+    // JSON serialization (backup export / import + DTO réseau)
     implementation(libs.kotlinx.serialization.json)
+
+    // Réseau — backend Acervatim (Retrofit + OkHttp, converter kotlinx.serialization)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.kotlinx.serialization)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging.interceptor)
+
+    // Auth — Google Sign-In (Credential Manager) + stockage chiffré du JWT
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
+    implementation(libs.androidx.security.crypto)
+
+    // Synchronisation planifiée en arrière-plan
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
 
     // Hilt
     implementation(libs.hilt.android)

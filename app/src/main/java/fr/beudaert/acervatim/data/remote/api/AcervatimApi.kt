@@ -1,0 +1,178 @@
+package fr.beudaert.acervatim.data.remote.api
+
+import fr.beudaert.acervatim.data.remote.dto.AttachSourceRequest
+import fr.beudaert.acervatim.data.remote.dto.CollectionDto
+import fr.beudaert.acervatim.data.remote.dto.ConnectedProviderDto
+import fr.beudaert.acervatim.data.remote.dto.CreateCollectionRequest
+import fr.beudaert.acervatim.data.remote.dto.CreateItemRequest
+import fr.beudaert.acervatim.data.remote.dto.CreateNodeRequest
+import fr.beudaert.acervatim.data.remote.dto.DeletedResponse
+import fr.beudaert.acervatim.data.remote.dto.ItemDto
+import fr.beudaert.acervatim.data.remote.dto.MeResponse
+import fr.beudaert.acervatim.data.remote.dto.NodeDto
+import fr.beudaert.acervatim.data.remote.dto.OAuthStartResponse
+import fr.beudaert.acervatim.data.remote.dto.PageDto
+import fr.beudaert.acervatim.data.remote.dto.PatchCollectionRequest
+import fr.beudaert.acervatim.data.remote.dto.PatchItemRequest
+import fr.beudaert.acervatim.data.remote.dto.PatchNodeRequest
+import fr.beudaert.acervatim.data.remote.dto.QuotaResponse
+import fr.beudaert.acervatim.data.remote.dto.RedeemInvitationRequest
+import fr.beudaert.acervatim.data.remote.dto.RedeemInvitationResponse
+import fr.beudaert.acervatim.data.remote.dto.SourceWithRawDto
+import fr.beudaert.acervatim.data.remote.dto.SubscriptionDto
+import fr.beudaert.acervatim.data.remote.dto.UnifiedItemDto
+import fr.beudaert.acervatim.data.remote.dto.VerifySubscriptionRequest
+import kotlinx.serialization.json.JsonObject
+import retrofit2.Response
+import retrofit2.http.Body
+import retrofit2.http.DELETE
+import retrofit2.http.GET
+import retrofit2.http.PATCH
+import retrofit2.http.POST
+import retrofit2.http.Path
+import retrofit2.http.Query
+
+/**
+ * API métier du backend Acervatim (toutes routes JWT requis). Le `Authorization: Bearer` est ajouté
+ * par [fr.beudaert.acervatim.data.remote.interceptor.AuthInterceptor]. Récapitulatif des endpoints : §14.
+ *
+ * Les erreurs non-2xx sont converties en [fr.beudaert.acervatim.data.remote.error.ApiException] par
+ * l'`ErrorInterceptor` ; les méthodes renvoient donc directement le DTO de succès. Les réponses `204`
+ * (sans corps) renvoient `Response<Unit>`.
+ */
+interface AcervatimApi {
+
+    // ---- /me (§4) ----------------------------------------------------------------------------
+
+    @GET("v1/me")
+    suspend fun me(): MeResponse
+
+    @GET("v1/me/quota")
+    suspend fun quota(): QuotaResponse
+
+    @DELETE("v1/me")
+    suspend fun deleteAccount(): DeletedResponse
+
+    // ---- Collections (§5) --------------------------------------------------------------------
+
+    @POST("v1/collections")
+    suspend fun createCollection(@Body body: CreateCollectionRequest): CollectionDto
+
+    @GET("v1/collections")
+    suspend fun listCollections(
+        @Query("cursor") cursor: String? = null,
+        @Query("limit") limit: Int? = null,
+        @Query("type[in]") typeIn: String? = null,
+        @Query("items[in]") itemsIn: String? = null,
+        @Query("items[all]") itemsAll: String? = null
+    ): PageDto<CollectionDto>
+
+    @GET("v1/collections/{id}")
+    suspend fun getCollection(@Path("id") id: String): CollectionDto
+
+    @PATCH("v1/collections/{id}")
+    suspend fun patchCollection(
+        @Path("id") id: String,
+        @Body body: PatchCollectionRequest
+    ): CollectionDto
+
+    @DELETE("v1/collections/{id}")
+    suspend fun deleteCollection(@Path("id") id: String): Response<Unit>
+
+    // ---- Items (§6) --------------------------------------------------------------------------
+
+    @POST("v1/collections/{collectionId}/items")
+    suspend fun createItem(
+        @Path("collectionId") collectionId: String,
+        @Body body: CreateItemRequest
+    ): ItemDto
+
+    /** Vue légère (projection dépendant du type, §9.3) — capturée en `JsonObject`. */
+    @GET("v1/collections/{collectionId}/items")
+    suspend fun listItems(
+        @Path("collectionId") collectionId: String,
+        @Query("cursor") cursor: String? = null,
+        @Query("limit") limit: Int? = null,
+        @Query("provider[in]") providerIn: String? = null,
+        @Query("nodeId") nodeId: String? = null
+    ): PageDto<JsonObject>
+
+    @GET("v1/items/{id}")
+    suspend fun getItem(@Path("id") id: String): ItemDto
+
+    @GET("v1/items/{id}/sources")
+    suspend fun getItemSources(@Path("id") id: String): List<SourceWithRawDto>
+
+    @POST("v1/items/{id}/sources")
+    suspend fun attachItemSource(
+        @Path("id") id: String,
+        @Body body: AttachSourceRequest
+    ): ItemDto
+
+    @PATCH("v1/items/{id}")
+    suspend fun patchItem(@Path("id") id: String, @Body body: PatchItemRequest): ItemDto
+
+    @DELETE("v1/items/{id}")
+    suspend fun deleteItem(@Path("id") id: String): Response<Unit>
+
+    // ---- Nodes (§7) --------------------------------------------------------------------------
+
+    @POST("v1/collections/{collectionId}/nodes")
+    suspend fun createNode(
+        @Path("collectionId") collectionId: String,
+        @Body body: CreateNodeRequest
+    ): NodeDto
+
+    @GET("v1/collections/{collectionId}/nodes")
+    suspend fun listNodes(
+        @Path("collectionId") collectionId: String,
+        @Query("cursor") cursor: String? = null,
+        @Query("limit") limit: Int? = null,
+        @Query("level") level: String? = null
+    ): PageDto<NodeDto>
+
+    @GET("v1/nodes/{id}")
+    suspend fun getNode(@Path("id") id: String): NodeDto
+
+    @GET("v1/nodes/{id}/sources")
+    suspend fun getNodeSources(@Path("id") id: String): List<SourceWithRawDto>
+
+    /** `PATCH` peut purger un nœud vide (`isWishlist:false`) → `204` sans corps, d'où `Response`. */
+    @PATCH("v1/nodes/{id}")
+    suspend fun patchNode(@Path("id") id: String, @Body body: PatchNodeRequest): Response<NodeDto>
+
+    @POST("v1/nodes/{id}/sources")
+    suspend fun attachNodeSource(
+        @Path("id") id: String,
+        @Body body: AttachSourceRequest
+    ): NodeDto
+
+    // ---- Recherche externe (§8) --------------------------------------------------------------
+
+    @GET("v1/search")
+    suspend fun search(
+        @Query("q") query: String,
+        @Query("type") type: String,
+        @Query("cursor") cursor: String? = null,
+        @Query("limit") limit: Int? = null
+    ): PageDto<UnifiedItemDto>
+
+    // ---- OAuth utilisateur (§10) -------------------------------------------------------------
+
+    @GET("v1/oauth/{provider}/start")
+    suspend fun startOAuth(@Path("provider") provider: String): OAuthStartResponse
+
+    @GET("v1/oauth")
+    suspend fun connectedProviders(): PageDto<ConnectedProviderDto>
+
+    @DELETE("v1/oauth/{provider}")
+    suspend fun revokeOAuth(@Path("provider") provider: String): Response<Unit>
+
+    // ---- Premium (§11) -----------------------------------------------------------------------
+
+    @POST("v1/subscriptions/verify")
+    suspend fun verifySubscription(@Body body: VerifySubscriptionRequest): SubscriptionDto
+
+    @POST("v1/invitations/redeem")
+    suspend fun redeemInvitation(@Body body: RedeemInvitationRequest): RedeemInvitationResponse
+}

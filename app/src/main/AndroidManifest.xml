@@ -10,7 +10,7 @@
         android:required="false" />
 
     <application
-        android:name=".AcervusApplication"
+        android:name="fr.beudaert.acervatim.AcervatimApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -18,13 +18,13 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Acervus"
+        android:theme="@style/Theme.Acervatim"
         tools:targetApi="31">
         <activity
-            android:name=".MainActivity"
+            android:name="fr.beudaert.acervatim.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.Acervus">
+            android:theme="@style/Theme.Acervatim">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -39,6 +39,21 @@
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
+        </provider>
+
+        <!--
+          WorkManager est initialisé via Configuration.Provider (Hilt) dans AcervatimApplication :
+          on retire l'initialiseur automatique androidx.startup pour éviter la double init.
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
         </provider>
     </application>
 

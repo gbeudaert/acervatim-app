@@ -1,0 +1,135 @@
+package fr.beudaert.acervatim.data.remote.mapper
+
+import fr.beudaert.acervatim.data.remote.dto.AttachSourceRequest
+import fr.beudaert.acervatim.data.remote.dto.CollectionDto
+import fr.beudaert.acervatim.data.remote.dto.CreateCollectionRequest
+import fr.beudaert.acervatim.data.remote.dto.CreateItemRequest
+import fr.beudaert.acervatim.data.remote.dto.CreateNodeRequest
+import fr.beudaert.acervatim.data.remote.dto.ItemDto
+import fr.beudaert.acervatim.data.remote.dto.NodeDto
+import fr.beudaert.acervatim.data.remote.dto.PatchCollectionRequest
+import fr.beudaert.acervatim.data.remote.dto.PatchItemRequest
+import fr.beudaert.acervatim.data.remote.dto.PatchNodeRequest
+import fr.beudaert.acervatim.data.remote.dto.SourceDto
+import fr.beudaert.acervatim.data.remote.dto.SourceRefDto
+import fr.beudaert.acervatim.domain.model.sync.RemoteCollection
+import fr.beudaert.acervatim.domain.model.sync.RemoteItem
+import fr.beudaert.acervatim.domain.model.sync.RemoteNode
+import fr.beudaert.acervatim.domain.model.sync.RemoteSource
+import fr.beudaert.acervatim.domain.model.sync.SyncState
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import java.time.Instant
+import java.time.format.DateTimeParseException
+
+/**
+ * Conversion entre les DTO de transport et les modèles « miroir » du domaine
+ * ([RemoteCollection]/[RemoteNode]/[RemoteItem]). Fonctions pures (testables en JVM).
+ *
+ * Les `localId` ne viennent jamais du back : ils sont fournis par le moteur de sync lors de la
+ * réconciliation `remoteId → ligne locale`. Les ressources venant du serveur sont marquées
+ * [SyncState.SYNCED].
+ */
+object RemoteDtoMapper {
+
+    // ---- DTO → domaine (pull) ---------------------------------------------------------------
+
+    fun CollectionDto.toRemote(localId: String): RemoteCollection = RemoteCollection(
+        localId = localId,
+        remoteId = id,
+        type = type,
+        name = name,
+        description = description,
+        itemCount = itemCount,
+        syncState = SyncState.SYNCED,
+        updatedAt = parseInstant(updatedAt),
+        serverUpdatedAt = parseInstant(updatedAt)
+    )
+
+    fun ItemDto.toRemote(localId: String, collectionLocalId: String, nodeLocalId: String?): RemoteItem =
+        RemoteItem(
+            localId = localId,
+            remoteId = id,
+            collectionLocalId = collectionLocalId,
+            nodeLocalId = nodeLocalId,
+            volume = volume,
+            unifiedData = unifiedData,
+            sources = sources.map { it.toRemote() },
+            syncState = SyncState.SYNCED,
+            updatedAt = parseInstant(updatedAt),
+            serverUpdatedAt = parseInstant(updatedAt)
+        )
+
+    fun NodeDto.toRemote(localId: String, collectionLocalId: String, updatedAt: Instant): RemoteNode =
+        RemoteNode(
+            localId = localId,
+            remoteId = id,
+            collectionLocalId = collectionLocalId,
+            level = level,
+            isWishlist = isWishlist,
+            ownedCount = ownedCount,
+            note = userData.note,
+            comment = userData.comment,
+            unifiedData = flattenedUnifiedData(),
+            sources = sources.map { it.toRemote() },
+            syncState = SyncState.SYNCED,
+            updatedAt = updatedAt,
+            serverUpdatedAt = updatedAt
+        )
+
+    private fun SourceDto.toRemote(): RemoteSource =
+        RemoteSource(provider = provider, externalId = externalId, fetchedAt = fetchedAt?.let { parseInstantOrNull(it) })
+
+    /** Reconstruit le `unifiedData` du nœud à partir des champs étalés à plat du contrat (§7). */
+    private fun NodeDto.flattenedUnifiedData(): JsonObject = buildJsonObject {
+        title?.let { put("title", it) }
+        author?.let { put("author", it) }
+        status?.let { put("status", it) }
+        totalCount?.let { put("totalCount", it) }
+        rating?.let { put("rating", it) }
+        synopsis?.let { put("synopsis", it) }
+        coverUrl?.let { put("coverUrl", it) }
+    }
+
+    // ---- domaine → DTO de requête (push) ----------------------------------------------------
+
+    fun RemoteCollection.toCreateRequest(): CreateCollectionRequest =
+        CreateCollectionRequest(typeCode = type, name = name, description = description)
+
+    fun RemoteCollection.toPatchRequest(): PatchCollectionRequest =
+        PatchCollectionRequest(name = name, description = description)
+
+    fun RemoteItem.toCreateRequest(nodeRef: SourceRefDto?): CreateItemRequest = CreateItemRequest(
+        unifiedData = unifiedData,
+        node = nodeRef,
+        volume = volume,
+        sources = sources.map { SourceRefDto(it.provider, it.externalId) }.ifEmpty { null }
+    )
+
+    fun RemoteItem.toPatchRequest(): PatchItemRequest = PatchItemRequest(unifiedData = unifiedData)
+
+    fun RemoteNode.toCreateRequest(source: SourceRefDto): CreateNodeRequest =
+        CreateNodeRequest(level = level, source = source, isWishlist = isWishlist)
+
+    fun RemoteNode.toPatchRequest(): PatchNodeRequest = PatchNodeRequest(
+        unifiedData = unifiedData,
+        note = note,
+        comment = comment,
+        isWishlist = isWishlist
+    )
+
+    fun RemoteSource.toAttachRequest(): AttachSourceRequest =
+        AttachSourceRequest(provider = provider, externalId = externalId)
+
+    // ---- parsing ISO-8601 -------------------------------------------------------------------
+
+    /** Parse une date ISO-8601 ; en dernier recours renvoie l'epoch (le back garantit le format). */
+    fun parseInstant(iso: String): Instant = parseInstantOrNull(iso) ?: Instant.EPOCH
+
+    fun parseInstantOrNull(iso: String): Instant? = try {
+        Instant.parse(iso)
+    } catch (_: DateTimeParseException) {
+        null
+    }
+}

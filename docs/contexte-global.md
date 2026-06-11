@@ -1,6 +1,6 @@
-# Contexte IA — Acervus (contexte global)
+# Contexte IA — Acervatim (contexte global)
 
-> Document de référence destiné à un assistant IA développeur (Claude Code, Cursor, etc.) pour générer, faire évoluer et maintenir **Acervus**, une application Android multi-collections.
+> Document de référence destiné à un assistant IA développeur (Claude Code, Cursor, etc.) pour générer, faire évoluer et maintenir **Acervatim**, une application Android multi-collections.
 >
 > Ce fichier décrit l'app de façon stable (vision, stack, architecture, modèle, UI, règles métier, conventions). À charger **dans tout contexte de travail** — sprint, correction d'anomalie, étude d'évolution.
 >
@@ -9,15 +9,15 @@
 > - `docs/interne/sprint-09-polish-vinyle-manga-play-store.md` à `sprint-16-au-dela.md` — un fichier par sprint planifié.
 > - `docs/interne/playstore-deployment.md` — guide de déploiement Play Store.
 
-**Étymologie.** *Acervus* (latin, masc., 2ᵉ déclinaison) : « tas, monceau, amas » — par extension, « accumulation, multitude ». Donne aussi son nom au *paradoxe sorite* en logique : à partir de combien de grains a-t-on un tas ?
+**Étymologie.** *Acervatim* (latin, masc., 2ᵉ déclinaison) : « tas, monceau, amas » — par extension, « accumulation, multitude ». Donne aussi son nom au *paradoxe sorite* en logique : à partir de combien de grains a-t-on un tas ?
 
-**Package applicatif.** `fr.beudaert.acervus` (reverse-DNS sur domaine personnel possédé). Le nom du package est immuable une fois publié sur le Play Store.
+**Package applicatif.** `fr.beudaert.acervatim` (reverse-DNS sur domaine personnel possédé). Le nom du package est immuable une fois publié sur le Play Store.
 
 ---
 
 ## 1. Vision produit
 
-**Acervus** est une application Android **100% offline, sans backend** (au démarrage), permettant à un collectionneur de gérer plusieurs types de collections dans une expérience unifiée. La première collection cible (MVP) est le **vinyle**, mais l'architecture est conçue dès le départ pour accueillir LEGO, jeux de société, mangas, BD, livres, jeux vidéo, films, etc.
+**Acervatim** est une application Android **100% offline, sans backend** (au démarrage), permettant à un collectionneur de gérer plusieurs types de collections dans une expérience unifiée. La première collection cible (MVP) est le **vinyle**, mais l'architecture est conçue dès le départ pour accueillir LEGO, jeux de société, mangas, BD, livres, jeux vidéo, films, etc.
 
 L'expérience visée s'inspire de l'**application Google Contacts (Android)** : une longue liste sobre, scannable, avec recherche instantanée via une SearchBar flottante et filtres avancés.
 
@@ -192,7 +192,7 @@ interface RecordDao {
 
 #### Seed color
 ```kotlin
-val BrandSeed = Color(0xFF5BA199)   // Vert d'eau Acervus
+val BrandSeed = Color(0xFF5BA199)   // Vert d'eau Acervatim
 ```
 
 #### Trois modes proposés (réglage utilisateur)
@@ -223,7 +223,7 @@ import com.google.android.material.color.utilities.Hct
 enum class ThemeMode { BRAND, SYSTEM_DYNAMIC, EXPRESSIVE }
 
 @Composable
-fun AcervusTheme(
+fun AcervatimTheme(
     mode: ThemeMode = ThemeMode.BRAND,
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
@@ -244,8 +244,8 @@ fun AcervusTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = AcervusTypography,
-        shapes = AcervusShapes,
+        typography = AcervatimTypography,
+        shapes = AcervatimShapes,
         content = content
     )
 }
@@ -288,7 +288,7 @@ Quel que soit le mode actif, la sémantique d'usage reste constante :
 
 #### Persistance du choix utilisateur
 - Stocker `ThemeMode` dans `DataStore Preferences` (clé `theme_mode`).
-- Exposer via un `SettingsRepository` → consommé par le `MainViewModel` qui pilote `AcervusTheme`.
+- Exposer via un `SettingsRepository` → consommé par le `MainViewModel` qui pilote `AcervatimTheme`.
 - Changement appliqué instantanément (recomposition).
 
 ### Écran 1 — Liste collection (écran d'accueil)
@@ -377,7 +377,7 @@ Formulaire scrollable avec sections :
 
 ### Collections supportées et modes de référencement
 
-Acervus est conçue pour gérer plusieurs types de collections. Chaque type a un **mode de référencement par défaut** qui détermine comment les objets sont affichés et comptés, mais l'utilisateur peut basculer entre les modes via un toggle dans l'écran de liste.
+Acervatim est conçue pour gérer plusieurs types de collections. Chaque type a un **mode de référencement par défaut** qui détermine comment les objets sont affichés et comptés, mais l'utilisateur peut basculer entre les modes via un toggle dans l'écran de liste.
 
 #### Les deux modes
 
@@ -694,9 +694,9 @@ interface AuthStore {
 
 L'écran **Réglages → Comptes & sources** liste tous les `MetadataProvider` enregistrés, indique `isConfigured()` (vert/gris), et propose les actions (saisir token, se connecter, se déconnecter). Côté code, ce sont les providers qui exposent leur **propre écran de configuration** via une petite abstraction `ProviderSetupScreen` (composable injecté), pour éviter de coder à la main chaque flow d'auth dans l'écran de réglages.
 
-#### Backend Acervus — proxy unique des API externes (cible v2)
+#### Backend Acervatim — proxy unique des API externes (cible v2)
 
-> Une fois la couche métier locale stabilisée (vinyle + manga + vue série), on introduit un **backend dédié** qui devient **le seul point de contact réseau de l'application**. L'app Android ne parle plus jamais directement à Discogs, Google Books, AniList, Rebrickable, BGG, ComicVine, TMDB, etc. : elle parle uniquement à l'API Acervus, qui proxifie / enrichit / cache.
+> Une fois la couche métier locale stabilisée (vinyle + manga + vue série), on introduit un **backend dédié** qui devient **le seul point de contact réseau de l'application**. L'app Android ne parle plus jamais directement à Discogs, Google Books, AniList, Rebrickable, BGG, ComicVine, TMDB, etc. : elle parle uniquement à l'API Acervatim, qui proxifie / enrichit / cache.
 >
 > Spécifications techniques détaillées : voir **`guide-implementation-backend-aws.md`** (stack AWS serverless TypeScript + DynamoDB, IaC OpenTofu en 3 stacks, ~0-2 €/mois en usage solo).
 
@@ -736,10 +736,10 @@ L'abstraction `MetadataProvider` est conçue dès le MVP pour absorber ce change
 ```kotlin
 // data/remote/providers/backend/BackendMetadataProvider.kt
 class BackendMetadataProvider @Inject constructor(
-    private val api: AcervusBackendApi,
+    private val api: AcervatimBackendApi,
     private val authStore: BackendAuthStore     // JWT de session, refresh, etc.
 ) : MetadataProvider {
-    override val id = "acervus-backend"
+    override val id = "acervatim-backend"
     override val supportedTypes = CollectionType.values().toSet()
     // L'app ne distingue plus le type côté providers, le backend route.
     override suspend fun search(query: MetadataQuery) = runCatching {
@@ -937,4 +937,4 @@ Quand on te demande d'implémenter ou de modifier une partie de cette app :
 
 ---
 
-*Fin du contexte global. Version 1.3 — éclatement du document monolithique `contexte-ia-acervus.md` en un contexte global stable (ce fichier) et une roadmap répartie en un fichier par sprint (`sprint-realises.md` pour l'historique, `sprint-XX-…md` pour chaque sprint planifié). Aucun changement de fond sur les sections 1-10 et 12 par rapport à la 1.2.*
+*Fin du contexte global. Version 1.3 — éclatement du document monolithique `contexte-ia-acervatim.md` (ex-`contexte-ia-acervus.md` avant rebranding) en un contexte global stable (ce fichier) et une roadmap répartie en un fichier par sprint (`sprint-realises.md` pour l'historique, `sprint-XX-…md` pour chaque sprint planifié). Aucun changement de fond sur les sections 1-10 et 12 par rapport à la 1.2.*
