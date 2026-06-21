@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for Claude when working in this Android project (`fr.beudaert.acervatim` — **Acervatim**, application de gestion de collection vinyle, pensée pour évoluer vers d'autres types de collections).
+Guidance for Claude when working in this Android project (`app.acervatim` — **Acervatim**, application de gestion de collection vinyle, pensée pour évoluer vers d'autres types de collections).
 
 ## Stack
 
@@ -8,7 +8,7 @@ Guidance for Claude when working in this Android project (`fr.beudaert.acervatim
 - **UI:** Jetpack Compose + Material 3
 - **Build:** Gradle Kotlin DSL (`.kts`) with version catalog (`gradle/libs.versions.toml`)
 - **SDK:** `minSdk = 24`, `compileSdk = 34`, `targetSdk = 34`
-- **Package:** `fr.beudaert.acervatim`
+- **Package:** `app.acervatim`
 
 When upgrading dependencies, edit `gradle/libs.versions.toml` — never hard-code versions in `build.gradle.kts`.
 

@@ -161,8 +161,15 @@
     <string name="settings_section_collection">Collection</string>
     <string name="settings_duplicate_albums_title">Dupliquer par artiste</string>
     <string name="settings_duplicate_albums_description">Un album à plusieurs artistes apparaît sous chacun d\'eux dans la liste. Désactivé, il n\'apparaît que sous l\'artiste principal avec un sous-titre « feat. ».</string>
+    <string name="settings_manage_types_title">Collections affichées</string>
+    <string name="settings_manage_types_subtitle">Choisir les types de collection visibles dans le menu.</string>
     <string name="settings_section_view_per_collection">Vue par collection</string>
     <string name="settings_section_view_per_collection_description">Choisir l\'affichage par défaut de chaque collection. Le mode reste modifiable depuis les filtres de la liste.</string>
+
+    <!-- Collections affichées -->
+    <string name="manage_types_title">Collections affichées</string>
+    <string name="manage_types_description">Masquer un type le retire du menu et de la bascule de collection. Vos fiches ne sont pas supprimées : réactivez le type pour les retrouver.</string>
+    <string name="manage_types_item_count">%1$d élément(s)</string>
 
     <!-- Backup / Restore (Sprint 9) -->
     <string name="settings_section_data">Données</string>
@@ -208,6 +215,8 @@
     <string name="action_edit">Modifier</string>
     <string name="action_delete">Supprimer</string>
     <string name="action_more">Plus d\'actions</string>
+    <string name="action_close">Fermer</string>
+    <string name="cover_zoom_open">Agrandir la jaquette</string>
 
     <!-- Compte & synchronisation (branchement backend) -->
     <!--
@@ -237,4 +246,31 @@
     <string name="sync_status_last">Dernière synchro : %1$s</string>
     <string name="sync_status_error">Échec de la synchro : %1$s</string>
     <string name="sync_requires_sign_in">Connectez-vous pour synchroniser.</string>
+    <string name="sync_status_quota_reached">Quota atteint — %1$d éléments non synchronisés. Votre collection locale n\'est pas limitée.</string>
+
+    <!-- Plan & quotas (mode connecté) -->
+    <string name="account_plan_free">Offre gratuite</string>
+    <string name="account_plan_premium">Premium</string>
+    <string name="account_premium_source_grant">Accès offert (invitation)</string>
+    <string name="account_premium_source_subscription">Abonnement actif</string>
+    <string name="account_premium_expires">Expire le %1$s</string>
+    <string name="account_quota_title">Quotas de synchronisation</string>
+    <string name="account_quota_collections">Collections</string>
+    <string name="account_quota_items">Éléments</string>
+    <string name="account_quota_value">%1$d / %2$d</string>
+    <string name="account_quota_unlimited">Illimité</string>
+    <string name="account_info_unavailable">Informations du compte indisponibles pour le moment.</string>
+
+    <!-- Code d'invitation -->
+    <string name="account_redeem_title">Code d\'invitation</string>
+    <string name="account_redeem_hint">Saisissez votre code</string>
+    <string name="account_redeem_action">Utiliser le code</string>
+    <string name="account_redeem_success">Code accepté — accès premium activé.</string>
+    <string name="account_redeem_already">Ce code a déjà été utilisé.</string>
+    <string name="account_redeem_error">Code invalide ou expiré.</string>
+
+    <!-- En-tête compte du drawer -->
+    <string name="drawer_account_signed_out">Se connecter pour synchroniser</string>
+    <string name="drawer_account_signed_in">Connecté</string>
+    <string name="drawer_account_quota_reached">Quota de synchro atteint</string>
 </resources>

@@ -93,7 +93,7 @@ Versions précises : voir [`gradle/libs.versions.toml`](gradle/libs.versions.tom
 ## Architecture en bref
 
 ```
-app/src/main/java/fr/beudaert/acervatim/
+app/src/main/java/app/acervatim/
 ├── di/                # Modules Hilt
 ├── data/              # Room, stockage local, providers réseau
 ├── domain/            # Modèles, usecases, contrats provider

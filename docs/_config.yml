@@ -1,0 +1,29 @@
+# Configuration Jekyll pour GitHub Pages (Settings → Pages → branche main, dossier /docs).
+# Thème : just-the-docs (chargé via jekyll-remote-theme, supporté nativement par GitHub Pages).
+
+title: Acervatim
+description: >-
+  Application Android de gestion de collections (vinyles, mangas…),
+  100 % hors-ligne par défaut, avec un backend optionnel d'enrichissement
+  et de synchronisation.
+lang: fr
+
+remote_theme: just-the-docs/just-the-docs
+plugins:
+  - jekyll-remote-theme
+
+search_enabled: true
+heading_anchors: true
+color_scheme: light
+
+# Pied de page
+footer_content: >-
+  Acervatim — documentation utilisateur. Application sous licence Apache 2.0.
+
+# Les documents internes (roadmap, sprints, reviews) ne font pas partie du site
+# publié. interne/ et review/ sont déjà gitignorés ; contexte-global.md est
+# versionné mais reste un document de travail, pas une page du site.
+exclude:
+  - interne/
+  - review/
+  - contexte-global.md

@@ -11,7 +11,7 @@
 
 **Étymologie.** *Acervatim* (latin, masc., 2ᵉ déclinaison) : « tas, monceau, amas » — par extension, « accumulation, multitude ». Donne aussi son nom au *paradoxe sorite* en logique : à partir de combien de grains a-t-on un tas ?
 
-**Package applicatif.** `fr.beudaert.acervatim` (reverse-DNS sur domaine personnel possédé). Le nom du package est immuable une fois publié sur le Play Store.
+**Package applicatif.** `app.acervatim` (reverse-DNS sur domaine personnel possédé). Le nom du package est immuable une fois publié sur le Play Store.
 
 ---
 

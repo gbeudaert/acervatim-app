@@ -18,6 +18,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+/.secrets/
+keystore.properties
 
 # Partie IA
 contexte-ia-vinylcollection.md

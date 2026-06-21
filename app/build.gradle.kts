@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "fr.beudaert.acervatim"
+    namespace = "app.acervatim"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "fr.beudaert.acervatim"
+        applicationId = "app.acervatim"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
@@ -158,4 +158,11 @@ dependencies {
     testImplementation(libs.room.testing)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.robolectric)
+
+    // Tests UI Compose exécutés sur la JVM via Robolectric (pas de device requis).
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.ui.test.junit4)
+    // ui-test-manifest doit être en debug : son manifest (déclarant la ComponentActivity utilisée
+    // par createComposeRule) doit fusionner dans le manifest debug que Robolectric charge.
+    debugImplementation(libs.androidx.ui.test.manifest)
 }
