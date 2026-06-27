@@ -325,7 +325,7 @@ private fun ArtistsField(
                 artists.forEachIndexed { index, name ->
                     InputChip(
                         selected = false,
-                        onClick = {},
+                        onClick = { onRemove(index) },
                         label = { Text(name) },
                         trailingIcon = {
                             Icon(
@@ -334,10 +334,11 @@ private fun ArtistsField(
                                     R.string.add_record_artist_remove,
                                     name
                                 ),
-                                modifier = Modifier.size(InputChipDefaults.IconSize)
+                                modifier = Modifier
+                                    .size(InputChipDefaults.IconSize)
+                                    .clickable { onRemove(index) }
                             )
-                        },
-                        modifier = Modifier.clickable { onRemove(index) }
+                        }
                     )
                 }
             }
