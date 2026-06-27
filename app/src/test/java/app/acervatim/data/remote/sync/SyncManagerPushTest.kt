@@ -37,6 +37,7 @@ class SyncManagerPushTest {
     private lateinit var db: AcervatimDatabase
     private lateinit var api: FakeAcervatimApi
     private lateinit var recordRepository: RecordRepositoryImpl
+    private lateinit var syncStateStore: SyncStateStore
     private lateinit var syncManager: SyncManagerImpl
 
     private val clock: Clock = Clock.fixed(Instant.parse("2026-06-09T12:00:00Z"), ZoneOffset.UTC)
@@ -48,6 +49,7 @@ class SyncManagerPushTest {
             .allowMainThreadQueries()
             .build()
         api = FakeAcervatimApi()
+        syncStateStore = SyncStateStore(context).also { it.clear() }
         val resolver = LocalCollectionResolver(db.collectionDao(), clock)
         recordRepository = RecordRepositoryImpl(db, db.recordDao(), db.artistDao(), resolver, clock)
         syncManager = SyncManagerImpl(
@@ -58,6 +60,7 @@ class SyncManagerPushTest {
             seriesDao = db.seriesDao(),
             artistDao = db.artistDao(),
             authRepository = FakeAuthRepository(userId = "u1"),
+            syncStateStore = syncStateStore,
             clock = clock
         )
     }
@@ -90,10 +93,25 @@ class SyncManagerPushTest {
     fun `sync without session fails fast`() = runTest {
         val offline = SyncManagerImpl(
             api, db, db.collectionDao(), db.recordDao(), db.seriesDao(), db.artistDao(),
-            FakeAuthRepository(userId = null), clock
+            FakeAuthRepository(userId = null), syncStateStore, clock
         )
         val result = offline.syncNow()
         assertTrue(result.isFailure)
+    }
+
+    @Test
+    fun `last sync date survives a fresh SyncManager backed by the same store`() = runTest {
+        recordRepository.upsert(vinylRecord("rec-1"))
+        assertTrue(syncManager.syncNow().isSuccess)
+
+        // Simule un redémarrage : nouvelle instance lisant le même store persistant.
+        val restarted = SyncManagerImpl(
+            api, db, db.collectionDao(), db.recordDao(), db.seriesDao(), db.artistDao(),
+            FakeAuthRepository(userId = "u1"), SyncStateStore(ApplicationProvider.getApplicationContext()), clock
+        )
+        val status = restarted.status.value
+        assertTrue(status is SyncStatus.Success)
+        assertEquals(clock.instant(), (status as SyncStatus.Success).at)
     }
 
     private fun vinylRecord(id: String): Record = Record(

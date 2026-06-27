@@ -61,11 +61,16 @@ class SyncManagerImpl @Inject constructor(
     private val seriesDao: SeriesDao,
     private val artistDao: ArtistDao,
     private val authRepository: AuthRepository,
+    private val syncStateStore: SyncStateStore,
     private val clock: Clock
 ) : SyncRepository {
 
     private val mutex = Mutex()
-    private val _status = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
+    // Réamorce la dernière sync connue depuis le disque : sinon l'UI affiche « Jamais synchronisé »
+    // après chaque redémarrage. pushed/pulled à 0 ici, non affichés (SyncStatusLine n'utilise que `.at`).
+    private val _status = MutableStateFlow<SyncStatus>(
+        syncStateStore.lastSyncAt?.let { SyncStatus.Success(it, pushed = 0, pulled = 0) } ?: SyncStatus.Idle
+    )
     override val status: StateFlow<SyncStatus> = _status.asStateFlow()
 
     override suspend fun syncNow(): Result<Unit> = mutex.withLock {
@@ -76,13 +81,16 @@ class SyncManagerImpl @Inject constructor(
         return runCatching {
             val pushResult = push()
             val pulled = pull()
+            val now = clock.instant()
             _status.value = if (pushResult.skipped > 0) {
                 // Quota atteint : sync partielle, pas un échec — surtout pas de retry WorkManager,
                 // le quota ne se libérera pas tout seul.
-                SyncStatus.QuotaReached(clock.instant(), pushResult.pushed, pulled, pushResult.skipped)
+                SyncStatus.QuotaReached(now, pushResult.pushed, pulled, pushResult.skipped)
             } else {
-                SyncStatus.Success(clock.instant(), pushResult.pushed, pulled)
+                SyncStatus.Success(now, pushResult.pushed, pulled)
             }
+            // Persiste pour réafficher la date après un redémarrage (cf. seed de `_status`).
+            syncStateStore.lastSyncAt = now
         }.onFailure { error ->
             Log.w(TAG, "sync failed", error)
             _status.value = SyncStatus.Failure(error.message ?: "erreur inconnue")

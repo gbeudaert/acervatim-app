@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
+import app.acervatim.data.remote.sync.SyncStateStore
 import app.acervatim.domain.model.auth.AuthState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,7 +24,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class TokenStore @Inject constructor(
-    @ApplicationContext context: Context
+    @ApplicationContext context: Context,
+    private val syncStateStore: SyncStateStore
 ) : SessionTokenProvider, UnauthorizedHandler {
 
     private val prefs: SharedPreferences by lazy {
@@ -69,11 +71,13 @@ class TokenStore @Inject constructor(
     /** Déconnexion volontaire : efface le token et repasse en [AuthState.SignedOut]. */
     fun clear() {
         prefs.edit().clear().apply()
+        syncStateStore.clear()
         _authState.value = AuthState.SignedOut
     }
 
     override fun onUnauthorized() {
         prefs.edit().clear().apply()
+        syncStateStore.clear()
         _authState.value = AuthState.SessionExpired
     }
 

@@ -60,6 +60,7 @@ class SyncManagerQuotaTest {
             seriesDao = db.seriesDao(),
             artistDao = db.artistDao(),
             authRepository = FakeAuthRepository(userId = "u1"),
+            syncStateStore = SyncStateStore(context).also { it.clear() },
             clock = clock
         )
     }
