@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +8,14 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.kotlin.serialization)
+}
+
+// Signature release — lue depuis keystore.properties (racine, non versionné).
+// Absent en CI/poste sans keystore : on retombe sur une release non signée plutôt
+// que de casser le build (utile pour `assembleDebug` / tests).
+val keystorePropsFile = rootProject.file("keystore.properties")
+val keystoreProps = Properties().apply {
+    if (keystorePropsFile.exists()) load(FileInputStream(keystorePropsFile))
 }
 
 android {
@@ -24,18 +35,37 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            if (keystorePropsFile.exists()) {
+                storeFile = file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             // Backend de développement (émulateur → host machine via 10.0.2.2, ou host de staging).
-            buildConfigField("String", "API_BASE_URL", "\"https://api-dev.acervatim.fr/\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://api.acervatim.app/\"")
         }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("String", "API_BASE_URL", "\"https://api.acervatim.fr/\"")
+            // Ne signe avec la clé release que si le keystore est présent ; sinon bundle
+            // non signé (à signer manuellement). Évite un échec de build sans keystore.
+            signingConfig = if (keystorePropsFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                null
+            }
+            buildConfigField("String", "API_BASE_URL", "\"https://api.acervatim.app/\"")
         }
     }
 
