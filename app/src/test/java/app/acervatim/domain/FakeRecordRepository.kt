@@ -154,7 +154,7 @@ class FakeRecordRepository : RecordRepository {
     override suspend fun updateLastPlayed(id: String, ts: Instant?) {
         state.update { current ->
             current.map {
-                if (it.id == id) it.copy(lastPlayedAt = ts, updatedAt = ts ?: it.updatedAt) else it
+                if (it.id == id) it.copy(lastPlayedAt = ts, updatedAt = Instant.now()) else it
             }
         }
     }
