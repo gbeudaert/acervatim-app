@@ -225,7 +225,7 @@
       ID client OAuth de type Web de la console Google Cloud (NON secret, peut être commité).
       À remplacer par la vraie valeur du projet Google Cloud avant d'utiliser la connexion.
     -->
-    <string name="google_server_client_id" translatable="false">REPLACE_WITH_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com</string>
+    <string name="google_server_client_id" translatable="false">275237650075-lesrarov7sekqfio0panl7sb4nnj8u46.apps.googleusercontent.com</string>
     <string name="account_title">Compte &amp; synchronisation</string>
     <string name="account_open">Compte</string>
     <string name="account_signed_out_title">Synchronisez votre collection</string>
