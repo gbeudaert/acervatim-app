@@ -13,7 +13,6 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -47,7 +46,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
@@ -291,30 +289,30 @@ private fun bindCamera(
 
 @Composable
 private fun ViewfinderOverlay(modifier: Modifier = Modifier) {
-    BoxWithConstraints(modifier = modifier) {
-        val outline = MaterialTheme.colorScheme.primary
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val w = size.width
-            val h = size.height
-            val frameWidth = w * 0.78f
-            val frameHeight = frameWidth * 0.5f
-            val left = (w - frameWidth) / 2f
-            val top = (h - frameHeight) / 2f
+    val outline = MaterialTheme.colorScheme.primary
+    Canvas(modifier = modifier.fillMaxSize()) {
+        val w = size.width
+        val h = size.height
+        val frameWidth = w * 0.78f
+        val frameHeight = frameWidth * 0.5f
+        val left = (w - frameWidth) / 2f
+        val top = (h - frameHeight) / 2f
+        val scrim = Color.Black.copy(alpha = 0.55f)
 
-            drawRect(color = Color.Black.copy(alpha = 0.55f), size = size)
-            drawRect(
-                color = Color.Transparent,
-                topLeft = Offset(left, top),
-                size = Size(frameWidth, frameHeight),
-                blendMode = BlendMode.Clear
-            )
-            drawRect(
-                color = outline,
-                topLeft = Offset(left, top),
-                size = Size(frameWidth, frameHeight),
-                style = Stroke(width = 4f)
-            )
-        }
+        // Voile en 4 bandes autour de la fenêtre de visée — le centre reste vierge pour
+        // laisser la caméra transparaître (pas de BlendMode.Clear : il rendrait du noir
+        // sans calque de compositing dédié).
+        drawRect(scrim, topLeft = Offset(0f, 0f), size = Size(w, top))
+        drawRect(scrim, topLeft = Offset(0f, top + frameHeight), size = Size(w, h - top - frameHeight))
+        drawRect(scrim, topLeft = Offset(0f, top), size = Size(left, frameHeight))
+        drawRect(scrim, topLeft = Offset(left + frameWidth, top), size = Size(w - left - frameWidth, frameHeight))
+
+        drawRect(
+            color = outline,
+            topLeft = Offset(left, top),
+            size = Size(frameWidth, frameHeight),
+            style = Stroke(width = 4f)
+        )
     }
 }
 
