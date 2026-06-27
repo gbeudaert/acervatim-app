@@ -84,7 +84,7 @@ Le modèle serveur est le miroir du modèle local de l'application :
 
 ### Recherche externe unifiée
 
-- `GET /v1/search?type=...&q=...` — un seul endpoint de recherche quel que soit le type de collection ; le serveur choisit la ou les sources (Discogs pour le vinyle, MyAnimeList pour le manga, TMDB pour les films), gère le cache et les quotas, et renvoie des résultats au format unifié.
+- `GET /v1/search?type=...&q=...` (recherche texte) ou `GET /v1/search?type=...&barcode=...` (recherche par code EAN/UPC ou ISBN) — un seul endpoint quel que soit le type de collection. `q` et `barcode` sont **mutuellement exclusifs** (XOR : exactement l'un des deux). Le serveur choisit la ou les sources (Discogs pour le vinyle — `barcode` y route vers `database/search?barcode=…` ; MyAnimeList pour le manga, TMDB pour les films), gère le cache et les quotas, et renvoie des résultats au format unifié.
 
 ### Connexion de comptes externes
 

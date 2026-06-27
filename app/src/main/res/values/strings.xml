@@ -202,6 +202,8 @@
     <string name="scan_title">Scanner un code-barres</string>
     <string name="scan_hint_align">Alignez le code-barres dans le cadre</string>
     <string name="scan_status_lookup">Code détecté : %1$s</string>
+    <string name="scan_status_enriching">Recherche des informations…</string>
+    <string name="scan_status_enriched">Fiche trouvée : %1$s</string>
     <string name="scan_status_already_present">Déjà dans la collection : %1$s</string>
     <string name="scan_status_new_record">Nouveau code : %1$s</string>
     <string name="scan_permission_title">Accès appareil photo refusé</string>

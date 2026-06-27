@@ -334,22 +334,17 @@ private fun DetectionPanel(detection: DetectionStep) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White
                 )
-                is DetectionStep.Looking -> Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Start
-                ) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        text = stringResource(R.string.scan_status_lookup, detection.barcode),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White
-                    )
-                }
+                is DetectionStep.Looking -> ProgressRow(
+                    text = stringResource(R.string.scan_status_lookup, detection.barcode)
+                )
+                is DetectionStep.Enriching -> ProgressRow(
+                    text = stringResource(R.string.scan_status_enriching, detection.barcode)
+                )
+                is DetectionStep.Enriched -> Text(
+                    text = stringResource(R.string.scan_status_enriched, detection.title),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White
+                )
                 is DetectionStep.Found -> Text(
                     text = stringResource(R.string.scan_status_already_present, detection.title),
                     style = MaterialTheme.typography.bodyMedium,
@@ -362,6 +357,26 @@ private fun DetectionPanel(detection: DetectionStep) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ProgressRow(text: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Start
+    ) {
+        CircularProgressIndicator(
+            color = Color.White,
+            strokeWidth = 2.dp,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White
+        )
     }
 }
 

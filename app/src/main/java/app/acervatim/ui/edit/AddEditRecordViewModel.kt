@@ -7,10 +7,12 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import app.acervatim.domain.repository.CoverStorage
 import app.acervatim.domain.model.AcervatimFormat
+import app.acervatim.domain.model.ExternalMatch
 import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.ItemStatus
 import app.acervatim.domain.model.RecordingSpeed
 import app.acervatim.domain.model.normalizeArtistName
+import app.acervatim.ui.scan.ScanPrefillHandoff
 import app.acervatim.domain.usecase.AddRecordUseCase
 import app.acervatim.domain.usecase.ObserveArtistSuggestionsUseCase
 import app.acervatim.domain.usecase.ObserveRecordByIdUseCase
@@ -35,7 +37,8 @@ class AddEditRecordViewModel @Inject constructor(
     observeArtistSuggestions: ObserveArtistSuggestionsUseCase,
     private val addRecord: AddRecordUseCase,
     private val updateRecord: UpdateRecordUseCase,
-    private val coverStorage: CoverStorage
+    private val coverStorage: CoverStorage,
+    private val prefillHandoff: ScanPrefillHandoff
 ) : ViewModel() {
 
     private val navRecordId: String? = savedStateHandle.get<String>(AcervatimNavArgs.RECORD_ID)
@@ -60,7 +63,14 @@ class AddEditRecordViewModel @Inject constructor(
     val events: StateFlow<AddRecordEvent?> = _events.asStateFlow()
 
     init {
-        if (isEditing) loadExistingRecord(navRecordId!!)
+        if (isEditing) loadExistingRecord(navRecordId!!) else applyScanPrefill()
+    }
+
+    /** Pré-remplit le formulaire si le scan a déposé un résultat enrichi pour ce code-barres. */
+    private fun applyScanPrefill() {
+        val barcode = navBarcode?.takeIf { it.isNotBlank() } ?: return
+        val match = prefillHandoff.take(barcode) ?: return
+        _formState.update { it.applyMatch(match) }
     }
 
     private fun loadExistingRecord(id: String) {
@@ -154,11 +164,15 @@ class AddEditRecordViewModel @Inject constructor(
     }
 
     private suspend fun resolveCoverPath(state: AddRecordFormState): String? {
-        val pending = state.pendingCoverUri
-        if (pending != null) {
-            return coverStorage.saveFromUri(state.recordId, pending)
+        state.pendingCoverUri?.let { return coverStorage.saveFromUri(state.recordId, it) }
+        state.persistedCoverPath?.let { return it }
+        // Jaquette issue du scan : on télécharge au moment du save (uniquement si conservée). En cas
+        // d'échec, on garde la référence distante (`coverRemoteUrl`) sans bloquer l'enregistrement.
+        val remoteUrl = state.coverRemoteUrl
+        if (remoteUrl != null) {
+            return runCatching { coverStorage.saveFromUrl(state.recordId, remoteUrl) }.getOrNull()
         }
-        return state.persistedCoverPath
+        return null
     }
 }
 
@@ -198,8 +212,9 @@ data class AddRecordFormState(
         get() = showValidationErrors && artists.isEmpty() && artistInput.isBlank()
     val titleError: Boolean get() = showValidationErrors && title.isBlank()
     val priceError: Boolean get() = showValidationErrors && priceMalformed
-    val hasCover: Boolean get() = pendingCoverUri != null || persistedCoverPath != null
-    val coverPreviewModel: Any? get() = pendingCoverUri ?: persistedCoverPath
+    val hasCover: Boolean
+        get() = pendingCoverUri != null || persistedCoverPath != null || coverRemoteUrl != null
+    val coverPreviewModel: Any? get() = pendingCoverUri ?: persistedCoverPath ?: coverRemoteUrl
 
     private val priceMalformed: Boolean
         get() = purchasePrice.isNotBlank() && purchasePrice.toDoubleOrNull() == null
@@ -230,6 +245,17 @@ internal fun AddRecordFormState.toInput(coverPath: String?): RecordInput {
         status = status
     )
 }
+
+/**
+ * Pré-remplit le formulaire à partir d'un résultat de recherche externe (scan enrichi). Ne touche
+ * que les champs fournis ; conserve le code-barres déjà saisi et n'écrase rien avec du vide.
+ */
+internal fun AddRecordFormState.applyMatch(match: ExternalMatch): AddRecordFormState = copy(
+    title = match.title.ifBlank { title },
+    artists = match.creators.ifEmpty { artists },
+    year = match.year?.toString() ?: year,
+    coverRemoteUrl = match.coverUrl ?: coverRemoteUrl
+)
 
 internal fun AddRecordFormState.fromRecord(record: Record): AddRecordFormState = copy(
     recordId = record.id,

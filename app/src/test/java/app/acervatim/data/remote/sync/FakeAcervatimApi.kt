@@ -138,7 +138,7 @@ class FakeAcervatimApi : AcervatimApi {
     override suspend fun getNodeSources(id: String): List<SourceWithRawDto> = notImpl()
     override suspend fun patchNode(id: String, body: PatchNodeRequest): Response<NodeDto> = notImpl()
     override suspend fun attachNodeSource(id: String, body: AttachSourceRequest): NodeDto = notImpl()
-    override suspend fun search(query: String, type: String, cursor: String?, limit: Int?): PageDto<UnifiedItemDto> = notImpl()
+    override suspend fun search(type: String, query: String?, barcode: String?, cursor: String?, limit: Int?): PageDto<UnifiedItemDto> = notImpl()
     override suspend fun startOAuth(provider: String): OAuthStartResponse = notImpl()
     override suspend fun connectedProviders(): PageDto<ConnectedProviderDto> = notImpl()
     override suspend fun revokeOAuth(provider: String): Response<Unit> = notImpl()

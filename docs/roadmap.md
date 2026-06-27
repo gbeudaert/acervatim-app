@@ -12,17 +12,17 @@ Acervatim est en pré-alpha : l'application n'est pas encore publiée sur le Pla
 
 - Collections **vinyle** (vue à plat) et **manga** (vue par séries, trois états par tome), avec bascule entre collections via le tiroir de navigation.
 - Recherche instantanée, filtres, wishlist, note, dernière écoute.
-- Ajout manuel, **scan de code-barres hors-ligne**, enrichissement Discogs (jeton personnel).
+- Ajout manuel et **scan de code-barres hors-ligne** : le scan déduplique sur le code-barres et, s'il est inconnu, pré-remplit le champ code-barres du formulaire. L'enrichissement automatique des métadonnées (titre, artiste, jaquette…) n'est **pas encore disponible** — voir « Court terme ».
 - Multi-artistes, vitesse de gravure, déduplication par code-barres et par ISBN.
 - Import/export JSON et CSV, **sauvegarde complète ZIP** avec jaquettes.
 - Thèmes Material You (marque, système, expressif), clair et sombre.
-- Côté serveur : authentification Google, synchronisation des collections, recherche externe unifiée (Discogs, MyAnimeList, TMDB), premium et invitations.
+- Côté serveur (capacités en place mais **pas encore activées dans l'application publiée** — voir « Court terme ») : authentification Google, synchronisation des collections, recherche externe unifiée (Discogs, MyAnimeList, TMDB), premium et invitations.
 
 ## Court terme
 
 - **Publication Play Store v1.0** : la version 100 % hors-ligne (vinyle + manga), sans compte ni achat intégré.
 - **Activation du mode connecté dans l'application** : connexion Google, synchronisation avec le serveur, recherche externe via l'endpoint unifié. La couche technique est en place côté app et côté serveur ; il reste la configuration de production et la finalisation de la synchronisation manga.
-- **Enrichissement manga** : recherche par titre et par ISBN dans les bases externes pour pré-remplir séries et tomes, comme Discogs le fait pour le vinyle.
+- **Enrichissement automatique au scan** : recherche dans les bases externes (via le serveur) pour pré-remplir titre, artiste/auteur, jaquette et métadonnées — par code-barres pour le vinyle (Discogs) et par titre/ISBN pour le manga (Google Books, AniList). Aujourd'hui le scan ne fait que pré-remplir le code-barres ; cet enrichissement reste à brancher.
 
 ## Moyen terme
 

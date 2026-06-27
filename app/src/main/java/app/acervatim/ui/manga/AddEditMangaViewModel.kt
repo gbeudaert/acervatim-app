@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import app.acervatim.domain.repository.CoverStorage
 import app.acervatim.domain.model.CollectionType
+import app.acervatim.domain.model.ExternalMatch
 import app.acervatim.domain.model.ItemStatus
 import app.acervatim.domain.model.MangaDemographic
 import app.acervatim.domain.model.MangaExtras
@@ -21,6 +22,7 @@ import app.acervatim.domain.usecase.ObserveSeriesByCollectionTypeUseCase
 import app.acervatim.domain.usecase.RecordInput
 import app.acervatim.domain.usecase.UpdateRecordUseCase
 import app.acervatim.ui.navigation.AcervatimNavArgs
+import app.acervatim.ui.scan.ScanPrefillHandoff
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -39,7 +41,8 @@ class AddEditMangaViewModel @Inject constructor(
     observeSeriesByCollectionType: ObserveSeriesByCollectionTypeUseCase,
     private val addRecord: AddRecordUseCase,
     private val updateRecord: UpdateRecordUseCase,
-    private val coverStorage: CoverStorage
+    private val coverStorage: CoverStorage,
+    private val prefillHandoff: ScanPrefillHandoff
 ) : ViewModel() {
 
     private val navRecordId: String? = savedStateHandle.get<String>(AcervatimNavArgs.RECORD_ID)
@@ -71,7 +74,17 @@ class AddEditMangaViewModel @Inject constructor(
     val events: StateFlow<AddMangaEvent?> = _events.asStateFlow()
 
     init {
-        if (isEditing) loadExisting(navRecordId!!)
+        if (isEditing) loadExisting(navRecordId!!) else applyScanPrefill()
+    }
+
+    /**
+     * Pré-remplit les champs au niveau du tome si le scan a déposé un résultat enrichi pour cet ISBN.
+     * La série reste à choisir/créer à la main (l'enrichissement série complet relève du Sprint 13).
+     */
+    private fun applyScanPrefill() {
+        val isbn = navBarcode?.takeIf { it.isNotBlank() } ?: return
+        val match = prefillHandoff.take(isbn) ?: return
+        _formState.update { it.applyMatch(match) }
     }
 
     private fun loadExisting(id: String) {
@@ -110,7 +123,7 @@ class AddEditMangaViewModel @Inject constructor(
     }
 
     fun onCoverRemoved() = _formState.update {
-        it.copy(pendingCoverUri = null, persistedCoverPath = null)
+        it.copy(pendingCoverUri = null, persistedCoverPath = null, coverRemoteUrl = null)
     }
 
     fun onEventConsumed() {
@@ -141,11 +154,14 @@ class AddEditMangaViewModel @Inject constructor(
     }
 
     private suspend fun resolveCoverPath(state: AddMangaFormState): String? {
-        val pending = state.pendingCoverUri
-        if (pending != null) {
-            return coverStorage.saveFromUri(state.recordId, pending)
+        state.pendingCoverUri?.let { return coverStorage.saveFromUri(state.recordId, it) }
+        state.persistedCoverPath?.let { return it }
+        // Jaquette issue du scan : téléchargée au save (si conservée), sans bloquer en cas d'échec.
+        val remoteUrl = state.coverRemoteUrl
+        if (remoteUrl != null) {
+            return runCatching { coverStorage.saveFromUrl(state.recordId, remoteUrl) }.getOrNull()
         }
-        return state.persistedCoverPath
+        return null
     }
 }
 
@@ -166,14 +182,16 @@ data class AddMangaFormState(
     val status: ItemStatus = ItemStatus.OWNED,
     val persistedCoverPath: String? = null,
     val pendingCoverUri: String? = null,
+    val coverRemoteUrl: String? = null,
     val showValidationErrors: Boolean = false
 ) {
     /** Une série est requise pour un tome manga ; le titre est requis aussi. */
     val isValid: Boolean get() = title.isNotBlank() && seriesId != null
     val titleError: Boolean get() = showValidationErrors && title.isBlank()
     val seriesError: Boolean get() = showValidationErrors && seriesId == null
-    val hasCover: Boolean get() = pendingCoverUri != null || persistedCoverPath != null
-    val coverPreviewModel: Any? get() = pendingCoverUri ?: persistedCoverPath
+    val hasCover: Boolean
+        get() = pendingCoverUri != null || persistedCoverPath != null || coverRemoteUrl != null
+    val coverPreviewModel: Any? get() = pendingCoverUri ?: persistedCoverPath ?: coverRemoteUrl
 }
 
 internal fun AddMangaFormState.toInput(coverPath: String?): RecordInput {
@@ -202,6 +220,16 @@ internal fun AddMangaFormState.toInput(coverPath: String?): RecordInput {
     )
 }
 
+/**
+ * Pré-remplit le tome à partir d'un résultat de recherche externe (scan ISBN enrichi). Ne renseigne
+ * que titre, auteur et jaquette ; la série reste à choisir (rattachement série = Sprint 13).
+ */
+internal fun AddMangaFormState.applyMatch(match: ExternalMatch): AddMangaFormState = copy(
+    title = match.title.ifBlank { title },
+    originalAuthor = match.creators.firstOrNull()?.takeIf { it.isNotBlank() } ?: originalAuthor,
+    coverRemoteUrl = match.coverUrl ?: coverRemoteUrl
+)
+
 internal fun AddMangaFormState.fromRecord(record: Record): AddMangaFormState = copy(
     recordId = record.id,
     isEditing = true,
@@ -219,6 +247,7 @@ internal fun AddMangaFormState.fromRecord(record: Record): AddMangaFormState = c
     status = record.status,
     persistedCoverPath = record.coverPath,
     pendingCoverUri = null,
+    coverRemoteUrl = record.coverRemoteUrl,
     showValidationErrors = false
 )
 

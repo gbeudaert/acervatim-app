@@ -149,10 +149,16 @@ interface AcervatimApi {
 
     // ---- Recherche externe (§8) --------------------------------------------------------------
 
+    /**
+     * Recherche externe unifiée (§8). `q` (texte libre) et `barcode` (EAN/UPC ou ISBN) sont en **XOR**
+     * : exactement l'un des deux doit être fourni. Pour le vinyle, `barcode` route vers Discogs
+     * `database/search?barcode=…` côté serveur.
+     */
     @GET("v1/search")
     suspend fun search(
-        @Query("q") query: String,
         @Query("type") type: String,
+        @Query("q") query: String? = null,
+        @Query("barcode") barcode: String? = null,
         @Query("cursor") cursor: String? = null,
         @Query("limit") limit: Int? = null
     ): PageDto<UnifiedItemDto>

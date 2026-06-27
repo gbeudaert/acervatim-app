@@ -13,6 +13,7 @@ import app.acervatim.domain.usecase.ObserveArtistSuggestionsUseCase
 import app.acervatim.domain.usecase.ObserveRecordByIdUseCase
 import app.acervatim.domain.usecase.UpdateRecordUseCase
 import app.acervatim.ui.navigation.AcervatimNavArgs
+import app.acervatim.ui.scan.ScanPrefillHandoff
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -47,6 +48,7 @@ class AddEditRecordViewModelTest {
     private lateinit var observeRecord: ObserveRecordByIdUseCase
     private lateinit var observeSuggestions: ObserveArtistSuggestionsUseCase
     private lateinit var coverStorage: FakeCoverStorage
+    private lateinit var prefillHandoff: ScanPrefillHandoff
 
     @Before
     fun setUp() {
@@ -57,6 +59,7 @@ class AddEditRecordViewModelTest {
         observeRecord = ObserveRecordByIdUseCase(repository)
         observeSuggestions = ObserveArtistSuggestionsUseCase(repository)
         coverStorage = FakeCoverStorage()
+        prefillHandoff = ScanPrefillHandoff()
     }
 
     @After
@@ -78,7 +81,8 @@ class AddEditRecordViewModelTest {
             observeArtistSuggestions = observeSuggestions,
             addRecord = addRecord,
             updateRecord = updateRecord,
-            coverStorage = coverStorage
+            coverStorage = coverStorage,
+            prefillHandoff = prefillHandoff
         )
     }
 
