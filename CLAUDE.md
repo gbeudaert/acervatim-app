@@ -26,6 +26,17 @@ Use the Gradle wrapper. On Windows PowerShell:
 
 Always invoke `./gradlew` / `.\gradlew.bat`, never a system `gradle`.
 
+## Documentation — où mettre à jour quoi
+
+Trois emplacements distincts, **ne pas les confondre** :
+
+- **Doc destinée à être lue** (utilisateur / développeur / légal) → dépôt **`acervatim-docs`** ([`../acervatim-docs`](../acervatim-docs)), site Jekyll public commun à l'app et au backend, espaces `utilisateur/` · `developpeur/` · `legal/`. Toute nouvelle doc lisible (fonctionnalités, guides, confidentialité…) va **là**, pas sous `docs/`. Le site public historique sous `mvc/docs/*.md` (`index`, `application`, `backend`, `roadmap`, `confidentialite`) est **en cours de migration** vers `acervatim-docs` : ne plus l'enrichir, mettre à jour la page équivalente dans `acervatim-docs`.
+- **Sprints** → `docs/interne/` (gitignored) : `sprint-*.md`, `sprint-realises.md`, sprints techniques — **suivi des sprints uniquement**.
+- **Matière de travail** → `docs/travail/` (gitignored) : guides d'implémentation (scan/enrichissement), setup OAuth, runbook Play Store, fiches de release, assets. Notes internes, **non publiées**.
+- `docs/contexte-global.md` reste un document de travail versionné (contexte app détaillé), exclu du site.
+
+Règle : ne pas recréer sous `docs/` une doc qui a sa place dans `acervatim-docs` ; ne pas publier dans `acervatim-docs` de la matière de travail (brouillons, runbooks, reviews).
+
 ## Architecture standards
 
 - **Single-activity + Compose.** `MainActivity` is the only `Activity`; new screens are composables, not new activities or fragments.
