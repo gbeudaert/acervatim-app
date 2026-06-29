@@ -694,31 +694,43 @@ interface AuthStore {
 
 L'écran **Réglages → Comptes & sources** liste tous les `MetadataProvider` enregistrés, indique `isConfigured()` (vert/gris), et propose les actions (saisir token, se connecter, se déconnecter). Côté code, ce sont les providers qui exposent leur **propre écran de configuration** via une petite abstraction `ProviderSetupScreen` (composable injecté), pour éviter de coder à la main chaque flow d'auth dans l'écran de réglages.
 
-#### Backend Acervatim — proxy unique des API externes (cible v2)
+#### Backend Acervatim — proxy unique des API externes (réalisé)
 
-> Une fois la couche métier locale stabilisée (vinyle + manga + vue série), on introduit un **backend dédié** qui devient **le seul point de contact réseau de l'application**. L'app Android ne parle plus jamais directement à Discogs, Google Books, AniList, Rebrickable, BGG, ComicVine, TMDB, etc. : elle parle uniquement à l'API Acervatim, qui proxifie / enrichit / cache.
+> Une fois la couche métier locale stabilisée (vinyle + manga + vue série), un **backend dédié**
+> devient **le seul point de contact réseau de l'application**. L'app Android ne parle plus jamais
+> directement à Discogs, Google Books, AniList, Rebrickable, BGG, ComicVine, TMDB, etc. : elle parle
+> uniquement à l'API Acervatim, qui proxifie / enrichit / cache.
 >
-> Spécifications techniques détaillées : voir **`guide-implementation-backend-aws.md`** (stack AWS serverless TypeScript + DynamoDB, IaC OpenTofu en 3 stacks, ~0-2 €/mois en usage solo).
+> **Mise à jour 2026-06-27 — ce backend est désormais implémenté**, mais **pas avec la stack AWS
+> serverless décrite à l'origine** (`guide-implementation-backend-aws.md`, conservé en archive). Le
+> backend réel est une **API NestJS + Prisma + MariaDB** déployée sur **Raspberry Pi 4 (arm64) sous
+> Podman**. La stack AWS/DynamoDB reste une **cible de migration future** (dépôt `acervatim-infra`),
+> non activée. **Source de vérité : le dépôt `acervus-backend`** (`docs/interne/context-ia.md`,
+> `openapi.json`) — ne pas se fier à cette section pour les détails fins.
 
-**Stack backend**
+**Stack backend (réelle)**
 
 | Couche | Choix |
 |---|---|
-| Runtime | Node.js 20 ARM64 (Lambda Graviton) |
-| Langage | TypeScript |
-| Persistance | DynamoDB on-demand (6 tables : users, collections, items, oauth_credentials, api_cache, rate_limit_buckets, + subscriptions/premium_grants optionnelles) |
-| API | API Gateway HTTP API + Lambda Authorizer JWT |
-| Auth utilisateur | Google Sign-In (id_token) → JWT interne (sub Google haché HMAC-SHA-256 + pepper SSM, privacy-first) |
-| Chiffrement | AES-256-GCM via clé SSM pour les tokens OAuth tiers |
-| IaC | OpenTofu (stacks `stateful` / `platform` / `app`) |
-| Région | `eu-west-3` (Paris) |
+| Runtime | Node.js 24 LTS |
+| Framework / langage | NestJS 10 · TypeScript strict |
+| Persistance | **MariaDB 10.5+** via l'ORM **Prisma 6** (provider `mysql`) — base hébergée sur le NAS |
+| API | API REST versionnée `/v1/*`, validation Zod (`nestjs-zod`), erreurs RFC 9457 |
+| Auth utilisateur | Google Sign-In (id_token) → JWT interne RS256 (sub Google haché HMAC-SHA-256 + pepper, privacy-first) |
+| Chiffrement | AES-256-GCM (`AesService`) pour les tokens OAuth tiers |
+| Hébergement | **Raspberry Pi 4 (arm64), conteneur Podman géré par Quadlet** |
+| Cible cloud (future) | AWS serverless / OpenTofu (`acervatim-infra`), non activée |
+
+> ⚠️ La table ci-dessous décrivait la stack AWS/DynamoDB initiale, jamais construite. Les noms de
+> tables DynamoDB (`api_cache`, `rate_limit_buckets`, `oauth_credentials`…) correspondent à des
+> **tables MariaDB** équivalentes dans le schéma Prisma réel.
 
 **Périmètre fonctionnel**
 
 Le backend remplit cinq rôles, dans cet ordre de priorité :
 
 1. **Proxy d'API externes** — un seul endpoint `/search?type=...&q=...` côté app, qui route en interne vers Discogs / Google Books / AniList / Rebrickable / BGG / ComicVine / TMDB selon le `CollectionType` et la stratégie configurée (`SingleProvider`, `Fallback`, `EnrichChain`). Les clés d'API et secrets restent côté serveur, jamais embarqués dans l'APK.
-2. **Cache partagé** — table `api_cache` DynamoDB avec TTL natif : une recherche faite par un utilisateur bénéficie à tous. Réduit drastiquement la charge sur les API tierces et améliore les temps de réponse côté app.
+2. **Cache partagé** — table `api_cache` (MariaDB, avec expiration applicative) : une recherche faite par un utilisateur bénéficie à tous. Réduit drastiquement la charge sur les API tierces et améliore les temps de réponse côté app.
 3. **Throttling centralisé** — table `rate_limit_buckets` (token bucket par couple `user#provider`) qui protège les quotas de chaque API (notamment Discogs 60 req/min, BGG, Comic Vine).
 4. **OAuth complexes côté serveur** — notamment **Discogs OAuth 1.0a** (signatures HMAC-SHA1, nonce, timestamp) : impossible à faire proprement sur device sans embarquer les consumer secrets ; le backend gère le flow et stocke les tokens chiffrés en `oauth_credentials`.
 5. **Services additionnels** — synchronisation multi-appareils des collections/items, gestion du statut **premium** (Google Play Billing + table `premium_grants` d'overrides admin), futures features collaboratives.
@@ -764,7 +776,7 @@ Le backend prévoit deux sources de premium combinées en OR logique :
 - `subscriptions` : géré exclusivement par Google Play Billing (webhook RTDN + cron de re-vérification toutes les 6h).
 - `premium_grants` : overrides manuels (toi-même, beta-testeurs, comp, support) gérés via un script local TypeScript.
 
-Le statut effectif est résolu côté backend par `getPremiumStatus(userId)` et inclus dans le JWT émis au login (TTL court, ~15 min) pour éviter une lecture DynamoDB sur les endpoints chauds. Côté app, un middleware équivalent gate les features premium (sync multi-appareils, providers premium, exports avancés…).
+Le statut effectif est résolu côté backend par `getPremiumStatus(userId)` et inclus dans le JWT émis au login pour éviter une lecture en base sur les endpoints chauds. Côté app, un middleware équivalent gate les features premium (sync multi-appareils, providers premium, exports avancés…).
 
 #### Politique réseau
 

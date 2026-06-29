@@ -28,10 +28,11 @@ contexte-ia-vinylcollection.md
 /.vscode/
 /.idea/
 
-# Notes internes de roadmap : sprints, déploiement Play Store, etc.
-# Le contexte global (docs/contexte-global.md) reste versionné ; tout ce qui
-# vit sous docs/interne/ est local et n'est pas commité.
+# Notes internes : docs/interne/ = sprints uniquement ; docs/travail/ = matière de
+# travail (guides, setup OAuth, runbook Play Store, assets). Le contexte global
+# (docs/contexte-global.md) reste versionné. Tout ceci est local, non commité.
 /docs/interne/
+/docs/travail/
 
 # Rapports de code review générés localement (multi-agents) — non versionnés.
 /docs/review/

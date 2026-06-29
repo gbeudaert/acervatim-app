@@ -48,8 +48,10 @@ Le serveur remplit cinq rôles, par ordre de priorité :
 | Base de données | MariaDB, via l'ORM Prisma |
 | Authentification | Google Sign-In côté app → JWT interne RS256 (validité 7 jours) |
 | Chiffrement | AES-256-GCM pour les jetons OAuth tiers |
-| Hébergement V1 | Auto-hébergé (NAS Synology) — coût opérationnel nul, contrôle total |
+| Hébergement V1 | Auto-hébergé sur **Raspberry Pi 4 (arm64) sous Podman** ; base MariaDB sur le NAS — coût opérationnel quasi nul, contrôle total |
 | Évolution V2 | Migration cloud possible si l'usage croît, à schéma identique |
+
+> Note : le NAS Synology (armv7l) envisagé initialement a été abandonné — Prisma exige une plateforme 64 bits. La V1 tourne donc sur Raspberry Pi 4 (conteneur Podman géré par Quadlet), la base MariaDB restant hébergée sur le NAS.
 
 ## Confidentialité : privacy by design
 
@@ -105,7 +107,7 @@ Le modèle serveur est le miroir du modèle local de l'application :
 - Validation stricte des entrées (schémas Zod) : toute donnée inattendue est rejetée.
 - Rate limiting global par IP en plus du throttling par source.
 - Documentation **OpenAPI** générée automatiquement depuis le code (interface Swagger disponible hors production).
-- `GET /health` — supervision (état du service et de la base).
+- `GET /health` — supervision (état du service ; un check de readiness incluant un ping de la base est prévu — sprint Ops).
 
 ## Ce que le serveur ne fait pas
 
