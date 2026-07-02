@@ -1,5 +1,6 @@
 package app.acervatim.domain.repository
 
+import app.acervatim.domain.model.EditionMapping
 import app.acervatim.domain.model.ExternalMatch
 
 /**
@@ -18,4 +19,14 @@ interface ExternalSearchRepository {
      *   `CollectionType.typeCode`.
      */
     suspend fun searchByBarcode(barcode: String, type: String): Result<List<ExternalMatch>>
+
+    /**
+     * Énumère une édition manga complète via le backend (`GET /v1/search/edition-mapping`), pour
+     * importer « toute la série d'un coup ». Appel optionnel et explicite (quota) : réservé au bouton
+     * « Importer tous les tomes connus ».
+     *
+     * @param titleFr titre FR de la série (source : [ExternalMatch.seriesTitleFr]).
+     * @param edition mention d'édition (205), null pour l'édition standard.
+     */
+    suspend fun editionMapping(titleFr: String, edition: String?): Result<EditionMapping>
 }

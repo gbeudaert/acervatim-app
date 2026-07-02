@@ -23,3 +23,25 @@ data class UnifiedItemDto(
     val metadata: JsonObject? = null,
     val rawData: JsonElement? = null
 )
+
+/**
+ * Énumération d'une édition manga (`GET /v1/search/edition-mapping`, source BnF) : « récupérer toute
+ * la série d'un coup ». Cf. `bnf.types.ts#EditionMapping` côté backend.
+ */
+@Serializable
+data class EditionMappingDto(
+    val titleFr: String,
+    val edition: String? = null,
+    val tomeCount: Int,
+    val tomes: List<EditionTomeDto> = emptyList(),
+    val recordsScanned: Int = 0,
+    val ongoing: Boolean = false
+)
+
+@Serializable
+data class EditionTomeDto(
+    val editionVolume: Int,
+    val sourceVolumeRange: String? = null,
+    val isbn: String? = null,
+    val titleFr: String? = null
+)

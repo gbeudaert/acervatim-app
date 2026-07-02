@@ -13,6 +13,29 @@ object MangaExtras {
     const val KEY_ORIGINAL_AUTHOR: String = "originalAuthor"
     const val KEY_DEMOGRAPHIC: String = "demographic"
     const val KEY_PAGE_COUNT: String = "pageCount"
+
+    /** Mention d'édition (205 BnF, ex "Éd. colossale"). Absente = édition standard. */
+    const val KEY_EDITION: String = "edition"
+
+    /**
+     * Plage de tomes de l'édition source couverte par ce tome (454$h, ex "1-3").
+     * Présent surtout sur les éditions compilées (Colossale, Perfect…). Cf. [sourceVolumeLabel].
+     */
+    const val KEY_SOURCE_VOLUME_RANGE: String = "sourceVolumeRange"
+
+    /**
+     * Libellé lisible d'une plage `454$h` : "1-3" → "1 à 3", "5" → "5". null si vide.
+     * (Le texte complet « contient les tomes … » est assemblé côté UI, pour rester localisable.)
+     */
+    fun sourceVolumeLabel(range: String?): String? {
+        val cleaned = range?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        val match = Regex("""^(\d+)\s*-\s*(\d+)$""").find(cleaned)
+        if (match != null) {
+            val (from, to) = match.destructured
+            return "$from à $to"
+        }
+        return cleaned
+    }
 }
 
 /** Lecture d'un entier optionnel depuis les extras (renvoie null si manquant ou mal formé). */

@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import app.acervatim.domain.model.CollectionType
+import app.acervatim.domain.model.normalizeIsbn
 import app.acervatim.domain.repository.RecordRepository
 import app.acervatim.domain.usecase.LookupByBarcodeUseCase
 import app.acervatim.domain.usecase.LookupResult
@@ -47,8 +48,13 @@ class BarcodeScanViewModel @Inject constructor(
         if (_state.value.detection !is DetectionStep.Idle) return
         _state.update { it.copy(detection = DetectionStep.Looking(sanitized)) }
         viewModelScope.launch {
-            // 1) Dédup locale prioritaire : gratuite, hors-ligne, évite un doublon.
-            val existing = recordRepository.findByBarcode(sanitized)
+            // 1) Dédup locale prioritaire : gratuite, hors-ligne, évite un doublon. Pour le manga
+            // l'unicité porte sur l'ISBN (colonne first-class) ; pour le vinyle sur le code-barres.
+            val existing = if (collectionType == CollectionType.MANGA) {
+                recordRepository.findByIsbn(normalizeIsbn(sanitized) ?: sanitized)
+            } else {
+                recordRepository.findByBarcode(sanitized)
+            }
             if (existing != null) {
                 _state.update { it.copy(detection = DetectionStep.Found(sanitized, existing.title)) }
                 _events.value = BarcodeScanEvent.OpenExistingRecord(existing.id, existing.title)

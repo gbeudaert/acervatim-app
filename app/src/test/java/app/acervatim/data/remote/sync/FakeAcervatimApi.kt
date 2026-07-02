@@ -9,6 +9,7 @@ import app.acervatim.data.remote.dto.CreateCollectionRequest
 import app.acervatim.data.remote.dto.CreateItemRequest
 import app.acervatim.data.remote.dto.CreateNodeRequest
 import app.acervatim.data.remote.dto.DeletedResponse
+import app.acervatim.data.remote.dto.EditionMappingDto
 import app.acervatim.data.remote.dto.ItemDto
 import app.acervatim.data.remote.dto.MeResponse
 import app.acervatim.data.remote.dto.NodeDto
@@ -139,6 +140,7 @@ class FakeAcervatimApi : AcervatimApi {
     override suspend fun patchNode(id: String, body: PatchNodeRequest): Response<NodeDto> = notImpl()
     override suspend fun attachNodeSource(id: String, body: AttachSourceRequest): NodeDto = notImpl()
     override suspend fun search(type: String, query: String?, barcode: String?, cursor: String?, limit: Int?): PageDto<UnifiedItemDto> = notImpl()
+    override suspend fun editionMapping(title: String, edition: String?): EditionMappingDto = notImpl()
     override suspend fun startOAuth(provider: String): OAuthStartResponse = notImpl()
     override suspend fun connectedProviders(): PageDto<ConnectedProviderDto> = notImpl()
     override suspend fun revokeOAuth(provider: String): Response<Unit> = notImpl()

@@ -12,10 +12,12 @@ import app.acervatim.ui.detail.RecordDetailScreen
 import app.acervatim.ui.edit.AddEditRecordScreen
 import app.acervatim.ui.list.CollectionScreen
 import app.acervatim.ui.manga.AddEditMangaScreen
+import app.acervatim.ui.manga.MangaDetailScreen
 import app.acervatim.ui.account.AccountScreen
 import app.acervatim.ui.scan.BarcodeScanScreen
 import app.acervatim.ui.series.AddEditSeriesScreen
 import app.acervatim.ui.series.SeriesDetailScreen
+import app.acervatim.ui.series.SeriesImportScreen
 import app.acervatim.ui.settings.ManageCollectionTypesScreen
 import app.acervatim.ui.settings.SettingsScreen
 
@@ -31,6 +33,9 @@ fun AcervatimNavGraph(
             CollectionScreen(
                 onAddRecord = { navController.navigate(AcervatimDestinations.addRecord()) },
                 onScanRecord = { type -> navController.navigate(AcervatimDestinations.scan(type.name)) },
+                onScanSeries = { type ->
+                    navController.navigate(AcervatimDestinations.scan(type.name, seriesImport = true))
+                },
                 onAddManga = { navController.navigate(AcervatimDestinations.addManga()) },
                 onAddSeries = { type ->
                     navController.navigate(AcervatimDestinations.addSeries(type.name))
@@ -97,13 +102,22 @@ fun AcervatimNavGraph(
             SeriesDetailScreen(
                 onBack = { navController.popBackStack() },
                 onOpenVolume = { id ->
-                    navController.navigate(AcervatimDestinations.recordDetail(id))
+                    // Un tome de série est toujours un manga → détail manga dédié.
+                    navController.navigate(AcervatimDestinations.mangaDetail(id))
                 },
                 onAddVolume = { seriesId, suggested ->
                     navController.navigate(
                         AcervatimDestinations.addManga(
                             seriesId = seriesId,
                             volumeNumber = suggested
+                        )
+                    )
+                },
+                onScanVolume = { seriesId ->
+                    navController.navigate(
+                        AcervatimDestinations.scan(
+                            collectionType = CollectionType.MANGA.name,
+                            seriesId = seriesId
                         )
                     )
                 },
@@ -180,6 +194,17 @@ fun AcervatimNavGraph(
                 }
             )
         }
+        composable(
+            route = AcervatimDestinations.MANGA_DETAIL_ROUTE,
+            arguments = listOf(
+                navArgument(AcervatimNavArgs.RECORD_ID) { type = NavType.StringType }
+            )
+        ) {
+            MangaDetailScreen(
+                onBack = { navController.popBackStack() },
+                onEdit = { id -> navController.navigate(AcervatimDestinations.editManga(id)) }
+            )
+        }
         composable(AcervatimDestinations.SETTINGS_ROUTE) {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
@@ -206,6 +231,16 @@ fun AcervatimNavGraph(
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
+                },
+                navArgument(AcervatimNavArgs.SERIES_IMPORT) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument(AcervatimNavArgs.SERIES_ID) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
                 }
             )
         ) { backStackEntry ->
@@ -214,20 +249,57 @@ fun AcervatimNavGraph(
             val scannedType = backStackEntry.arguments
                 ?.getString(AcervatimNavArgs.COLLECTION_TYPE)
                 ?.let { runCatching { CollectionType.valueOf(it) }.getOrNull() }
+            // Scan lancé depuis la vue séries : le code-barres résolu ouvre l'écran d'import de série.
+            val seriesImport = backStackEntry.arguments
+                ?.getString(AcervatimNavArgs.SERIES_IMPORT) == "true"
+            // Scan lancé depuis le détail d'une série : on ajoute le tome scanné à CETTE série.
+            val targetSeriesId = backStackEntry.arguments?.getString(AcervatimNavArgs.SERIES_ID)
             BarcodeScanScreen(
                 onBack = { navController.popBackStack() },
                 onExistingRecord = { id ->
-                    navController.navigate(AcervatimDestinations.recordDetail(id)) {
+                    // Scan en contexte manga (type actif manga, ou ajout à une série) → détail manga.
+                    val isManga = scannedType == CollectionType.MANGA || targetSeriesId != null
+                    val dest =
+                        if (isManga) AcervatimDestinations.mangaDetail(id)
+                        else AcervatimDestinations.recordDetail(id)
+                    navController.navigate(dest) {
                         popUpTo(AcervatimDestinations.SCAN_ROUTE) { inclusive = true }
                     }
                 },
                 onNewBarcode = { barcode ->
-                    val route = when (scannedType) {
-                        CollectionType.MANGA -> AcervatimDestinations.addManga(barcode = barcode)
+                    val route = when {
+                        targetSeriesId != null ->
+                            AcervatimDestinations.addManga(seriesId = targetSeriesId, barcode = barcode)
+                        seriesImport -> AcervatimDestinations.seriesImport(barcode)
+                        scannedType == CollectionType.MANGA -> AcervatimDestinations.addManga(barcode = barcode)
                         else -> AcervatimDestinations.addRecord(barcode)
                     }
                     navController.navigate(route) {
                         popUpTo(AcervatimDestinations.SCAN_ROUTE) { inclusive = true }
+                    }
+                }
+            )
+        }
+        composable(
+            route = AcervatimDestinations.SERIES_IMPORT_ROUTE,
+            arguments = listOf(
+                navArgument(AcervatimNavArgs.BARCODE) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) {
+            SeriesImportScreen(
+                onBack = { navController.popBackStack() },
+                onOpenSeries = { seriesId ->
+                    navController.navigate(AcervatimDestinations.seriesDetail(seriesId)) {
+                        popUpTo(AcervatimDestinations.SERIES_IMPORT_ROUTE) { inclusive = true }
+                    }
+                },
+                onManual = { barcode ->
+                    navController.navigate(AcervatimDestinations.addManga(barcode = barcode)) {
+                        popUpTo(AcervatimDestinations.SERIES_IMPORT_ROUTE) { inclusive = true }
                     }
                 }
             )

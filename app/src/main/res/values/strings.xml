@@ -156,6 +156,13 @@
     <string name="detail_status_title">Statut</string>
     <string name="detail_featuring">feat. %1$s</string>
 
+    <!-- Manga tome detail screen -->
+    <string name="manga_detail_title">Tome</string>
+    <string name="manga_detail_not_found">Tome introuvable</string>
+    <string name="manga_detail_delete_title">Supprimer ce tome ?</string>
+    <string name="manga_detail_contains">Contient les tomes %1$s</string>
+    <string name="manga_detail_synopsis">Résumé</string>
+
     <!-- Settings -->
     <string name="settings_title">Réglages</string>
     <string name="settings_section_collection">Collection</string>
@@ -209,6 +216,39 @@
     <string name="scan_permission_title">Accès appareil photo refusé</string>
     <string name="scan_permission_message">Sans accès à l\'appareil photo, le scan de code-barres est impossible. Vous pouvez autoriser l\'accès dans les paramètres système.</string>
     <string name="scan_permission_retry">Redemander</string>
+
+    <!-- Import de série au scan (depuis la vue séries manga) -->
+    <string name="collection_serial_add_sheet_title">Ajouter à la collection</string>
+    <string name="collection_serial_new_series">Nouvelle série</string>
+    <string name="collection_serial_new_series_subtitle">Créer une série vide à compléter</string>
+    <string name="collection_serial_scan">Scanner un tome</string>
+    <string name="collection_serial_scan_subtitle">Importer la série depuis l\'ISBN</string>
+    <string name="scan_series_import_title">Importer la série</string>
+    <string name="scan_series_import_detected">Série détectée : %1$s</string>
+    <string name="scan_series_import_volume">Tome scanné : T.%1$d</string>
+    <string name="scan_series_import_all">Importer tous les tomes connus</string>
+    <string name="scan_series_import_all_subtitle">Crée la série et tous ses tomes (le tome scanné en possédé, les autres en wishlist)</string>
+    <string name="scan_series_import_action">Importer</string>
+    <string name="scan_series_import_progress">Import en cours…</string>
+    <string name="scan_series_import_result">%1$d tome(s) ajouté(s) · %2$d déjà présent(s)</string>
+    <string name="scan_series_import_partial">Série en cours : des tomes peuvent manquer</string>
+    <string name="scan_series_import_unavailable">Import complet indisponible — seul le tome scanné a été ajouté</string>
+    <string name="scan_series_import_no_match">Aucune métadonnée trouvée pour ce code. Vous pouvez saisir le tome manuellement.</string>
+    <string name="scan_series_import_manual">Saisir manuellement</string>
+    <string name="scan_series_import_open">Voir la série</string>
+    <string name="series_detail_scan">Scanner un tome</string>
+    <string name="series_delete_title">Supprimer cette série ?</string>
+    <string name="series_delete_message">Les tomes rattachés ne sont pas supprimés : ils deviennent indépendants. Cette action est définitive.</string>
+    <!-- Suppression de série avec tomes : choix cascade / orphelins (cf. spec-edition-multiple §2.4). -->
+    <plurals name="series_delete_prompt">
+        <item quantity="one">Cette série contient %d tome. Que souhaitez-vous supprimer ?</item>
+        <item quantity="other">Cette série contient %d tomes. Que souhaitez-vous supprimer ?</item>
+    </plurals>
+    <plurals name="series_delete_cascade">
+        <item quantity="one">Supprimer la série et son tome</item>
+        <item quantity="other">Supprimer la série et ses %d tomes</item>
+    </plurals>
+    <string name="series_delete_orphan">Supprimer la série seule, garder les tomes</string>
 
     <!-- Actions -->
     <string name="action_save">Enregistrer</string>

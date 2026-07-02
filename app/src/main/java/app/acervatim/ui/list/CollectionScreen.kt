@@ -73,6 +73,7 @@ import kotlinx.coroutines.launch
 fun CollectionScreen(
     onAddRecord: () -> Unit,
     onScanRecord: (CollectionType) -> Unit,
+    onScanSeries: (CollectionType) -> Unit,
     onAddManga: () -> Unit,
     onAddSeries: (CollectionType) -> Unit,
     onOpenRecord: (String) -> Unit,
@@ -107,6 +108,7 @@ fun CollectionScreen(
         onCollectionTypeSelected = viewModel::onCollectionTypeSelected,
         onAddRecord = onAddRecord,
         onScanRecord = { onScanRecord(activeType) },
+        onScanSeries = { onScanSeries(activeType) },
         onAddManga = onAddManga,
         onAddSeries = { onAddSeries(activeType) },
         onRecordClick = onOpenRecord,
@@ -143,6 +145,7 @@ internal fun CollectionScreenContent(
     onCollectionTypeSelected: (CollectionType) -> Unit,
     onAddRecord: () -> Unit,
     onScanRecord: () -> Unit,
+    onScanSeries: () -> Unit,
     onAddManga: () -> Unit,
     onAddSeries: () -> Unit,
     onRecordClick: (String) -> Unit,
@@ -153,7 +156,9 @@ internal fun CollectionScreenContent(
     val scope = rememberCoroutineScope()
     val activeFilterCount = remember(filter) { filter.activeFilterCount() }
     var addSheetVisible by remember { mutableStateOf(false) }
+    var serialSheetVisible by remember { mutableStateOf(false) }
     val addSheetState = rememberModalBottomSheetState()
+    val serialSheetState = rememberModalBottomSheetState()
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -188,7 +193,8 @@ internal fun CollectionScreenContent(
                     onAddRecord = onAddRecord,
                     onAddManga = onAddManga,
                     onAddSeries = onAddSeries,
-                    onOpenAddSheet = { addSheetVisible = true }
+                    onOpenAddSheet = { addSheetVisible = true },
+                    onOpenSerialSheet = { serialSheetVisible = true }
                 )
             }
         ) { innerPadding ->
@@ -247,6 +253,25 @@ internal fun CollectionScreenContent(
             }
         )
     }
+
+    if (serialSheetVisible) {
+        SerialAddBottomSheet(
+            sheetState = serialSheetState,
+            onDismiss = { serialSheetVisible = false },
+            onNewSeries = {
+                scope.launch { serialSheetState.hide() }.invokeOnCompletion {
+                    serialSheetVisible = false
+                    onAddSeries()
+                }
+            },
+            onScan = {
+                scope.launch { serialSheetState.hide() }.invokeOnCompletion {
+                    serialSheetVisible = false
+                    onScanSeries()
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -257,15 +282,20 @@ private fun FabForState(
     onAddRecord: () -> Unit,
     onAddManga: () -> Unit,
     onAddSeries: () -> Unit,
-    onOpenAddSheet: () -> Unit
+    onOpenAddSheet: () -> Unit,
+    onOpenSerialSheet: () -> Unit
 ) {
     // En vue SERIAL on crée une nouvelle série. En FLAT : connecté, on propose le choix
     // manuel/scan via le bottom sheet ; déconnecté, le scan (API) est indisponible, donc le
     // FAB envoie directement vers la saisie manuelle plutôt qu'un sheet à une seule option.
     val manualAdd = if (activeCollectionType == CollectionType.MANGA) onAddManga else onAddRecord
     val flatAction = if (signedIn) onOpenAddSheet else manualAdd
+    // En SERIAL manga + connecté, le scan (import de série) est possible : on propose un sheet
+    // « nouvelle série / scanner un tome ». Sinon le FAB crée directement une série vide.
+    val serialAction =
+        if (activeCollectionType == CollectionType.MANGA && signedIn) onOpenSerialSheet else onAddSeries
     val (labelRes, action) = when {
-        listMode == ListMode.SERIAL -> R.string.collection_fab_new_series to onAddSeries
+        listMode == ListMode.SERIAL -> R.string.collection_fab_new_series to serialAction
         activeCollectionType == CollectionType.MANGA -> R.string.collection_fab_add_manga to flatAction
         else -> R.string.collection_fab_add to flatAction
     }
@@ -327,6 +357,50 @@ private fun AddSourceBottomSheet(
                         .clickable(onClick = onScan)
                 )
             }
+        }
+    }
+}
+
+/**
+ * Feuille d'ajout en **vue séries** (manga connecté) : créer une série vide à la main, ou scanner un
+ * tome pour importer la série (cf. [SeriesImportScreen]). N'apparaît que connecté : le scan transite
+ * par l'API.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SerialAddBottomSheet(
+    sheetState: androidx.compose.material3.SheetState,
+    onDismiss: () -> Unit,
+    onNewSeries: () -> Unit,
+    onScan: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+            Text(
+                text = stringResource(R.string.collection_serial_add_sheet_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
+            )
+            ListItem(
+                leadingContent = { Icon(Icons.Filled.QrCodeScanner, contentDescription = null) },
+                headlineContent = { Text(stringResource(R.string.collection_serial_scan)) },
+                supportingContent = { Text(stringResource(R.string.collection_serial_scan_subtitle)) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onScan)
+            )
+            ListItem(
+                leadingContent = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                headlineContent = { Text(stringResource(R.string.collection_serial_new_series)) },
+                supportingContent = { Text(stringResource(R.string.collection_serial_new_series_subtitle)) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onNewSeries)
+            )
         }
     }
 }
@@ -640,6 +714,7 @@ private fun CollectionScreenEmptyPreview() {
             onCollectionTypeSelected = {},
             onAddRecord = {},
             onScanRecord = {},
+            onScanSeries = {},
             onAddManga = {},
             onAddSeries = {},
             onRecordClick = {},

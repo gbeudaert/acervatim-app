@@ -5,10 +5,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import app.acervatim.R
+import app.acervatim.domain.model.Artist
 import app.acervatim.domain.model.CollectionType
+import app.acervatim.domain.model.ItemStatus
+import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.Series
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -32,20 +36,38 @@ class SeriesDetailContentTest {
     val composeRule = createComposeRule()
 
     private val now: Instant = Instant.parse("2026-05-19T08:00:00Z")
-    private val editLabel: String =
-        ApplicationProvider.getApplicationContext<Context>().getString(R.string.action_edit)
+    private val context: Context = ApplicationProvider.getApplicationContext()
+    private val editLabel: String = context.getString(R.string.action_edit)
+    private val moreLabel: String = context.getString(R.string.action_more)
+    private val deleteLabel: String = context.getString(R.string.action_delete)
 
-    private val loaded = SeriesDetailUiState.Loaded(
-        series = Series(
-            id = "s1",
-            collectionType = CollectionType.MANGA,
-            title = "Berserk",
-            originalAuthor = "Kentarō Miura",
-            coverPath = null,
-            createdAt = now,
-            updatedAt = now
-        ),
-        volumes = emptyList()
+    private val series = Series(
+        id = "s1",
+        collectionType = CollectionType.MANGA,
+        title = "Berserk",
+        originalAuthor = "Kentarō Miura",
+        coverPath = null,
+        createdAt = now,
+        updatedAt = now
+    )
+
+    private val loaded = SeriesDetailUiState.Loaded(series = series, volumes = emptyList())
+
+    private fun loadedWithTomes(count: Int) = SeriesDetailUiState.Loaded(
+        series = series,
+        volumes = (1..count).map { i ->
+            Record(
+                id = "t$i",
+                collectionType = CollectionType.MANGA,
+                seriesId = "s1",
+                volumeNumber = i,
+                artists = listOf(Artist(id = "", name = "Kentarō Miura")),
+                title = "Tome $i",
+                status = ItemStatus.OWNED,
+                createdAt = now,
+                updatedAt = now
+            )
+        }
     )
 
     @Test
@@ -64,14 +86,16 @@ class SeriesDetailContentTest {
             }
         }
 
-        composeRule.onNodeWithContentDescription(editLabel)
+        // L'édition vit désormais dans le menu overflow : on l'ouvre puis on clique l'entrée.
+        composeRule.onNodeWithContentDescription(moreLabel).performClick()
+        composeRule.onNodeWithText(editLabel)
             .assertHasClickAction()
             .performClick()
         assertEquals("s1", editedId)
     }
 
     @Test
-    fun `edit action is hidden while loading`() {
+    fun `overflow menu is hidden while loading`() {
         composeRule.setContent {
             MaterialTheme {
                 SeriesDetailContent(
@@ -85,6 +109,59 @@ class SeriesDetailContentTest {
             }
         }
 
-        composeRule.onNodeWithContentDescription(editLabel).assertDoesNotExist()
+        // Tant que la série n'est pas chargée, le déclencheur de menu (et donc l'édition) est absent.
+        composeRule.onNodeWithContentDescription(moreLabel).assertDoesNotExist()
+    }
+
+    @Test
+    fun `delete dialog offers cascade and orphan modes when the series has tomes`() {
+        var deletedCascade: Boolean? = null
+        composeRule.setContent {
+            MaterialTheme {
+                SeriesDetailContent(
+                    state = loadedWithTomes(2),
+                    onBack = {},
+                    onOpenVolume = {},
+                    onAddVolume = { _, _ -> },
+                    onEditSeries = {},
+                    onSetStatus = { _, _ -> },
+                    onDelete = { deletedCascade = it }
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription(moreLabel).performClick()
+        composeRule.onNodeWithText(deleteLabel).performClick()
+
+        val cascadeLabel = context.resources.getQuantityString(R.plurals.series_delete_cascade, 2, 2)
+        val orphanLabel = context.getString(R.string.series_delete_orphan)
+        composeRule.onNodeWithText(orphanLabel).assertHasClickAction()
+        composeRule.onNodeWithText(cascadeLabel).performClick()
+
+        assertEquals(true, deletedCascade)
+    }
+
+    @Test
+    fun `delete dialog orphan choice deletes only the node`() {
+        var deletedCascade: Boolean? = null
+        composeRule.setContent {
+            MaterialTheme {
+                SeriesDetailContent(
+                    state = loadedWithTomes(3),
+                    onBack = {},
+                    onOpenVolume = {},
+                    onAddVolume = { _, _ -> },
+                    onEditSeries = {},
+                    onSetStatus = { _, _ -> },
+                    onDelete = { deletedCascade = it }
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription(moreLabel).performClick()
+        composeRule.onNodeWithText(deleteLabel).performClick()
+        composeRule.onNodeWithText(context.getString(R.string.series_delete_orphan)).performClick()
+
+        assertEquals(false, deletedCascade)
     }
 }

@@ -22,10 +22,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -33,8 +39,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +50,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -57,17 +66,29 @@ fun SeriesDetailScreen(
     onBack: () -> Unit,
     onOpenVolume: (String) -> Unit,
     onAddVolume: (seriesId: String, suggestedVolume: Int?) -> Unit,
+    onScanVolume: (seriesId: String) -> Unit,
     onEditSeries: (String) -> Unit,
     viewModel: SeriesDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val event by viewModel.events.collectAsStateWithLifecycle()
+
+    LaunchedEffect(event) {
+        if (event is SeriesDetailEvent.Deleted) {
+            viewModel.onEventConsumed()
+            onBack()
+        }
+    }
+
     SeriesDetailContent(
         state = state,
         onBack = onBack,
         onOpenVolume = onOpenVolume,
         onAddVolume = onAddVolume,
+        onScanVolume = onScanVolume,
         onEditSeries = onEditSeries,
-        onSetStatus = viewModel::onSetStatus
+        onSetStatus = viewModel::onSetStatus,
+        onDelete = viewModel::onDelete
     )
 }
 
@@ -79,8 +100,12 @@ internal fun SeriesDetailContent(
     onOpenVolume: (String) -> Unit,
     onAddVolume: (seriesId: String, suggestedVolume: Int?) -> Unit,
     onEditSeries: (String) -> Unit,
-    onSetStatus: (String, app.acervatim.domain.model.ItemStatus) -> Unit
+    onSetStatus: (String, app.acervatim.domain.model.ItemStatus) -> Unit,
+    onScanVolume: (seriesId: String) -> Unit = {},
+    onDelete: (cascade: Boolean) -> Unit = {}
 ) {
+    var menuExpanded by rememberSaveable { mutableStateOf(false) }
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -94,14 +119,43 @@ internal fun SeriesDetailContent(
                     }
                 },
                 actions = {
-                    // Édition de la série (jaquette, total tomes, synopsis, …). N'apparaît qu'une
-                    // fois la série chargée — sinon on n'a pas d'id à passer à AddEditSeriesScreen.
+                    // Actions sur la série chargée : scan d'un tome, édition, suppression.
+                    // Indisponibles tant qu'on n'a pas l'id (état Loading/NotFound).
                     if (state is SeriesDetailUiState.Loaded) {
-                        IconButton(onClick = { onEditSeries(state.series.id) }) {
+                        IconButton(onClick = { onScanVolume(state.series.id) }) {
                             Icon(
-                                imageVector = Icons.Filled.Edit,
-                                contentDescription = stringResource(R.string.action_edit)
+                                imageVector = Icons.Filled.QrCodeScanner,
+                                contentDescription = stringResource(R.string.series_detail_scan)
                             )
+                        }
+                        Box {
+                            IconButton(onClick = { menuExpanded = true }) {
+                                Icon(
+                                    imageVector = Icons.Filled.MoreVert,
+                                    contentDescription = stringResource(R.string.action_more)
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = menuExpanded,
+                                onDismissRequest = { menuExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.action_edit)) },
+                                    leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onEditSeries(state.series.id)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.action_delete)) },
+                                    leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        confirmDelete = true
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -143,6 +197,75 @@ internal fun SeriesDetailContent(
             }
         }
     }
+
+    if (confirmDelete && state is SeriesDetailUiState.Loaded) {
+        SeriesDeleteDialog(
+            tomeCount = state.volumes.size,
+            onCascade = {
+                confirmDelete = false
+                onDelete(true)
+            },
+            onOrphan = {
+                confirmDelete = false
+                onDelete(false)
+            },
+            onDismiss = { confirmDelete = false }
+        )
+    }
+}
+
+/**
+ * Dialog de suppression d'une série. Quand la série contient des tomes, propose explicitement les deux
+ * modes (cf. `spec-edition-multiple.md` §2.4) : **Cascade** (série + tomes) ou **Orphelins** (nœud seul,
+ * tomes conservés). Sans tome, un simple bouton Supprimer suffit.
+ */
+@Composable
+private fun SeriesDeleteDialog(
+    tomeCount: Int,
+    onCascade: () -> Unit,
+    onOrphan: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.series_delete_title)) },
+        text = {
+            Text(
+                if (tomeCount == 0) stringResource(R.string.series_delete_message)
+                else pluralStringResource(R.plurals.series_delete_prompt, tomeCount, tomeCount)
+            )
+        },
+        confirmButton = {
+            Column(horizontalAlignment = Alignment.End) {
+                if (tomeCount > 0) {
+                    TextButton(onClick = onCascade) {
+                        Text(
+                            text = pluralStringResource(
+                                R.plurals.series_delete_cascade, tomeCount, tomeCount
+                            ),
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    TextButton(onClick = onOrphan) {
+                        Text(stringResource(R.string.series_delete_orphan))
+                    }
+                } else {
+                    // Aucun tome : cascade et orphelins sont équivalents, un seul choix.
+                    TextButton(onClick = onOrphan) {
+                        Text(
+                            text = stringResource(R.string.action_delete),
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_cancel))
+            }
+        }
+    )
 }
 
 @Composable

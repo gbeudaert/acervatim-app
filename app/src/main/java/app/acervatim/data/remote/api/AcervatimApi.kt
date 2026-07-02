@@ -7,6 +7,7 @@ import app.acervatim.data.remote.dto.CreateCollectionRequest
 import app.acervatim.data.remote.dto.CreateItemRequest
 import app.acervatim.data.remote.dto.CreateNodeRequest
 import app.acervatim.data.remote.dto.DeletedResponse
+import app.acervatim.data.remote.dto.EditionMappingDto
 import app.acervatim.data.remote.dto.ItemDto
 import app.acervatim.data.remote.dto.MeResponse
 import app.acervatim.data.remote.dto.NodeDto
@@ -162,6 +163,17 @@ interface AcervatimApi {
         @Query("cursor") cursor: String? = null,
         @Query("limit") limit: Int? = null
     ): PageDto<UnifiedItemDto>
+
+    /**
+     * Énumère une édition manga complète (« récupérer toute la série d'un coup ») via la BnF.
+     * `title` = titre FR de la série (source : `metadata.scannedTome.titleFr` d'un précédent
+     * `/search`) ; `edition` = mention 205 (absent → édition standard).
+     */
+    @GET("v1/search/edition-mapping")
+    suspend fun editionMapping(
+        @Query("title") title: String,
+        @Query("edition") edition: String? = null
+    ): EditionMappingDto
 
     // ---- OAuth utilisateur (§10) -------------------------------------------------------------
 
