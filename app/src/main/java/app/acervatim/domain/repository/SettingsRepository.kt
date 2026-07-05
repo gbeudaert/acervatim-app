@@ -42,4 +42,14 @@ interface SettingsRepository {
     fun observeVisibleCollectionTypes(): Flow<Set<CollectionType>>
 
     suspend fun setCollectionTypeVisible(type: CollectionType, visible: Boolean)
+
+    /**
+     * Types de collection inclus dans la synchronisation cloud. Par défaut **tous** les
+     * [CollectionType] sont synchronisés (clé absente ⇒ tout synchronisé). Un type retiré n'émet
+     * plus aucune requête de sync pour ses données ; contrairement à la visibilité, un ensemble
+     * **vide est autorisé** (l'utilisateur peut tout garder local).
+     */
+    fun observeSyncedCollectionTypes(): Flow<Set<CollectionType>>
+
+    suspend fun setCollectionTypeSynced(type: CollectionType, synced: Boolean)
 }

@@ -13,6 +13,7 @@ import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.auth.AuthState
 import app.acervatim.domain.model.sync.SyncState
 import app.acervatim.domain.model.sync.SyncStatus
+import app.acervatim.domain.FakeSettingsRepository
 import app.acervatim.domain.repository.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -60,6 +61,7 @@ class SyncManagerPushTest {
             seriesDao = db.seriesDao(),
             artistDao = db.artistDao(),
             authRepository = FakeAuthRepository(userId = "u1"),
+            settingsRepository = FakeSettingsRepository(),
             syncStateStore = syncStateStore,
             clock = clock
         )
@@ -93,7 +95,7 @@ class SyncManagerPushTest {
     fun `sync without session fails fast`() = runTest {
         val offline = SyncManagerImpl(
             api, db, db.collectionDao(), db.recordDao(), db.seriesDao(), db.artistDao(),
-            FakeAuthRepository(userId = null), syncStateStore, clock
+            FakeAuthRepository(userId = null), FakeSettingsRepository(), syncStateStore, clock
         )
         val result = offline.syncNow()
         assertTrue(result.isFailure)
@@ -107,7 +109,8 @@ class SyncManagerPushTest {
         // Simule un redémarrage : nouvelle instance lisant le même store persistant.
         val restarted = SyncManagerImpl(
             api, db, db.collectionDao(), db.recordDao(), db.seriesDao(), db.artistDao(),
-            FakeAuthRepository(userId = "u1"), SyncStateStore(ApplicationProvider.getApplicationContext()), clock
+            FakeAuthRepository(userId = "u1"), FakeSettingsRepository(),
+            SyncStateStore(ApplicationProvider.getApplicationContext()), clock
         )
         val status = restarted.status.value
         assertTrue(status is SyncStatus.Success)

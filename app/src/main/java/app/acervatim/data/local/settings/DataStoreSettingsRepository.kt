@@ -80,6 +80,34 @@ class DataStoreSettingsRepository @Inject constructor(
         }
     }
 
+    override fun observeSyncedCollectionTypes(): Flow<Set<CollectionType>> =
+        dataStore.data.map { prefs ->
+            // Clé absente ⇒ tout est synchronisé (défaut). On distingue « absent » (défaut) d'un set
+            // persisté vide (l'utilisateur a tout retiré) via un marqueur, car un stringSet vide et
+            // une clé absente sont indiscernables en DataStore : on stocke donc le marqueur MARKER_NONE.
+            val raw = prefs[KEY_SYNCED_COLLECTION_TYPES] ?: return@map ALL_TYPES
+            if (raw == MARKER_NONE) {
+                emptySet()
+            } else {
+                raw.mapNotNull { name -> runCatching { CollectionType.valueOf(name) }.getOrNull() }.toSet()
+            }
+        }
+
+    override suspend fun setCollectionTypeSynced(type: CollectionType, synced: Boolean) {
+        dataStore.edit { prefs ->
+            val current = when (val raw = prefs[KEY_SYNCED_COLLECTION_TYPES]) {
+                null -> ALL_TYPES
+                MARKER_NONE -> emptySet()
+                else -> raw.mapNotNull { name -> runCatching { CollectionType.valueOf(name) }.getOrNull() }.toSet()
+            }
+            val updated = if (synced) current + type else current - type
+            // Un ensemble vide est autorisé (tout garder local) : on le matérialise par MARKER_NONE
+            // pour le distinguer du défaut « clé absente = tout synchronisé ».
+            prefs[KEY_SYNCED_COLLECTION_TYPES] =
+                if (updated.isEmpty()) MARKER_NONE else updated.map { it.name }.toSet()
+        }
+    }
+
     private fun listModeKey(type: CollectionType) =
         stringPreferencesKey("list_mode_${type.name}")
 
@@ -87,8 +115,12 @@ class DataStoreSettingsRepository @Inject constructor(
         val KEY_DUPLICATE_ALBUMS_PER_ARTIST = booleanPreferencesKey("duplicate_albums_per_artist")
         val KEY_ACTIVE_COLLECTION_TYPE = stringPreferencesKey("active_collection_type")
         val KEY_VISIBLE_COLLECTION_TYPES = stringSetPreferencesKey("visible_collection_types")
+        val KEY_SYNCED_COLLECTION_TYPES = stringSetPreferencesKey("synced_collection_types")
         const val DEFAULT_DUPLICATE = true
         val DEFAULT_ACTIVE_TYPE = CollectionType.VINYL
         val ALL_TYPES = CollectionType.entries.toSet()
+        // Marqueur « aucun type synchronisé » : un nom qui n'est pas un CollectionType valide, donc
+        // jamais confondu avec une valeur réelle et ignoré par les lectures tolérantes ailleurs.
+        val MARKER_NONE = setOf("__none__")
     }
 }

@@ -13,6 +13,7 @@ import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.auth.AuthState
 import app.acervatim.domain.model.sync.SyncState
 import app.acervatim.domain.model.sync.SyncStatus
+import app.acervatim.domain.FakeSettingsRepository
 import app.acervatim.domain.repository.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -60,6 +61,7 @@ class SyncManagerQuotaTest {
             seriesDao = db.seriesDao(),
             artistDao = db.artistDao(),
             authRepository = FakeAuthRepository(userId = "u1"),
+            settingsRepository = FakeSettingsRepository(),
             syncStateStore = SyncStateStore(context).also { it.clear() },
             clock = clock
         )

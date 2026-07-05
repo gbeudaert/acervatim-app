@@ -28,9 +28,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -51,8 +48,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.acervatim.R
-import app.acervatim.domain.model.CollectionType
-import app.acervatim.domain.model.ListMode
 import app.acervatim.ui.theme.AcervatimTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -65,13 +60,10 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val duplicate by viewModel.duplicateAlbumsPerArtist.collectAsStateWithLifecycle()
-    val listModeByType by viewModel.listModeByType.collectAsStateWithLifecycle()
     val backupState by viewModel.backupState.collectAsStateWithLifecycle()
     SettingsContent(
         duplicateAlbumsPerArtist = duplicate,
         onDuplicateAlbumsToggle = viewModel::onDuplicateAlbumsToggle,
-        listModeByType = listModeByType,
-        onListModeChange = viewModel::onListModeChange,
         backupState = backupState,
         onExportTo = viewModel::onExportTo,
         onImportFrom = viewModel::onImportFrom,
@@ -87,8 +79,6 @@ fun SettingsScreen(
 internal fun SettingsContent(
     duplicateAlbumsPerArtist: Boolean,
     onDuplicateAlbumsToggle: (Boolean) -> Unit,
-    listModeByType: Map<CollectionType, ListMode>,
-    onListModeChange: (CollectionType, ListMode) -> Unit,
     backupState: BackupOpState,
     onExportTo: (Uri) -> Unit,
     onImportFrom: (Uri) -> Unit,
@@ -98,9 +88,6 @@ internal fun SettingsContent(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val toggleableTypes = remember {
-        CollectionType.entries.filter { it.supportsSerial }
-    }
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
 
@@ -188,24 +175,6 @@ internal fun SettingsContent(
                 onCheckedChange = onDuplicateAlbumsToggle
             )
             HorizontalDivider()
-
-            if (toggleableTypes.isNotEmpty()) {
-                SectionLabel(stringResource(R.string.settings_section_view_per_collection))
-                Text(
-                    text = stringResource(R.string.settings_section_view_per_collection_description),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-                toggleableTypes.forEach { type ->
-                    ListModeRow(
-                        type = type,
-                        selected = listModeByType[type] ?: type.defaultListMode,
-                        onChange = { mode -> onListModeChange(type, mode) }
-                    )
-                }
-                HorizontalDivider()
-            }
 
             SectionLabel(stringResource(R.string.settings_section_data))
             Text(
@@ -305,45 +274,6 @@ private fun ToggleRow(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ListModeRow(
-    type: CollectionType,
-    selected: ListMode,
-    onChange: (ListMode) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            text = stringResource(type.labelRes()),
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(1f)
-        )
-        val options = remember {
-            listOf(
-                ListMode.FLAT to R.string.filters_list_mode_flat,
-                ListMode.SERIAL to R.string.filters_list_mode_serial
-            )
-        }
-        SingleChoiceSegmentedButtonRow {
-            options.forEachIndexed { index, (mode, labelRes) ->
-                SegmentedButton(
-                    selected = selected == mode,
-                    onClick = { if (selected != mode) onChange(mode) },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size)
-                ) {
-                    Text(stringResource(labelRes))
-                }
-            }
-        }
-    }
-}
-
 @Composable
 private fun ActionRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -387,11 +317,6 @@ private fun ActionRow(
     }
 }
 
-private fun CollectionType.labelRes(): Int = when (this) {
-    CollectionType.VINYL -> R.string.collection_type_vinyl
-    CollectionType.MANGA -> R.string.collection_type_manga
-}
-
 @Preview(showBackground = true)
 @Composable
 private fun SettingsPreview() {
@@ -399,11 +324,6 @@ private fun SettingsPreview() {
         SettingsContent(
             duplicateAlbumsPerArtist = true,
             onDuplicateAlbumsToggle = {},
-            listModeByType = mapOf(
-                CollectionType.VINYL to ListMode.FLAT,
-                CollectionType.MANGA to ListMode.SERIAL
-            ),
-            onListModeChange = { _, _ -> },
             backupState = BackupOpState.Idle,
             onExportTo = {},
             onImportFrom = {},

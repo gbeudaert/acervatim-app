@@ -12,13 +12,15 @@ class FakeSettingsRepository(
     initialDuplicate: Boolean = true,
     initialActiveCollectionType: CollectionType = CollectionType.VINYL,
     initialListModes: Map<CollectionType, ListMode> = emptyMap(),
-    initialVisibleTypes: Set<CollectionType> = CollectionType.entries.toSet()
+    initialVisibleTypes: Set<CollectionType> = CollectionType.entries.toSet(),
+    initialSyncedTypes: Set<CollectionType> = CollectionType.entries.toSet()
 ) : SettingsRepository {
 
     private val duplicateFlag = MutableStateFlow(initialDuplicate)
     private val activeType = MutableStateFlow(initialActiveCollectionType)
     private val listModes = MutableStateFlow(initialListModes)
     private val visibleTypes = MutableStateFlow(initialVisibleTypes)
+    private val syncedTypes = MutableStateFlow(initialSyncedTypes)
 
     override fun observeDuplicateAlbumsPerArtist(): Flow<Boolean> = duplicateFlag.asStateFlow()
 
@@ -46,5 +48,11 @@ class FakeSettingsRepository(
         if (updated.isNotEmpty()) {
             visibleTypes.value = updated
         }
+    }
+
+    override fun observeSyncedCollectionTypes(): Flow<Set<CollectionType>> = syncedTypes.asStateFlow()
+
+    override suspend fun setCollectionTypeSynced(type: CollectionType, synced: Boolean) {
+        syncedTypes.value = if (synced) syncedTypes.value + type else syncedTypes.value - type
     }
 }

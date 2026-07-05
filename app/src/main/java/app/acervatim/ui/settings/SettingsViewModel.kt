@@ -6,19 +6,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import app.acervatim.domain.model.CollectionType
-import app.acervatim.domain.model.ListMode
 import app.acervatim.domain.usecase.ExportBackupUseCase
 import app.acervatim.domain.usecase.ImportBackupUseCase
 import app.acervatim.domain.usecase.ObserveDuplicateAlbumsSettingUseCase
-import app.acervatim.domain.usecase.ObserveListModeForCollectionTypeUseCase
 import app.acervatim.domain.usecase.SetDuplicateAlbumsSettingUseCase
-import app.acervatim.domain.usecase.SetListModeForCollectionTypeUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.IOException
@@ -27,9 +22,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     observeDuplicate: ObserveDuplicateAlbumsSettingUseCase,
-    observeListMode: ObserveListModeForCollectionTypeUseCase,
     private val setDuplicate: SetDuplicateAlbumsSettingUseCase,
-    private val setListMode: SetListModeForCollectionTypeUseCase,
     private val exportBackup: ExportBackupUseCase,
     private val importBackup: ImportBackupUseCase,
     @ApplicationContext private val context: Context
@@ -38,30 +31,9 @@ class SettingsViewModel @Inject constructor(
     val duplicateAlbumsPerArtist: StateFlow<Boolean> = observeDuplicate()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
-    /**
-     * Mode (FLAT / SERIAL) effectif pour chaque [CollectionType], lu depuis DataStore.
-     * Comporte une entrée pour tous les types, même ceux qui ne supportent pas SERIAL :
-     * c'est à l'UI de griser / cacher les choix selon [CollectionType.supportsSerial].
-     */
-    val listModeByType: StateFlow<Map<CollectionType, ListMode>> = combine(
-        CollectionType.entries.map { type -> observeListMode(type) }
-    ) { modes ->
-        CollectionType.entries.zip(modes.toList()).toMap()
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = CollectionType.entries.associateWith { it.defaultListMode }
-    )
-
     fun onDuplicateAlbumsToggle(value: Boolean) {
         viewModelScope.launch {
             setDuplicate(value)
-        }
-    }
-
-    fun onListModeChange(type: CollectionType, mode: ListMode) {
-        viewModelScope.launch {
-            setListMode(type, mode)
         }
     }
 

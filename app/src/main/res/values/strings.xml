@@ -168,15 +168,31 @@
     <string name="settings_section_collection">Collection</string>
     <string name="settings_duplicate_albums_title">Dupliquer par artiste</string>
     <string name="settings_duplicate_albums_description">Un album à plusieurs artistes apparaît sous chacun d\'eux dans la liste. Désactivé, il n\'apparaît que sous l\'artiste principal avec un sous-titre « feat. ».</string>
-    <string name="settings_manage_types_title">Collections affichées</string>
-    <string name="settings_manage_types_subtitle">Choisir les types de collection visibles dans le menu.</string>
-    <string name="settings_section_view_per_collection">Vue par collection</string>
-    <string name="settings_section_view_per_collection_description">Choisir l\'affichage par défaut de chaque collection. Le mode reste modifiable depuis les filtres de la liste.</string>
+    <string name="settings_manage_types_title">Gérer les collections</string>
+    <string name="settings_manage_types_subtitle">Visibilité, sources (jetons), synchronisation et affichage par type de collection.</string>
 
-    <!-- Collections affichées -->
-    <string name="manage_types_title">Collections affichées</string>
-    <string name="manage_types_description">Masquer un type le retire du menu et de la bascule de collection. Vos fiches ne sont pas supprimées : réactivez le type pour les retrouver.</string>
+    <!-- Gérer les collections -->
+    <string name="manage_types_title">Gérer les collections</string>
+    <string name="manage_types_description">Pour chaque type de collection : l\'afficher dans le menu, connecter ses sources, le synchroniser et choisir son affichage. Masquer un type ne supprime pas vos fiches.</string>
     <string name="manage_types_item_count">%1$d élément(s)</string>
+    <string name="manage_types_visible_label">Visible</string>
+    <string name="manage_types_synced_label">Synchronisé</string>
+    <string name="manage_types_display_label">Affichage</string>
+    <!-- Statut agrégé des sources sur la ligne du type -->
+    <string name="manage_types_sources_connected">Sources : %1$d/%2$d connectée(s)</string>
+    <string name="manage_types_sources_all_public">Sources : aucun jeton requis</string>
+    <string name="manage_types_sources_open">Gérer les sources</string>
+
+    <!-- Sous-feuille des sources d'un type -->
+    <string name="sources_sheet_title">%1$s — sources</string>
+    <string name="sources_public_no_token">Source publique — aucun jeton requis</string>
+    <string name="sources_connected">Connectée</string>
+    <string name="sources_action_connect">Connecter</string>
+    <string name="sources_action_disconnect">Déconnecter</string>
+    <string name="sources_error_connect">Connexion impossible pour le moment.</string>
+    <string name="source_discogs">Discogs</string>
+    <string name="source_myanimelist">MyAnimeList</string>
+    <string name="source_bnf">BnF</string>
 
     <!-- Backup / Restore (Sprint 9) -->
     <string name="settings_section_data">Données</string>

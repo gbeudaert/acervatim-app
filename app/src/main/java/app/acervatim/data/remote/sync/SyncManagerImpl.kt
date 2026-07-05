@@ -24,10 +24,12 @@ import app.acervatim.domain.model.normalizeArtistName
 import app.acervatim.domain.model.sync.SyncState
 import app.acervatim.domain.model.sync.SyncStatus
 import app.acervatim.domain.repository.AuthRepository
+import app.acervatim.domain.repository.SettingsRepository
 import app.acervatim.domain.repository.SyncRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
@@ -61,6 +63,7 @@ class SyncManagerImpl @Inject constructor(
     private val seriesDao: SeriesDao,
     private val artistDao: ArtistDao,
     private val authRepository: AuthRepository,
+    private val settingsRepository: SettingsRepository,
     private val syncStateStore: SyncStateStore,
     private val clock: Clock
 ) : SyncRepository {
@@ -79,8 +82,11 @@ class SyncManagerImpl @Inject constructor(
         }
         _status.value = SyncStatus.Running
         return runCatching {
-            val pushResult = push()
-            val pulled = pull()
+            // Un type non coché dans « Gérer les collections » n'est ni poussé ni tiré : ses données
+            // restent purement locales. Ensemble vide autorisé (tout garder local).
+            val syncedTypes = settingsRepository.observeSyncedCollectionTypes().first()
+            val pushResult = push(syncedTypes)
+            val pulled = pull(syncedTypes)
             val now = clock.instant()
             _status.value = if (pushResult.skipped > 0) {
                 // Quota atteint : sync partielle, pas un échec — surtout pas de retry WorkManager,
@@ -102,7 +108,7 @@ class SyncManagerImpl @Inject constructor(
     /** Bilan du push : [skipped] = créations refusées pour quota, restées `DIRTY`/`LOCAL_ONLY`. */
     private data class PushResult(val pushed: Int, val skipped: Int)
 
-    private suspend fun push(): PushResult {
+    private suspend fun push(syncedTypes: Set<CollectionType>): PushResult {
         var count = 0
         var skipped = 0
         // Au premier 402 sur une création, on cesse les POST du même type : le quota ne se libère
@@ -112,6 +118,9 @@ class SyncManagerImpl @Inject constructor(
         var itemQuotaHit = false
         // 1. Collections
         for (col in collectionDao.listNeedingPush()) {
+            // Type désactivé pour la sync ⇒ on ne pousse pas cette collection (données locales).
+            val colType = CollectionType.fromTypeCode(col.type)
+            if (colType != null && colType !in syncedTypes) continue
             val remote = col.toRemoteModel()
             val dto = if (col.remoteId == null) {
                 if (collectionQuotaHit) {
@@ -138,6 +147,7 @@ class SyncManagerImpl @Inject constructor(
                 Log.i(TAG, "skip push item ${entity.id}: type ${entity.collectionType} non supporté en V1")
                 continue
             }
+            if (entity.collectionType !in syncedTypes) continue
             val collection = collectionDao.getById(entity.collectionId)
             val collectionRemoteId = collection?.remoteId
             if (collectionRemoteId == null) {
@@ -171,13 +181,16 @@ class SyncManagerImpl @Inject constructor(
 
     // ---- PULL -------------------------------------------------------------------------------
 
-    private suspend fun pull(): Int {
+    private suspend fun pull(syncedTypes: Set<CollectionType>): Int {
         var count = 0
         // 1. Collections (paginées)
         var cursor: String? = null
         do {
             val page = api.listCollections(cursor = cursor)
             for (dto in page.data) {
+                // Type désactivé pour la sync ⇒ on n'importe pas cette collection.
+                val type = CollectionType.fromTypeCode(dto.type)
+                if (type != null && type !in syncedTypes) continue
                 upsertPulledCollection(dto)
                 count++
             }
@@ -189,6 +202,7 @@ class SyncManagerImpl @Inject constructor(
             val remoteId = col.remoteId ?: continue
             val type = CollectionType.fromTypeCode(col.type) ?: continue
             if (type != CollectionType.VINYL) continue
+            if (type !in syncedTypes) continue
             var itemCursor: String? = null
             do {
                 val page = api.listItems(remoteId, cursor = itemCursor)
