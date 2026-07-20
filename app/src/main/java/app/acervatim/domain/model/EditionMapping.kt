@@ -30,5 +30,16 @@ data class EditionTome(
      * 454$h — plage de tomes de l'édition source couverte par ce tome (ex "1-3" pour une
      * Colossale). Sert à afficher « contient les tomes 1 à 3 ». null = correspondance 1:1.
      */
-    val sourceVolumeRange: String? = null
+    val sourceVolumeRange: String? = null,
+    /**
+     * Jaquette du tome (résolue par ISBN via Google Books, côté serveur). Peuplée **depuis le cache
+     * serveur uniquement** : `null` tant qu'aucune résolution `GET /v1/search/cover` n'a réchauffé
+     * le cache pour cet ISBN. L'import résout alors à la demande (cf. [ExternalSearchRepository]).
+     */
+    val coverUrl: String? = null,
+    /**
+     * Résumé propre au tome (330$a BnF, sinon repli Google Books côté serveur), ou null. Jamais le
+     * résumé de série. Stocké par tome à l'import (cf. [MangaExtras.KEY_TOME_SYNOPSIS]).
+     */
+    val description: String? = null
 )

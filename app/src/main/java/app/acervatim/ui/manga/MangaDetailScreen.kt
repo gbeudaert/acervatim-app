@@ -54,7 +54,6 @@ import app.acervatim.R
 import app.acervatim.domain.model.ItemStatus
 import app.acervatim.domain.model.MangaExtras
 import app.acervatim.domain.model.Record
-import app.acervatim.domain.model.Series
 import app.acervatim.domain.model.readString
 import app.acervatim.ui.components.ZoomableCover
 
@@ -173,7 +172,6 @@ internal fun MangaDetailContent(
 
                 is MangaDetailUiState.Loaded -> LoadedBody(
                     record = state.record,
-                    series = state.series,
                     onWishlistToggle = onWishlistToggle,
                     onRatingChange = onRatingChange
                 )
@@ -211,7 +209,6 @@ internal fun MangaDetailContent(
 @Composable
 private fun LoadedBody(
     record: Record,
-    series: Series?,
     onWishlistToggle: (Boolean) -> Unit,
     onRatingChange: (Int) -> Unit
 ) {
@@ -249,8 +246,9 @@ private fun LoadedBody(
 
         StarRating(rating = record.rating ?: 0, onRatingChange = onRatingChange)
 
-        // Résumé : les sources n'exposent pas de synopsis par tome → on montre celui de la série.
-        series?.synopsis?.takeIf { it.isNotBlank() }?.let { synopsis ->
+        // Résumé PROPRE AU TOME (330$a BnF → repli Google Books, résolu à l'import). Vide si aucune
+        // source par tome : on ne retombe pas sur le synopsis de série (affiché sur le détail de série).
+        record.extras.readString(MangaExtras.KEY_TOME_SYNOPSIS)?.let { synopsis ->
             HorizontalDivider()
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(

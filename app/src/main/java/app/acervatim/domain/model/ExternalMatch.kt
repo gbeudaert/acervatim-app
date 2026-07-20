@@ -19,6 +19,12 @@ data class ExternalMatch(
     val year: Int? = null,
     val coverUrl: String? = null,
     val description: String? = null,
+    /** Genre principal (vinyle : 1re valeur de `metadata.genres` Discogs) ; `null` hors vinyle. */
+    val genre: String? = null,
+    /** Format physique du disque (vinyle : dérivé de `metadata.format` Discogs) ; `null` sinon. */
+    val format: AcervatimFormat? = null,
+    /** Vitesse de gravure (vinyle : `metadata.recordingSpeed` normalisé serveur) ; `null` sinon. */
+    val recordingSpeed: RecordingSpeed? = null,
     /** Titre FR de la série (notice BnF `scannedTome.titleFr`) — clé de `edition-mapping`. */
     val seriesTitleFr: String? = null,
     /** N° de tome scanné (notice BnF `scannedTome.volume`). */

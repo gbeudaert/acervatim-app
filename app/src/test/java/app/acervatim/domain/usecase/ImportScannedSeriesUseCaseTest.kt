@@ -8,6 +8,7 @@ import app.acervatim.domain.model.EditionMapping
 import app.acervatim.domain.model.EditionTome
 import app.acervatim.domain.model.ExternalMatch
 import app.acervatim.domain.model.ItemStatus
+import app.acervatim.domain.model.MangaExtras
 import app.acervatim.domain.model.Series
 import app.acervatim.domain.repository.CoverStorage
 import kotlinx.coroutines.test.runTest
@@ -187,7 +188,7 @@ class ImportScannedSeriesUseCaseTest {
     }
 
     @Test
-    fun `scanned tome and new series cache the known cover, wishlist tomes do not`() = runTest {
+    fun `scanned tome uses the known cover without an extra cover lookup`() = runTest {
         externalSearch.editionMappingResult = Result.success(mapping)
 
         val result = useCase.importFromList("222", match, importAllKnownTomes = true)
@@ -195,17 +196,112 @@ class ImportScannedSeriesUseCaseTest {
         val scanned = records.findByIsbn("222")!!
         assertEquals("https://cdn.example/aot-2.jpg", scanned.coverRemoteUrl)
         assertEquals(coverStorage.pathFor(scanned.id), scanned.coverPath)
-
-        // Les tomes de l'édition (wishlist) n'ont pas de jaquette connue : rien de mis en cache.
-        val wishlist = records.findByIsbn("111")!!
-        assertEquals(null, wishlist.coverRemoteUrl)
-        assertEquals(null, wishlist.coverPath)
+        // Jaquette du tome scanné déjà connue (`/search`) : aucune résolution `/cover` pour son ISBN.
+        assertFalse(externalSearch.resolveCoverCalls.contains("222"))
 
         // La série créée réutilise la jaquette du tome scanné.
         assertEquals(coverStorage.pathFor(result.seriesId), series.listAll().single().coverPath)
-        // Une seule URL téléchargée, pour deux entités distinctes (série + tome scanné).
-        assertEquals(2, coverStorage.saveUrlCalls.size)
-        assertTrue(coverStorage.saveUrlCalls.all { it.second == "https://cdn.example/aot-2.jpg" })
+    }
+
+    @Test
+    fun `wishlist tomes resolve their cover by ISBN and cache it offline`() = runTest {
+        externalSearch.editionMappingResult = Result.success(mapping)
+        externalSearch.coverByIsbn = mapOf(
+            "111" to "https://cdn.example/aot-1.jpg",
+            "333" to "https://cdn.example/aot-3.jpg"
+        )
+
+        useCase.importFromList("222", match, importAllKnownTomes = true)
+
+        // Chaque tome sans jaquette connue est résolu par ISBN via `/cover`, puis caché localement.
+        val tome1 = records.findByIsbn("111")!!
+        assertEquals("https://cdn.example/aot-1.jpg", tome1.coverRemoteUrl)
+        assertEquals(coverStorage.pathFor(tome1.id), tome1.coverPath)
+        val tome3 = records.findByIsbn("333")!!
+        assertEquals("https://cdn.example/aot-3.jpg", tome3.coverRemoteUrl)
+        assertEquals(coverStorage.pathFor(tome3.id), tome3.coverPath)
+        assertTrue(externalSearch.resolveCoverCalls.containsAll(listOf("111", "333")))
+    }
+
+    @Test
+    fun `cover lookup forwards the intitle fallback hint (series title, volume, edition)`() = runTest {
+        val colossal = match.copy(edition = "Éd. colossale")
+        externalSearch.editionMappingResult = Result.success(
+            mapping.copy(
+                edition = "Éd. colossale",
+                tomes = listOf(EditionTome(editionVolume = 5, isbn = "555", titleFr = "T.5"))
+            )
+        )
+
+        // Tome 555 sans jaquette connue → `/cover`, armé du repli titre/tome/édition. Le tome scanné
+        // (999) garde la jaquette du `/search`, donc n'appelle pas `/cover` : la résolution est unique.
+        useCase.importFromList("999", colossal, importAllKnownTomes = true)
+
+        assertTrue(externalSearch.resolveCoverCalls.contains("555"))
+        assertEquals(
+            Triple<String?, Int?, String?>("L'attaque des titans", 5, "Éd. colossale"),
+            externalSearch.lastResolveCoverHint
+        )
+    }
+
+    @Test
+    fun `per-tome synopsis is stored in extras, empty tomes get no key (no series fallback)`() = runTest {
+        externalSearch.editionMappingResult = Result.success(
+            mapping.copy(
+                tomes = listOf(
+                    EditionTome(1, "111", "T.1", description = "Résumé propre au tome 1"),
+                    EditionTome(2, "222", "T.2", description = null),
+                    EditionTome(3, "333", "T.3", description = null)
+                )
+            )
+        )
+
+        useCase.importFromList("222", match, importAllKnownTomes = true)
+
+        assertEquals(
+            "Résumé propre au tome 1",
+            records.findByIsbn("111")!!.extras[MangaExtras.KEY_TOME_SYNOPSIS]
+        )
+        // Aucun résumé par tome → clé absente : pas de repli sur le synopsis de série.
+        assertFalse(records.findByIsbn("333")!!.extras.containsKey(MangaExtras.KEY_TOME_SYNOPSIS))
+    }
+
+    @Test
+    fun `edition-mapping cover is used directly without a cover lookup`() = runTest {
+        // Cache serveur chaud : `edition-mapping` porte déjà la jaquette du tome (pas d'appel `/cover`).
+        externalSearch.editionMappingResult = Result.success(
+            mapping.copy(
+                tomes = listOf(
+                    EditionTome(1, "111", "T.1", coverUrl = "https://cdn.example/warm-1.jpg"),
+                    EditionTome(2, "222", "T.2"),
+                    EditionTome(3, "333", "T.3")
+                )
+            )
+        )
+
+        useCase.importFromList("222", match, importAllKnownTomes = true)
+
+        val tome1 = records.findByIsbn("111")!!
+        assertEquals("https://cdn.example/warm-1.jpg", tome1.coverRemoteUrl)
+        assertEquals(coverStorage.pathFor(tome1.id), tome1.coverPath)
+        assertFalse(externalSearch.resolveCoverCalls.contains("111"))
+    }
+
+    @Test
+    fun `cover resolution failure does not block the import`() = runTest {
+        externalSearch.editionMappingResult = Result.success(mapping)
+        externalSearch.resolveCoverFailure = java.io.IOException("cover backend down")
+
+        val result = useCase.importFromList("222", match, importAllKnownTomes = true)
+
+        // Import complet malgré l'échec de résolution : tomes créés, jaquette absente (dégradation).
+        assertEquals(3, result.createdVolumes)
+        val tome1 = records.findByIsbn("111")!!
+        assertEquals(ItemStatus.WISHLIST, tome1.status)
+        assertEquals(null, tome1.coverRemoteUrl)
+        assertEquals(null, tome1.coverPath)
+        // Le tome scanné garde sa jaquette connue (`/search`), non impactée par l'échec `/cover`.
+        assertEquals("https://cdn.example/aot-2.jpg", records.findByIsbn("222")!!.coverRemoteUrl)
     }
 
     @Test

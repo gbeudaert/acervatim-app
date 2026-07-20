@@ -80,7 +80,9 @@ class ImportScannedSeriesUseCase @Inject constructor(
             isbn = scannedIsbn,
             volumeNumber = match.volumeNumber,
             titleFr = match.title,
-            sourceVolumeRange = match.sourceVolumeRange
+            sourceVolumeRange = match.sourceVolumeRange,
+            coverUrl = match.coverUrl,
+            description = match.description
         )
         val outcome = importTomes(
             seriesId = seriesId,
@@ -132,18 +134,27 @@ class ImportScannedSeriesUseCase @Inject constructor(
             isbn = scannedIsbn,
             volumeNumber = match.volumeNumber,
             titleFr = match.title,
-            sourceVolumeRange = match.sourceVolumeRange
+            sourceVolumeRange = match.sourceVolumeRange,
+            coverUrl = match.coverUrl,
+            description = match.description
         )
         if (mapping == null) {
             return listOf(scannedTarget)
         }
         val normalizedScanned = normalizeIsbn(scannedIsbn)
         val tomes = mapping.tomes.map {
+            // Préférer la jaquette du mapping (cache serveur chaud) ; à défaut, pour le tome scanné
+            // présent dans l'énumération, conserver la jaquette connue du `/search` (`match.coverUrl`).
+            val coverUrl = it.coverUrl
+                ?: match.coverUrl.takeIf { _ -> normalizeIsbn(it.isbn) == normalizedScanned }
             TomeTarget(
                 isbn = it.isbn,
                 volumeNumber = it.editionVolume,
                 titleFr = it.titleFr,
-                sourceVolumeRange = it.sourceVolumeRange
+                sourceVolumeRange = it.sourceVolumeRange,
+                coverUrl = coverUrl,
+                // Résumé par tome (330$a BnF → repli Google Books, côté serveur) ; jamais celui de série.
+                description = it.description
             )
         }
         // Le tome scanné peut ne pas figurer dans l'énumération BnF : on l'ajoute pour le garantir.
@@ -179,11 +190,11 @@ class ImportScannedSeriesUseCase @Inject constructor(
                 continue
             }
 
-            // Seul le tome scanné porte une jaquette connue (`match.coverUrl`) ; les tomes de
-            // l'édition énumérée n'en ont pas. On conserve l'URL distante (re-cache ultérieur) et
-            // on télécharge en best-effort.
+            // Jaquette de CHAQUE tome : d'abord celle déjà connue (tome scanné ou cache serveur
+            // chaud via `edition-mapping`), sinon résolution explicite par ISBN (`/v1/search/cover`).
+            // L'URL distante est conservée (re-cache ultérieur) et téléchargée en best-effort.
             val recordId = UUID.randomUUID().toString()
-            val coverRemoteUrl = if (isScanned) match.coverUrl?.trim()?.takeIf { it.isNotEmpty() } else null
+            val coverRemoteUrl = resolveTomeCover(target, seriesTitle, match.edition)
             val record = Record(
                 id = recordId,
                 collectionType = CollectionType.MANGA,
@@ -216,6 +227,32 @@ class ImportScannedSeriesUseCase @Inject constructor(
     }
 
     /**
+     * URL de jaquette à cacher pour un tome, selon un ordre de coût croissant :
+     * 1. [TomeTarget.coverUrl] déjà connue — jaquette du tome scanné (`/search`) ou cache serveur
+     *    chaud renvoyé par `edition-mapping`. Aucun appel réseau.
+     * 2. Sinon, pour un tome porteur d'ISBN, résolution **explicite** via `/v1/search/cover` (réseau,
+     *    best-effort), en armant le repli par titre (titre série + n° de tome + édition) pour les ISBN
+     *    papier FR sans notice illustrée. Un échec renvoie `null` : l'ISBN reste connu pour un re-cache
+     *    ultérieur, mais l'import n'échoue jamais (politique réseau §6 : appel déclenché par l'import).
+     */
+    private suspend fun resolveTomeCover(
+        target: TomeTarget,
+        seriesTitle: String,
+        edition: String?
+    ): String? {
+        target.coverUrl?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+        // Le tome scanné sans jaquette connue n'a pas d'autre source que son ISBN : même résolution,
+        // avec le hint titre/tome/édition qui débloque le repli `intitle:` serveur.
+        val isbn = normalizeIsbn(target.isbn) ?: return null
+        return externalSearch.resolveCover(
+            isbn = isbn,
+            seriesTitleFr = seriesTitle,
+            volumeNumber = target.volumeNumber,
+            edition = edition
+        ).getOrNull()?.trim()?.takeIf { it.isNotEmpty() }
+    }
+
+    /**
      * Télécharge et met en cache local la jaquette référencée par [url] pour l'entité [id].
      * Best-effort : renvoie le chemin local, ou `null` si l'URL est absente/vide ou si le
      * téléchargement échoue (réseau) — l'import ne doit jamais échouer sur une jaquette.
@@ -244,13 +281,20 @@ class ImportScannedSeriesUseCase @Inject constructor(
             ?.let { put(MangaExtras.KEY_PUBLISHER_FR, it) }
         target.sourceVolumeRange?.trim()?.takeIf { it.isNotEmpty() }
             ?.let { put(MangaExtras.KEY_SOURCE_VOLUME_RANGE, it) }
+        // Résumé propre au tome (330$a BnF → repli Google Books) ; jamais le synopsis de série.
+        target.description?.trim()?.takeIf { it.isNotEmpty() }
+            ?.let { put(MangaExtras.KEY_TOME_SYNOPSIS, it) }
     }
 
     private data class TomeTarget(
         val isbn: String?,
         val volumeNumber: Int?,
         val titleFr: String?,
-        val sourceVolumeRange: String? = null
+        val sourceVolumeRange: String? = null,
+        /** Jaquette déjà connue (tome scanné ou cache serveur chaud), sinon résolue par ISBN. */
+        val coverUrl: String? = null,
+        /** Résumé propre au tome (330$a BnF → repli Google Books) ; null si aucune source par tome. */
+        val description: String? = null
     )
 
     private data class Outcome(val created: Int, val skipped: Int)

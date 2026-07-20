@@ -5,11 +5,15 @@ import app.acervatim.data.remote.dto.AttachSourceRequest
 import app.acervatim.data.remote.error.ApiException
 import app.acervatim.data.remote.dto.CollectionDto
 import app.acervatim.data.remote.dto.ConnectedProviderDto
+import app.acervatim.data.remote.dto.CoverResponseDto
 import app.acervatim.data.remote.dto.CreateCollectionRequest
+import app.acervatim.data.remote.dto.CreateImportJobRequest
 import app.acervatim.data.remote.dto.CreateItemRequest
 import app.acervatim.data.remote.dto.CreateNodeRequest
 import app.acervatim.data.remote.dto.DeletedResponse
 import app.acervatim.data.remote.dto.EditionMappingDto
+import app.acervatim.data.remote.dto.ImportJobDto
+import app.acervatim.data.remote.dto.ImportJobStatusDto
 import app.acervatim.data.remote.dto.ItemDto
 import app.acervatim.data.remote.dto.MeResponse
 import app.acervatim.data.remote.dto.NodeDto
@@ -141,6 +145,9 @@ class FakeAcervatimApi : AcervatimApi {
     override suspend fun attachNodeSource(id: String, body: AttachSourceRequest): NodeDto = notImpl()
     override suspend fun search(type: String, query: String?, barcode: String?, cursor: String?, limit: Int?): PageDto<UnifiedItemDto> = notImpl()
     override suspend fun editionMapping(title: String, edition: String?): EditionMappingDto = notImpl()
+    override suspend fun cover(isbn: String, title: String?, volume: Int?, edition: String?): CoverResponseDto = notImpl()
+    override suspend fun startImportJob(body: CreateImportJobRequest): ImportJobDto = notImpl()
+    override suspend fun importJobStatus(id: String): ImportJobStatusDto = notImpl()
     override suspend fun startOAuth(provider: String): OAuthStartResponse = notImpl()
     override suspend fun connectedProviders(): PageDto<ConnectedProviderDto> = notImpl()
     override suspend fun revokeOAuth(provider: String): Response<Unit> = notImpl()

@@ -24,6 +24,12 @@ object MangaExtras {
     const val KEY_SOURCE_VOLUME_RANGE: String = "sourceVolumeRange"
 
     /**
+     * Résumé **propre au tome** (330$a BnF, sinon repli Google Books). Distinct du synopsis de
+     * série ([Series.synopsis]) : affiché sur le détail du tome, vide si aucune source par tome.
+     */
+    const val KEY_TOME_SYNOPSIS: String = "tomeSynopsis"
+
+    /**
      * Libellé lisible d'une plage `454$h` : "1-3" → "1 à 3", "5" → "5". null si vide.
      * (Le texte complet « contient les tomes … » est assemblé côté UI, pour rester localisable.)
      */

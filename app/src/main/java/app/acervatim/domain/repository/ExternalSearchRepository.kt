@@ -2,6 +2,7 @@ package app.acervatim.domain.repository
 
 import app.acervatim.domain.model.EditionMapping
 import app.acervatim.domain.model.ExternalMatch
+import app.acervatim.domain.model.ImportJob
 
 /**
  * Recherche de métadonnées dans les bases externes, médiée par le backend (`GET /v1/search`, §8).
@@ -29,4 +30,40 @@ interface ExternalSearchRepository {
      * @param edition mention d'édition (205), null pour l'édition standard.
      */
     suspend fun editionMapping(titleFr: String, edition: String?): Result<EditionMapping>
+
+    /**
+     * Résout la jaquette d'un tome par ISBN via le backend (`GET /v1/search/cover`) : résout côté
+     * serveur (réseau) **et** alimente le cache serveur. Appel **explicite** réservé à l'import (un
+     * par tome créé sans jaquette connue) — jamais en arrière-plan (politique réseau §6).
+     *
+     * [seriesTitleFr] + [volumeNumber] (et [edition] si spéciale) arment le **repli par titre** côté
+     * serveur quand la notice ISBN n'a pas d'image — à fournir dès qu'ils sont connus, sans quoi les
+     * ISBN papier FR sans jaquette repartent en cache négatif serveur pour plusieurs jours.
+     *
+     * @return `success(url)` si une jaquette est trouvée, `success(null)` si aucune, `failure` sur
+     *   erreur réseau/quota — l'appelant traite l'échec en best-effort (import non bloqué).
+     */
+    suspend fun resolveCover(
+        isbn: String,
+        seriesTitleFr: String? = null,
+        volumeNumber: Int? = null,
+        edition: String? = null
+    ): Result<String?>
+
+    /**
+     * Lance (ou réutilise) l'import **asynchrone** d'une édition complète côté backend
+     * (`POST /v1/search/import-jobs`) : énumération BnF + jaquettes en tâche de fond, hors du cycle
+     * requête-réponse du scan. Idempotent — deux demandes identiques partagent le même job (`jobId`
+     * déterministe). L'appelant poll ensuite [importJobStatus] puis, au `DONE`, re-tape
+     * [editionMapping] (cache serveur réchauffé). Un échec (réseau, Redis down → `503`) est rendu en
+     * `failure` : l'appelant dégrade alors vers l'import « tome scanné seul ».
+     */
+    suspend fun startImportJob(titleFr: String, edition: String?): Result<ImportJob>
+
+    /**
+     * Statut + avancement d'un job d'import (`GET /v1/search/import-jobs/:id`). Renvoie
+     * `success(null)` si le job est **inconnu** (`404` — expiré/purgé), distingué d'une erreur réseau
+     * (`failure`) pour que le poll puisse conclure proprement.
+     */
+    suspend fun importJobStatus(jobId: String): Result<ImportJob?>
 }

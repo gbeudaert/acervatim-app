@@ -20,6 +20,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.acervatim.R
+import app.acervatim.domain.model.ImportPhase
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,6 +79,7 @@ fun SeriesImportScreen(
                     result = state.result!!,
                     onOpenSeries = onOpenSeries
                 )
+                state.importing -> ImportProgressContent(state = state)
                 else -> ImportOptionsContent(
                     state = state,
                     onToggleImportAll = viewModel::onToggleImportAll,
@@ -136,22 +139,63 @@ private fun ImportOptionsContent(
 
     Spacer(Modifier.height(8.dp))
 
+    // Pendant l'import, l'écran bascule sur `ImportProgressContent` : le bouton n'a pas d'état de
+    // chargement propre (il n'est plus visible dès qu'`importing` passe à vrai).
     Button(
         onClick = onImport,
         enabled = !state.importing,
         modifier = Modifier.fillMaxWidth()
     ) {
-        if (state.importing) {
-            CircularProgressIndicator(
-                strokeWidth = 2.dp,
-                modifier = Modifier.size(18.dp),
-                color = MaterialTheme.colorScheme.onPrimary
-            )
-            Spacer(Modifier.size(12.dp))
-            Text(stringResource(R.string.scan_series_import_progress))
-        } else {
-            Text(stringResource(R.string.scan_series_import_action))
-        }
+        Text(stringResource(R.string.scan_series_import_action))
+    }
+}
+
+/**
+ * Avancement de l'import complet (job backend async). Affiche une progression **déterminée** pendant
+ * la résolution des jaquettes (`done/total` connu), **indéterminée** sinon (lancement, énumération
+ * BnF, écriture locale). Cf. [ScanImportPhase].
+ */
+@Composable
+private fun ImportProgressContent(state: SeriesImportUiState) {
+    val progress = state.progress
+    val label = when {
+        state.phase == ScanImportPhase.IMPORTING ->
+            stringResource(R.string.scan_series_import_finalizing)
+        progress?.phase == ImportPhase.COVERS ->
+            stringResource(R.string.scan_series_import_phase_covers)
+        state.phase == ScanImportPhase.POLLING ->
+            stringResource(R.string.scan_series_import_phase_enumerating)
+        else -> stringResource(R.string.scan_series_import_launching)
+    }
+
+    Text(
+        text = state.seriesTitle ?: "",
+        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+        color = MaterialTheme.colorScheme.onSurface
+    )
+    Text(
+        text = label,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    val showDeterminate = progress?.phase == ImportPhase.COVERS && progress.total > 0
+    if (showDeterminate) {
+        LinearProgressIndicator(
+            progress = { progress.done.toFloat() / progress.total.toFloat() },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = stringResource(
+                R.string.scan_series_import_phase_covers_count,
+                progress.done,
+                progress.total
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    } else {
+        CircularProgressIndicator(strokeWidth = 3.dp, modifier = Modifier.size(28.dp))
     }
 }
 

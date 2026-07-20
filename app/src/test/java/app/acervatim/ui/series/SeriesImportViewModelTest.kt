@@ -7,6 +7,10 @@ import app.acervatim.domain.FakeSeriesRepository
 import app.acervatim.domain.model.EditionMapping
 import app.acervatim.domain.model.EditionTome
 import app.acervatim.domain.model.ExternalMatch
+import app.acervatim.domain.model.ImportJob
+import app.acervatim.domain.model.ImportJobProgress
+import app.acervatim.domain.model.ImportJobState
+import app.acervatim.domain.model.ImportPhase
 import app.acervatim.domain.repository.CoverStorage
 import app.acervatim.domain.usecase.ImportScannedSeriesUseCase
 import app.acervatim.ui.scan.ScanPrefillHandoff
@@ -78,7 +82,7 @@ class SeriesImportViewModelTest {
         if (withMatch && barcode != null) handoff.put(barcode, match)
         val saved = SavedStateHandle(buildMap { barcode?.let { put("barcode", it) } })
         val useCase = ImportScannedSeriesUseCase(series, records, search, NoopCoverStorage, clock)
-        return SeriesImportViewModel(saved, handoff, useCase)
+        return SeriesImportViewModel(saved, handoff, search, useCase)
     }
 
     @Test
@@ -144,6 +148,69 @@ class SeriesImportViewModelTest {
         advanceUntilIdle()
 
         assertEquals(createdAfterFirst, records.listAll().size)
+    }
+
+    @Test
+    fun `import all polls the async job then imports from warm cache`() = runTest {
+        search.editionMappingResult = Result.success(mapping)
+        search.startImportJobResult = Result.success(ImportJob("j", ImportJobState.QUEUED))
+        search.importJobStatusSequence = listOf(
+            Result.success(
+                ImportJob("j", ImportJobState.RUNNING, ImportJobProgress(ImportPhase.COVERS, 3, 10))
+            ),
+            Result.success(ImportJob("j", ImportJobState.DONE))
+        )
+        val v = vm()
+
+        v.onImport()
+        advanceUntilIdle()
+
+        assertEquals(1, search.startImportJobCallCount)
+        assertTrue("job should have been polled", search.importJobStatusCallCount >= 2)
+        assertEquals(3, v.state.value.result?.createdVolumes)
+        assertFalse(v.state.value.importing)
+        // Cache réchauffé : l'import local re-tape bien `edition-mapping`.
+        assertEquals("L'attaque des titans", search.lastEditionTitle)
+    }
+
+    @Test
+    fun `job with done state skips polling`() = runTest {
+        search.editionMappingResult = Result.success(mapping)
+        search.startImportJobResult = Result.success(ImportJob("j", ImportJobState.DONE))
+        val v = vm()
+
+        v.onImport()
+        advanceUntilIdle()
+
+        assertEquals(0, search.importJobStatusCallCount)
+        assertEquals(3, v.state.value.result?.createdVolumes)
+    }
+
+    @Test
+    fun `job start failure degrades to scanned tome only`() = runTest {
+        // `editionMappingResult` reste en échec (défaut) → dégradation attendue.
+        search.startImportJobResult = Result.failure(IllegalStateException("redis down"))
+        val v = vm()
+
+        v.onImport()
+        advanceUntilIdle()
+
+        assertEquals(0, search.importJobStatusCallCount)
+        val result = v.state.value.result
+        assertNotNull(result)
+        assertTrue(result!!.degradedFullImport)
+    }
+
+    @Test
+    fun `failed job degrades to scanned tome only`() = runTest {
+        search.startImportJobResult = Result.success(ImportJob("j", ImportJobState.QUEUED))
+        search.importJobStatusSequence = listOf(Result.success(ImportJob("j", ImportJobState.FAILED)))
+        val v = vm()
+
+        v.onImport()
+        advanceUntilIdle()
+
+        assertTrue(v.state.value.result?.degradedFullImport == true)
     }
 
     @Test

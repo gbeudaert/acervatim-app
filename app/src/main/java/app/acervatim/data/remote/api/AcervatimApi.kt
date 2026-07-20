@@ -5,9 +5,13 @@ import app.acervatim.data.remote.dto.CollectionDto
 import app.acervatim.data.remote.dto.ConnectedProviderDto
 import app.acervatim.data.remote.dto.CreateCollectionRequest
 import app.acervatim.data.remote.dto.CreateItemRequest
+import app.acervatim.data.remote.dto.CoverResponseDto
+import app.acervatim.data.remote.dto.CreateImportJobRequest
 import app.acervatim.data.remote.dto.CreateNodeRequest
 import app.acervatim.data.remote.dto.DeletedResponse
 import app.acervatim.data.remote.dto.EditionMappingDto
+import app.acervatim.data.remote.dto.ImportJobDto
+import app.acervatim.data.remote.dto.ImportJobStatusDto
 import app.acervatim.data.remote.dto.ItemDto
 import app.acervatim.data.remote.dto.MeResponse
 import app.acervatim.data.remote.dto.NodeDto
@@ -174,6 +178,35 @@ interface AcervatimApi {
         @Query("title") title: String,
         @Query("edition") edition: String? = null
     ): EditionMappingDto
+
+    /**
+     * Résout la jaquette d'un tome par `isbn` via Google Books côté serveur : résout (réseau) **et**
+     * alimente le cache serveur qui peuple ensuite `edition-mapping`. Appel **explicite** (déclenché
+     * par l'import, politique réseau §6) ; renvoie `{ coverUrl: null }` si aucune jaquette.
+     *
+     * `title` + `volume` (et `edition` si spéciale) arment le **repli par titre** côté serveur
+     * (`intitle:<title> T<volume>`) : indispensable pour les ISBN papier FR (Ki-oon…) qui n'ont
+     * souvent aucune notice illustrée par ISBN. Sans eux, seule la résolution `isbn:` est tentée.
+     */
+    @GET("v1/search/cover")
+    suspend fun cover(
+        @Query("isbn") isbn: String,
+        @Query("title") title: String? = null,
+        @Query("volume") volume: Int? = null,
+        @Query("edition") edition: String? = null
+    ): CoverResponseDto
+
+    /**
+     * Lance (ou réutilise) l'import **asynchrone** d'une édition complète. `202` + `{ jobId, state }`.
+     * Le `jobId` est déterministe (dédup inter-user) : deux demandes identiques partagent le job.
+     * L'app poll ensuite [importJobStatus] puis, une fois `done`, re-tape [editionMapping] (cache chaud).
+     */
+    @POST("v1/search/import-jobs")
+    suspend fun startImportJob(@Body body: CreateImportJobRequest): ImportJobDto
+
+    /** Statut + avancement d'un job d'import. `404` (`ApiException.NotFound`) si l'id est inconnu. */
+    @GET("v1/search/import-jobs/{id}")
+    suspend fun importJobStatus(@Path("id") id: String): ImportJobStatusDto
 
     // ---- OAuth utilisateur (§10) -------------------------------------------------------------
 

@@ -265,6 +265,11 @@
     <string name="scan_series_import_all_subtitle">Crée la série et tous ses tomes (le tome scanné en possédé, les autres en wishlist)</string>
     <string name="scan_series_import_action">Importer</string>
     <string name="scan_series_import_progress">Import en cours…</string>
+    <string name="scan_series_import_launching">Préparation de la série…</string>
+    <string name="scan_series_import_phase_enumerating">Recherche des tomes…</string>
+    <string name="scan_series_import_phase_covers">Récupération des jaquettes…</string>
+    <string name="scan_series_import_phase_covers_count">%1$d / %2$d</string>
+    <string name="scan_series_import_finalizing">Finalisation…</string>
     <string name="scan_series_import_result">%1$d tome(s) ajouté(s) · %2$d déjà présent(s)</string>
     <string name="scan_series_import_partial">Série en cours : des tomes peuvent manquer</string>
     <string name="scan_series_import_unavailable">Import complet indisponible — seul le tome scanné a été ajouté</string>

@@ -254,6 +254,9 @@ internal fun AddRecordFormState.applyMatch(match: ExternalMatch): AddRecordFormS
     title = match.title.ifBlank { title },
     artists = match.creators.ifEmpty { artists },
     year = match.year?.toString() ?: year,
+    genre = match.genre?.takeIf { it.isNotBlank() } ?: genre,
+    format = match.format ?: format,
+    recordingSpeed = match.recordingSpeed ?: recordingSpeed,
     coverRemoteUrl = match.coverUrl ?: coverRemoteUrl
 )
 
