@@ -29,6 +29,8 @@ import app.acervatim.domain.repository.AuthRepository
 import app.acervatim.domain.repository.SyncRepository
 import app.acervatim.domain.usecase.BulkEditDelta
 import app.acervatim.domain.usecase.BulkEditResult
+import app.acervatim.domain.usecase.DeleteRecordsUseCase
+import app.acervatim.domain.usecase.DeleteResult
 import app.acervatim.domain.usecase.SetActiveCollectionTypeUseCase
 import app.acervatim.domain.usecase.SetListModeForCollectionTypeUseCase
 import app.acervatim.domain.usecase.UpdateRecordsUseCase
@@ -65,6 +67,7 @@ class CollectionViewModel @Inject constructor(
     private val setActiveCollectionType: SetActiveCollectionTypeUseCase,
     private val setListMode: SetListModeForCollectionTypeUseCase,
     private val updateRecords: UpdateRecordsUseCase,
+    private val deleteRecords: DeleteRecordsUseCase,
     authRepository: AuthRepository,
     syncRepository: SyncRepository,
     accountRepository: AccountRepository
@@ -271,6 +274,37 @@ class CollectionViewModel @Inject constructor(
     /** Le Snackbar de bilan a été affiché : on réarme l'état. */
     fun consumeBulkEditResult() {
         _bulkEditResult.value = null
+    }
+
+    // ---- Suppression groupée (§2.4, lot L5) ----------------------------------------------------
+
+    private val _bulkDeleteResult = MutableStateFlow<DeleteResult?>(null)
+    val bulkDeleteResult: StateFlow<DeleteResult?> = _bulkDeleteResult.asStateFlow()
+
+    /**
+     * Supprime la sélection courante. En vue séries la sélection porte des **séries** → mode
+     * [cascade] (cascade/orphelins, §2.4) ; sinon elle porte des **entrées** ([cascade] ignoré).
+     * L'UI confirme **avant** d'appeler (§2.4).
+     */
+    fun applyBulkDelete(cascade: Boolean) {
+        val ids = _selectedIds.value
+        if (ids.isEmpty()) {
+            clearSelection()
+            return
+        }
+        val serial = uiState.value is CollectionUiState.SerialContent
+        viewModelScope.launch {
+            _bulkDeleteResult.value = if (serial) {
+                deleteRecords(seriesIds = ids, cascade = cascade)
+            } else {
+                deleteRecords(recordIds = ids)
+            }
+            clearSelection()
+        }
+    }
+
+    fun consumeBulkDeleteResult() {
+        _bulkDeleteResult.value = null
     }
 
     /** Ids sélectionnables de la vue courante, selon le mode d'affichage (entrées vs séries). */

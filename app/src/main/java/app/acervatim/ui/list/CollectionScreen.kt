@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.QrCodeScanner
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.outlined.Album
 import androidx.compose.material.icons.outlined.Book
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Checkbox
@@ -51,6 +53,7 @@ import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -76,6 +79,7 @@ import app.acervatim.domain.model.RecordFilter
 import app.acervatim.domain.model.StatusFilter
 import app.acervatim.domain.usecase.BulkEditResult
 import app.acervatim.domain.usecase.CollectionTypeStats
+import app.acervatim.domain.usecase.DeleteResult
 import app.acervatim.ui.components.RecordRow
 import app.acervatim.ui.theme.AcervatimTheme
 import kotlinx.coroutines.launch
@@ -106,6 +110,7 @@ fun CollectionScreen(
     val selectedIds by viewModel.selectedIds.collectAsStateWithLifecycle()
     val bulkEditSheetOpen by viewModel.bulkEditSheetOpen.collectAsStateWithLifecycle()
     val bulkEditResult by viewModel.bulkEditResult.collectAsStateWithLifecycle()
+    val bulkDeleteResult by viewModel.bulkDeleteResult.collectAsStateWithLifecycle()
 
     CollectionScreenContent(
         state = state,
@@ -136,7 +141,10 @@ fun CollectionScreen(
         onClearSelection = viewModel::clearSelection,
         onEditSelection = viewModel::openBulkEdit,
         bulkEditResult = bulkEditResult,
-        onBulkEditResultShown = viewModel::consumeBulkEditResult
+        onBulkEditResultShown = viewModel::consumeBulkEditResult,
+        onConfirmBulkDelete = viewModel::applyBulkDelete,
+        bulkDeleteResult = bulkDeleteResult,
+        onBulkDeleteResultShown = viewModel::consumeBulkDeleteResult
     )
 
     if (sheetOpen) {
@@ -191,11 +199,15 @@ internal fun CollectionScreenContent(
     onClearSelection: () -> Unit = {},
     onEditSelection: () -> Unit = {},
     bulkEditResult: BulkEditResult? = null,
-    onBulkEditResultShown: () -> Unit = {}
+    onBulkEditResultShown: () -> Unit = {},
+    onConfirmBulkDelete: (cascade: Boolean) -> Unit = {},
+    bulkDeleteResult: DeleteResult? = null,
+    onBulkDeleteResultShown: () -> Unit = {}
 ) {
     // En mode sélection, le retour système quitte la sélection au lieu de fermer l'écran.
     BackHandler(enabled = selectionMode) { onClearSelection() }
 
+    var confirmBulkDelete by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     // Bilan de l'édition groupée → Snackbar, puis consommation.
@@ -208,6 +220,11 @@ internal fun CollectionScreenContent(
         }
         snackbarHostState.showSnackbar(message)
         onBulkEditResultShown()
+    }
+    LaunchedEffect(bulkDeleteResult) {
+        val result = bulkDeleteResult ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(context.getString(R.string.bulk_delete_result, result.total))
+        onBulkDeleteResultShown()
     }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -270,6 +287,7 @@ internal fun CollectionScreenContent(
                         bulkEditEnabled = filter.listMode == ListMode.FLAT,
                         onClose = onClearSelection,
                         onEdit = onEditSelection,
+                        onDelete = { confirmBulkDelete = true },
                         onSelectAll = onSelectAll
                     )
                 } else {
@@ -351,6 +369,91 @@ internal fun CollectionScreenContent(
             }
         )
     }
+
+    if (confirmBulkDelete) {
+        val serialState = state as? CollectionUiState.SerialContent
+        if (serialState != null) {
+            // Sélection de séries → choix cascade / orphelins (§2.4).
+            val tomeCount = serialState.seriesList
+                .filter { it.series.id in selectedIds }
+                .sumOf { it.totalVolumesInLibrary }
+            BulkDeleteSeriesDialog(
+                seriesCount = selectedIds.size,
+                tomeCount = tomeCount,
+                onCascade = {
+                    confirmBulkDelete = false
+                    onConfirmBulkDelete(true)
+                },
+                onOrphan = {
+                    confirmBulkDelete = false
+                    onConfirmBulkDelete(false)
+                },
+                onDismiss = { confirmBulkDelete = false }
+            )
+        } else {
+            // Sélection d'entrées → simple confirmation.
+            AlertDialog(
+                onDismissRequest = { confirmBulkDelete = false },
+                title = { Text(stringResource(R.string.bulk_delete_confirm_title)) },
+                text = { Text(stringResource(R.string.bulk_delete_confirm_entries, selectedIds.size)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirmBulkDelete = false
+                        onConfirmBulkDelete(false)
+                    }) {
+                        Text(
+                            text = stringResource(R.string.bulk_delete_action),
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmBulkDelete = false }) {
+                        Text(stringResource(R.string.action_cancel))
+                    }
+                }
+            )
+        }
+    }
+}
+
+/**
+ * Dialog de suppression groupée de **séries** (§2.4) : choix explicite Cascade (séries + tomes) ou
+ * Orphelins (nœuds seuls, tomes conservés).
+ */
+@Composable
+private fun BulkDeleteSeriesDialog(
+    seriesCount: Int,
+    tomeCount: Int,
+    onCascade: () -> Unit,
+    onOrphan: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.bulk_delete_confirm_title)) },
+        text = {
+            Text(stringResource(R.string.bulk_delete_confirm_series, seriesCount, tomeCount))
+        },
+        confirmButton = {
+            Column(horizontalAlignment = Alignment.End) {
+                TextButton(onClick = onCascade) {
+                    Text(
+                        text = stringResource(R.string.bulk_delete_mode_cascade),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                TextButton(onClick = onOrphan) {
+                    Text(stringResource(R.string.bulk_delete_mode_orphan))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_cancel))
+            }
+        }
+    )
 }
 
 @Composable
@@ -782,6 +885,7 @@ private fun SelectionTopBar(
     bulkEditEnabled: Boolean,
     onClose: () -> Unit,
     onEdit: () -> Unit,
+    onDelete: () -> Unit,
     onSelectAll: () -> Unit
 ) {
     Row(
@@ -813,6 +917,12 @@ private fun SelectionTopBar(
                     contentDescription = stringResource(R.string.selection_edit)
                 )
             }
+        }
+        IconButton(onClick = onDelete) {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = stringResource(R.string.selection_delete)
+            )
         }
         IconButton(onClick = onSelectAll) {
             Icon(

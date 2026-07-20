@@ -76,6 +76,15 @@
     <string name="bulk_edit_status_wishlist">Souhaité</string>
     <string name="bulk_edit_result">%1$d entrée(s) modifiée(s)</string>
     <string name="bulk_edit_result_partial">%1$d modifiée(s), %2$d en échec</string>
+    <!-- Suppression groupée (spec-edition-multiple.md §2.4 / §7, lot L5) -->
+    <string name="selection_delete">Supprimer</string>
+    <string name="bulk_delete_confirm_title">Supprimer la sélection ?</string>
+    <string name="bulk_delete_confirm_entries">%1$d entrée(s) seront supprimées. Action irréversible.</string>
+    <string name="bulk_delete_confirm_series">%1$d série(s) sélectionnée(s) (%2$d tome(s)). Choisissez le mode de suppression.</string>
+    <string name="bulk_delete_mode_cascade">Supprimer la série et ses tomes</string>
+    <string name="bulk_delete_mode_orphan">Supprimer la série seule, garder les tomes</string>
+    <string name="bulk_delete_action">Supprimer</string>
+    <string name="bulk_delete_result">%1$d élément(s) supprimé(s)</string>
     <string name="collection_counter_manga">%1$d possédés · %2$d souhaités</string>
     <string name="collection_empty_serial_title">Aucune série pour le moment</string>
     <string name="collection_empty_serial_subtitle">Touchez « Nouvelle série » pour créer votre première série.</string>

@@ -8,6 +8,8 @@ import app.acervatim.domain.model.CollectionType
 import app.acervatim.domain.model.ItemStatus
 import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.Series
+import app.acervatim.domain.usecase.DeleteRecordUseCase
+import app.acervatim.domain.usecase.DeleteRecordsUseCase
 import app.acervatim.domain.usecase.DeleteSeriesUseCase
 import app.acervatim.domain.usecase.ObserveSeriesByIdUseCase
 import app.acervatim.domain.usecase.ObserveSeriesItemsUseCase
@@ -56,7 +58,12 @@ class SeriesDetailDeleteViewModelTest {
         observeItems = ObserveSeriesItemsUseCase(records),
         updateItemStatus = UpdateItemStatusUseCase(records, clock),
         deleteSeries = DeleteSeriesUseCase(series, records),
-        updateRecords = UpdateRecordsUseCase(records, UpdateRecordUseCase(records, clock))
+        updateRecords = UpdateRecordsUseCase(records, UpdateRecordUseCase(records, clock)),
+        deleteRecords = DeleteRecordsUseCase(
+            deleteRecord = DeleteRecordUseCase(records),
+            deleteSeries = DeleteSeriesUseCase(series, records),
+            recordRepository = records
+        )
     )
 
     private suspend fun seedSeriesWithTomes() {

@@ -10,6 +10,8 @@ import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.Series
 import app.acervatim.domain.usecase.BulkEditDelta
 import app.acervatim.domain.usecase.BulkEditResult
+import app.acervatim.domain.usecase.DeleteRecordsUseCase
+import app.acervatim.domain.usecase.DeleteResult
 import app.acervatim.domain.usecase.DeleteSeriesUseCase
 import app.acervatim.domain.usecase.ObserveSeriesByIdUseCase
 import app.acervatim.domain.usecase.ObserveSeriesItemsUseCase
@@ -34,7 +36,8 @@ class SeriesDetailViewModel @Inject constructor(
     observeItems: ObserveSeriesItemsUseCase,
     private val updateItemStatus: UpdateItemStatusUseCase,
     private val deleteSeries: DeleteSeriesUseCase,
-    private val updateRecords: UpdateRecordsUseCase
+    private val updateRecords: UpdateRecordsUseCase,
+    private val deleteRecords: DeleteRecordsUseCase
 ) : ViewModel() {
 
     private val seriesId: String =
@@ -134,6 +137,26 @@ class SeriesDetailViewModel @Inject constructor(
 
     fun consumeBulkEditResult() {
         _bulkEditResult.value = null
+    }
+
+    private val _bulkDeleteResult = MutableStateFlow<DeleteResult?>(null)
+    val bulkDeleteResult: StateFlow<DeleteResult?> = _bulkDeleteResult.asStateFlow()
+
+    /** Supprime les tomes sélectionnés (des entrées : jamais de cascade série ici). L'UI confirme avant. */
+    fun applyBulkDelete() {
+        val ids = _selectedIds.value
+        if (ids.isEmpty()) {
+            clearSelection()
+            return
+        }
+        viewModelScope.launch {
+            _bulkDeleteResult.value = deleteRecords(recordIds = ids)
+            clearSelection()
+        }
+    }
+
+    fun consumeBulkDeleteResult() {
+        _bulkDeleteResult.value = null
     }
 }
 

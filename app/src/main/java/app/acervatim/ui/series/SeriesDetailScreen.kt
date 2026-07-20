@@ -67,6 +67,7 @@ import app.acervatim.R
 import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.Series
 import app.acervatim.domain.usecase.BulkEditResult
+import app.acervatim.domain.usecase.DeleteResult
 import app.acervatim.ui.components.ZoomableCover
 import app.acervatim.ui.list.BulkEditSheet
 
@@ -85,6 +86,7 @@ fun SeriesDetailScreen(
     val selectedIds by viewModel.selectedIds.collectAsStateWithLifecycle()
     val bulkEditSheetOpen by viewModel.bulkEditSheetOpen.collectAsStateWithLifecycle()
     val bulkEditResult by viewModel.bulkEditResult.collectAsStateWithLifecycle()
+    val bulkDeleteResult by viewModel.bulkDeleteResult.collectAsStateWithLifecycle()
 
     LaunchedEffect(event) {
         if (event is SeriesDetailEvent.Deleted) {
@@ -109,7 +111,10 @@ fun SeriesDetailScreen(
         onClearSelection = viewModel::clearSelection,
         onEditSelection = viewModel::openBulkEdit,
         bulkEditResult = bulkEditResult,
-        onBulkEditResultShown = viewModel::consumeBulkEditResult
+        onBulkEditResultShown = viewModel::consumeBulkEditResult,
+        onConfirmBulkDelete = viewModel::applyBulkDelete,
+        bulkDeleteResult = bulkDeleteResult,
+        onBulkDeleteResultShown = viewModel::consumeBulkDeleteResult
     )
 
     if (bulkEditSheetOpen && state is SeriesDetailUiState.Loaded) {
@@ -139,10 +144,14 @@ internal fun SeriesDetailContent(
     onClearSelection: () -> Unit = {},
     onEditSelection: () -> Unit = {},
     bulkEditResult: BulkEditResult? = null,
-    onBulkEditResultShown: () -> Unit = {}
+    onBulkEditResultShown: () -> Unit = {},
+    onConfirmBulkDelete: () -> Unit = {},
+    bulkDeleteResult: DeleteResult? = null,
+    onBulkDeleteResultShown: () -> Unit = {}
 ) {
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    var confirmBulkDelete by rememberSaveable { mutableStateOf(false) }
 
     // En mode sélection, le retour système quitte la sélection au lieu de fermer l'écran.
     BackHandler(enabled = selectionMode) { onClearSelection() }
@@ -159,6 +168,11 @@ internal fun SeriesDetailContent(
         snackbarHostState.showSnackbar(message)
         onBulkEditResultShown()
     }
+    LaunchedEffect(bulkDeleteResult) {
+        val result = bulkDeleteResult ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(context.getString(R.string.bulk_delete_result, result.total))
+        onBulkDeleteResultShown()
+    }
 
     Scaffold(
         topBar = {
@@ -167,6 +181,7 @@ internal fun SeriesDetailContent(
                     selectedCount = selectedIds.size,
                     onClose = onClearSelection,
                     onEdit = onEditSelection,
+                    onDelete = { confirmBulkDelete = true },
                     onSelectAll = onSelectAll
                 )
             } else {
@@ -266,6 +281,32 @@ internal fun SeriesDetailContent(
         }
     }
 
+    if (confirmBulkDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmBulkDelete = false },
+            title = { Text(stringResource(R.string.bulk_delete_confirm_title)) },
+            text = {
+                Text(stringResource(R.string.bulk_delete_confirm_entries, selectedIds.size))
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmBulkDelete = false
+                    onConfirmBulkDelete()
+                }) {
+                    Text(
+                        text = stringResource(R.string.bulk_delete_action),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmBulkDelete = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
+    }
+
     if (confirmDelete && state is SeriesDetailUiState.Loaded) {
         SeriesDeleteDialog(
             tomeCount = state.volumes.size,
@@ -292,6 +333,7 @@ private fun SeriesSelectionTopBar(
     selectedCount: Int,
     onClose: () -> Unit,
     onEdit: () -> Unit,
+    onDelete: () -> Unit,
     onSelectAll: () -> Unit
 ) {
     TopAppBar(
@@ -309,6 +351,12 @@ private fun SeriesSelectionTopBar(
                 Icon(
                     imageVector = Icons.Filled.Edit,
                     contentDescription = stringResource(R.string.selection_edit)
+                )
+            }
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = stringResource(R.string.selection_delete)
                 )
             }
             IconButton(onClick = onSelectAll) {
