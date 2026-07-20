@@ -13,6 +13,9 @@ import app.acervatim.domain.usecase.BulkEditResult
 import app.acervatim.domain.usecase.DeleteRecordsUseCase
 import app.acervatim.domain.usecase.DeleteResult
 import app.acervatim.domain.usecase.DeleteSeriesUseCase
+import app.acervatim.domain.usecase.RefreshMetadataUseCase
+import app.acervatim.domain.usecase.RefreshOptions
+import app.acervatim.domain.usecase.RefreshResult
 import app.acervatim.domain.usecase.ObserveSeriesByIdUseCase
 import app.acervatim.domain.usecase.ObserveSeriesItemsUseCase
 import app.acervatim.domain.usecase.UpdateItemStatusUseCase
@@ -37,7 +40,8 @@ class SeriesDetailViewModel @Inject constructor(
     private val updateItemStatus: UpdateItemStatusUseCase,
     private val deleteSeries: DeleteSeriesUseCase,
     private val updateRecords: UpdateRecordsUseCase,
-    private val deleteRecords: DeleteRecordsUseCase
+    private val deleteRecords: DeleteRecordsUseCase,
+    private val refreshMetadata: RefreshMetadataUseCase
 ) : ViewModel() {
 
     private val seriesId: String =
@@ -157,6 +161,31 @@ class SeriesDetailViewModel @Inject constructor(
 
     fun consumeBulkDeleteResult() {
         _bulkDeleteResult.value = null
+    }
+
+    private val _refreshing = MutableStateFlow(false)
+    val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
+
+    private val _refreshResult = MutableStateFlow<RefreshResult?>(null)
+    val refreshResult: StateFlow<RefreshResult?> = _refreshResult.asStateFlow()
+
+    /** Rafraîchit jaquettes/descriptions des tomes sélectionnés. [overwrite] force le remplacement. */
+    fun applyRefresh(overwrite: Boolean) {
+        val ids = _selectedIds.value
+        if (ids.isEmpty()) {
+            clearSelection()
+            return
+        }
+        viewModelScope.launch {
+            _refreshing.value = true
+            _refreshResult.value = refreshMetadata(recordIds = ids, options = RefreshOptions(overwrite))
+            _refreshing.value = false
+            clearSelection()
+        }
+    }
+
+    fun consumeRefreshResult() {
+        _refreshResult.value = null
     }
 }
 

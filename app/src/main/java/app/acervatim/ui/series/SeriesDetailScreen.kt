@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -68,8 +69,10 @@ import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.Series
 import app.acervatim.domain.usecase.BulkEditResult
 import app.acervatim.domain.usecase.DeleteResult
+import app.acervatim.domain.usecase.RefreshResult
 import app.acervatim.ui.components.ZoomableCover
 import app.acervatim.ui.list.BulkEditSheet
+import app.acervatim.ui.list.RefreshOptionDialog
 
 @Composable
 fun SeriesDetailScreen(
@@ -87,6 +90,7 @@ fun SeriesDetailScreen(
     val bulkEditSheetOpen by viewModel.bulkEditSheetOpen.collectAsStateWithLifecycle()
     val bulkEditResult by viewModel.bulkEditResult.collectAsStateWithLifecycle()
     val bulkDeleteResult by viewModel.bulkDeleteResult.collectAsStateWithLifecycle()
+    val refreshResult by viewModel.refreshResult.collectAsStateWithLifecycle()
 
     LaunchedEffect(event) {
         if (event is SeriesDetailEvent.Deleted) {
@@ -114,7 +118,10 @@ fun SeriesDetailScreen(
         onBulkEditResultShown = viewModel::consumeBulkEditResult,
         onConfirmBulkDelete = viewModel::applyBulkDelete,
         bulkDeleteResult = bulkDeleteResult,
-        onBulkDeleteResultShown = viewModel::consumeBulkDeleteResult
+        onBulkDeleteResultShown = viewModel::consumeBulkDeleteResult,
+        onRefresh = viewModel::applyRefresh,
+        refreshResult = refreshResult,
+        onRefreshResultShown = viewModel::consumeRefreshResult
     )
 
     if (bulkEditSheetOpen && state is SeriesDetailUiState.Loaded) {
@@ -147,11 +154,15 @@ internal fun SeriesDetailContent(
     onBulkEditResultShown: () -> Unit = {},
     onConfirmBulkDelete: () -> Unit = {},
     bulkDeleteResult: DeleteResult? = null,
-    onBulkDeleteResultShown: () -> Unit = {}
+    onBulkDeleteResultShown: () -> Unit = {},
+    onRefresh: (overwrite: Boolean) -> Unit = {},
+    refreshResult: RefreshResult? = null,
+    onRefreshResultShown: () -> Unit = {}
 ) {
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     var confirmBulkDelete by rememberSaveable { mutableStateOf(false) }
+    var showRefreshOptions by rememberSaveable { mutableStateOf(false) }
 
     // En mode sélection, le retour système quitte la sélection au lieu de fermer l'écran.
     BackHandler(enabled = selectionMode) { onClearSelection() }
@@ -173,6 +184,19 @@ internal fun SeriesDetailContent(
         snackbarHostState.showSnackbar(context.getString(R.string.bulk_delete_result, result.total))
         onBulkDeleteResultShown()
     }
+    LaunchedEffect(refreshResult) {
+        val result = refreshResult ?: return@LaunchedEffect
+        val message = if (result.hasFailures) {
+            context.getString(
+                R.string.refresh_result_partial,
+                result.refreshedCount, result.unchangedCount, result.failedCount
+            )
+        } else {
+            context.getString(R.string.refresh_result, result.refreshedCount, result.unchangedCount)
+        }
+        snackbarHostState.showSnackbar(message)
+        onRefreshResultShown()
+    }
 
     Scaffold(
         topBar = {
@@ -181,6 +205,7 @@ internal fun SeriesDetailContent(
                     selectedCount = selectedIds.size,
                     onClose = onClearSelection,
                     onEdit = onEditSelection,
+                    onRefresh = { showRefreshOptions = true },
                     onDelete = { confirmBulkDelete = true },
                     onSelectAll = onSelectAll
                 )
@@ -281,6 +306,16 @@ internal fun SeriesDetailContent(
         }
     }
 
+    if (showRefreshOptions) {
+        RefreshOptionDialog(
+            onConfirm = { overwrite ->
+                showRefreshOptions = false
+                onRefresh(overwrite)
+            },
+            onDismiss = { showRefreshOptions = false }
+        )
+    }
+
     if (confirmBulkDelete) {
         AlertDialog(
             onDismissRequest = { confirmBulkDelete = false },
@@ -333,6 +368,7 @@ private fun SeriesSelectionTopBar(
     selectedCount: Int,
     onClose: () -> Unit,
     onEdit: () -> Unit,
+    onRefresh: () -> Unit,
     onDelete: () -> Unit,
     onSelectAll: () -> Unit
 ) {
@@ -351,6 +387,12 @@ private fun SeriesSelectionTopBar(
                 Icon(
                     imageVector = Icons.Filled.Edit,
                     contentDescription = stringResource(R.string.selection_edit)
+                )
+            }
+            IconButton(onClick = onRefresh) {
+                Icon(
+                    imageVector = Icons.Filled.Refresh,
+                    contentDescription = stringResource(R.string.selection_refresh)
                 )
             }
             IconButton(onClick = onDelete) {

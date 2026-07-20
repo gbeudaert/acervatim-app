@@ -1,6 +1,7 @@
 package app.acervatim.ui.series
 
 import androidx.lifecycle.SavedStateHandle
+import app.acervatim.domain.FakeExternalSearchRepository
 import app.acervatim.domain.FakeRecordRepository
 import app.acervatim.domain.FakeSeriesRepository
 import app.acervatim.domain.model.Artist
@@ -8,11 +9,13 @@ import app.acervatim.domain.model.CollectionType
 import app.acervatim.domain.model.ItemStatus
 import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.Series
+import app.acervatim.domain.repository.CoverStorage
 import app.acervatim.domain.usecase.DeleteRecordUseCase
 import app.acervatim.domain.usecase.DeleteRecordsUseCase
 import app.acervatim.domain.usecase.DeleteSeriesUseCase
 import app.acervatim.domain.usecase.ObserveSeriesByIdUseCase
 import app.acervatim.domain.usecase.ObserveSeriesItemsUseCase
+import app.acervatim.domain.usecase.RefreshMetadataUseCase
 import app.acervatim.domain.usecase.UpdateItemStatusUseCase
 import app.acervatim.domain.usecase.UpdateRecordUseCase
 import app.acervatim.domain.usecase.UpdateRecordsUseCase
@@ -63,8 +66,23 @@ class SeriesDetailDeleteViewModelTest {
             deleteRecord = DeleteRecordUseCase(records),
             deleteSeries = DeleteSeriesUseCase(series, records),
             recordRepository = records
+        ),
+        refreshMetadata = RefreshMetadataUseCase(
+            recordRepository = records,
+            seriesRepository = series,
+            externalSearch = FakeExternalSearchRepository(),
+            coverStorage = NoopCoverStorage,
+            clock = clock
         )
     )
+
+    private object NoopCoverStorage : CoverStorage {
+        override suspend fun saveFromUri(recordId: String, uriString: String): String = ""
+        override suspend fun saveFromBytes(recordId: String, bytes: ByteArray): String = ""
+        override suspend fun saveFromUrl(recordId: String, url: String): String = ""
+        override suspend fun delete(recordId: String) = Unit
+        override fun pathFor(recordId: String): String = ""
+    }
 
     private suspend fun seedSeriesWithTomes() {
         series.upsert(

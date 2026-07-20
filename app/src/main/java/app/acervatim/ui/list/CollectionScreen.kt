@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Settings
@@ -80,6 +81,7 @@ import app.acervatim.domain.model.StatusFilter
 import app.acervatim.domain.usecase.BulkEditResult
 import app.acervatim.domain.usecase.CollectionTypeStats
 import app.acervatim.domain.usecase.DeleteResult
+import app.acervatim.domain.usecase.RefreshResult
 import app.acervatim.ui.components.RecordRow
 import app.acervatim.ui.theme.AcervatimTheme
 import kotlinx.coroutines.launch
@@ -111,6 +113,7 @@ fun CollectionScreen(
     val bulkEditSheetOpen by viewModel.bulkEditSheetOpen.collectAsStateWithLifecycle()
     val bulkEditResult by viewModel.bulkEditResult.collectAsStateWithLifecycle()
     val bulkDeleteResult by viewModel.bulkDeleteResult.collectAsStateWithLifecycle()
+    val refreshResult by viewModel.refreshResult.collectAsStateWithLifecycle()
 
     CollectionScreenContent(
         state = state,
@@ -144,7 +147,10 @@ fun CollectionScreen(
         onBulkEditResultShown = viewModel::consumeBulkEditResult,
         onConfirmBulkDelete = viewModel::applyBulkDelete,
         bulkDeleteResult = bulkDeleteResult,
-        onBulkDeleteResultShown = viewModel::consumeBulkDeleteResult
+        onBulkDeleteResultShown = viewModel::consumeBulkDeleteResult,
+        onRefresh = viewModel::applyRefresh,
+        refreshResult = refreshResult,
+        onRefreshResultShown = viewModel::consumeRefreshResult
     )
 
     if (sheetOpen) {
@@ -202,12 +208,16 @@ internal fun CollectionScreenContent(
     onBulkEditResultShown: () -> Unit = {},
     onConfirmBulkDelete: (cascade: Boolean) -> Unit = {},
     bulkDeleteResult: DeleteResult? = null,
-    onBulkDeleteResultShown: () -> Unit = {}
+    onBulkDeleteResultShown: () -> Unit = {},
+    onRefresh: (overwrite: Boolean) -> Unit = {},
+    refreshResult: RefreshResult? = null,
+    onRefreshResultShown: () -> Unit = {}
 ) {
     // En mode sélection, le retour système quitte la sélection au lieu de fermer l'écran.
     BackHandler(enabled = selectionMode) { onClearSelection() }
 
     var confirmBulkDelete by remember { mutableStateOf(false) }
+    var showRefreshOptions by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     // Bilan de l'édition groupée → Snackbar, puis consommation.
@@ -225,6 +235,19 @@ internal fun CollectionScreenContent(
         val result = bulkDeleteResult ?: return@LaunchedEffect
         snackbarHostState.showSnackbar(context.getString(R.string.bulk_delete_result, result.total))
         onBulkDeleteResultShown()
+    }
+    LaunchedEffect(refreshResult) {
+        val result = refreshResult ?: return@LaunchedEffect
+        val message = if (result.hasFailures) {
+            context.getString(
+                R.string.refresh_result_partial,
+                result.refreshedCount, result.unchangedCount, result.failedCount
+            )
+        } else {
+            context.getString(R.string.refresh_result, result.refreshedCount, result.unchangedCount)
+        }
+        snackbarHostState.showSnackbar(message)
+        onRefreshResultShown()
     }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -287,6 +310,7 @@ internal fun CollectionScreenContent(
                         bulkEditEnabled = filter.listMode == ListMode.FLAT,
                         onClose = onClearSelection,
                         onEdit = onEditSelection,
+                        onRefresh = { showRefreshOptions = true },
                         onDelete = { confirmBulkDelete = true },
                         onSelectAll = onSelectAll
                     )
@@ -367,6 +391,16 @@ internal fun CollectionScreenContent(
                     onScanSeries()
                 }
             }
+        )
+    }
+
+    if (showRefreshOptions) {
+        RefreshOptionDialog(
+            onConfirm = { overwrite ->
+                showRefreshOptions = false
+                onRefresh(overwrite)
+            },
+            onDismiss = { showRefreshOptions = false }
         )
     }
 
@@ -885,6 +919,7 @@ private fun SelectionTopBar(
     bulkEditEnabled: Boolean,
     onClose: () -> Unit,
     onEdit: () -> Unit,
+    onRefresh: () -> Unit,
     onDelete: () -> Unit,
     onSelectAll: () -> Unit
 ) {
@@ -917,6 +952,12 @@ private fun SelectionTopBar(
                     contentDescription = stringResource(R.string.selection_edit)
                 )
             }
+        }
+        IconButton(onClick = onRefresh) {
+            Icon(
+                imageVector = Icons.Default.Refresh,
+                contentDescription = stringResource(R.string.selection_refresh)
+            )
         }
         IconButton(onClick = onDelete) {
             Icon(

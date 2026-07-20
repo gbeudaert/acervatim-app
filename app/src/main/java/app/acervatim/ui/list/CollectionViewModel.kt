@@ -31,6 +31,9 @@ import app.acervatim.domain.usecase.BulkEditDelta
 import app.acervatim.domain.usecase.BulkEditResult
 import app.acervatim.domain.usecase.DeleteRecordsUseCase
 import app.acervatim.domain.usecase.DeleteResult
+import app.acervatim.domain.usecase.RefreshMetadataUseCase
+import app.acervatim.domain.usecase.RefreshOptions
+import app.acervatim.domain.usecase.RefreshResult
 import app.acervatim.domain.usecase.SetActiveCollectionTypeUseCase
 import app.acervatim.domain.usecase.SetListModeForCollectionTypeUseCase
 import app.acervatim.domain.usecase.UpdateRecordsUseCase
@@ -68,6 +71,7 @@ class CollectionViewModel @Inject constructor(
     private val setListMode: SetListModeForCollectionTypeUseCase,
     private val updateRecords: UpdateRecordsUseCase,
     private val deleteRecords: DeleteRecordsUseCase,
+    private val refreshMetadata: RefreshMetadataUseCase,
     authRepository: AuthRepository,
     syncRepository: SyncRepository,
     accountRepository: AccountRepository
@@ -305,6 +309,41 @@ class CollectionViewModel @Inject constructor(
 
     fun consumeBulkDeleteResult() {
         _bulkDeleteResult.value = null
+    }
+
+    // ---- Rafraîchissement groupé (§2.5, lot L7) ------------------------------------------------
+
+    private val _refreshing = MutableStateFlow(false)
+    val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
+
+    private val _refreshResult = MutableStateFlow<RefreshResult?>(null)
+    val refreshResult: StateFlow<RefreshResult?> = _refreshResult.asStateFlow()
+
+    /**
+     * Rafraîchit jaquettes/descriptions de la sélection. Vue séries → cibles **séries** (1 appel
+     * edition-mapping chacune) ; sinon **entrées**. [overwrite] force le remplacement (§2.5.2).
+     */
+    fun applyRefresh(overwrite: Boolean) {
+        val ids = _selectedIds.value
+        if (ids.isEmpty()) {
+            clearSelection()
+            return
+        }
+        val serial = uiState.value is CollectionUiState.SerialContent
+        viewModelScope.launch {
+            _refreshing.value = true
+            _refreshResult.value = if (serial) {
+                refreshMetadata(seriesIds = ids, options = RefreshOptions(overwrite))
+            } else {
+                refreshMetadata(recordIds = ids, options = RefreshOptions(overwrite))
+            }
+            _refreshing.value = false
+            clearSelection()
+        }
+    }
+
+    fun consumeRefreshResult() {
+        _refreshResult.value = null
     }
 
     /** Ids sélectionnables de la vue courante, selon le mode d'affichage (entrées vs séries). */
