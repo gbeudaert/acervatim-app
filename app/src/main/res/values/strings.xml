@@ -61,6 +61,21 @@
     <string name="selection_count">%1$d sélectionné(s)</string>
     <string name="selection_select_all">Tout sélectionner</string>
     <string name="selection_exit">Quitter la sélection</string>
+    <string name="selection_edit">Éditer</string>
+    <!-- Édition groupée (spec-edition-multiple.md §2.2 / §7, lot L3) -->
+    <string name="bulk_edit_title">Édition groupée</string>
+    <string name="bulk_edit_field_keep">Ne pas modifier</string>
+    <string name="bulk_edit_field_set">Définir</string>
+    <string name="bulk_edit_field_clear">Effacer</string>
+    <string name="bulk_edit_apply">Appliquer</string>
+    <string name="bulk_edit_cancel">Annuler</string>
+    <string name="bulk_edit_field_status">Statut</string>
+    <string name="bulk_edit_field_rating">Note</string>
+    <string name="bulk_edit_field_publisher">Éditeur</string>
+    <string name="bulk_edit_status_owned">Possédé</string>
+    <string name="bulk_edit_status_wishlist">Souhaité</string>
+    <string name="bulk_edit_result">%1$d entrée(s) modifiée(s)</string>
+    <string name="bulk_edit_result_partial">%1$d modifiée(s), %2$d en échec</string>
     <string name="collection_counter_manga">%1$d possédés · %2$d souhaités</string>
     <string name="collection_empty_serial_title">Aucune série pour le moment</string>
     <string name="collection_empty_serial_subtitle">Touchez « Nouvelle série » pour créer votre première série.</string>

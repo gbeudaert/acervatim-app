@@ -48,10 +48,13 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,6 +63,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -70,6 +74,7 @@ import app.acervatim.domain.model.CollectionType
 import app.acervatim.domain.model.ListMode
 import app.acervatim.domain.model.RecordFilter
 import app.acervatim.domain.model.StatusFilter
+import app.acervatim.domain.usecase.BulkEditResult
 import app.acervatim.domain.usecase.CollectionTypeStats
 import app.acervatim.ui.components.RecordRow
 import app.acervatim.ui.theme.AcervatimTheme
@@ -99,6 +104,8 @@ fun CollectionScreen(
     val accountHeader by viewModel.accountHeader.collectAsStateWithLifecycle()
     val selectionMode by viewModel.selectionMode.collectAsStateWithLifecycle()
     val selectedIds by viewModel.selectedIds.collectAsStateWithLifecycle()
+    val bulkEditSheetOpen by viewModel.bulkEditSheetOpen.collectAsStateWithLifecycle()
+    val bulkEditResult by viewModel.bulkEditResult.collectAsStateWithLifecycle()
 
     CollectionScreenContent(
         state = state,
@@ -126,7 +133,10 @@ fun CollectionScreen(
         onEnterSelection = viewModel::enterSelection,
         onToggleSelection = viewModel::toggleSelection,
         onSelectAll = viewModel::selectAllVisible,
-        onClearSelection = viewModel::clearSelection
+        onClearSelection = viewModel::clearSelection,
+        onEditSelection = viewModel::openBulkEdit,
+        bulkEditResult = bulkEditResult,
+        onBulkEditResultShown = viewModel::consumeBulkEditResult
     )
 
     if (sheetOpen) {
@@ -137,6 +147,14 @@ fun CollectionScreen(
             onApply = viewModel::applyFilter,
             onReset = viewModel::resetFilter,
             onDismiss = viewModel::closeFilterSheet
+        )
+    }
+
+    if (bulkEditSheetOpen) {
+        BulkEditSheet(
+            collectionType = activeType,
+            onApply = viewModel::applyBulkEdit,
+            onDismiss = viewModel::closeBulkEdit
         )
     }
 }
@@ -170,10 +188,27 @@ internal fun CollectionScreenContent(
     onEnterSelection: (String) -> Unit = {},
     onToggleSelection: (String) -> Unit = {},
     onSelectAll: () -> Unit = {},
-    onClearSelection: () -> Unit = {}
+    onClearSelection: () -> Unit = {},
+    onEditSelection: () -> Unit = {},
+    bulkEditResult: BulkEditResult? = null,
+    onBulkEditResultShown: () -> Unit = {}
 ) {
     // En mode sélection, le retour système quitte la sélection au lieu de fermer l'écran.
     BackHandler(enabled = selectionMode) { onClearSelection() }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    // Bilan de l'édition groupée → Snackbar, puis consommation.
+    LaunchedEffect(bulkEditResult) {
+        val result = bulkEditResult ?: return@LaunchedEffect
+        val message = if (result.hasFailures) {
+            context.getString(R.string.bulk_edit_result_partial, result.updatedCount, result.failedCount)
+        } else {
+            context.getString(R.string.bulk_edit_result, result.updatedCount)
+        }
+        snackbarHostState.showSnackbar(message)
+        onBulkEditResultShown()
+    }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val activeFilterCount = remember(filter) { filter.activeFilterCount() }
@@ -207,6 +242,7 @@ internal fun CollectionScreenContent(
     ) {
         Scaffold(
             modifier = modifier.fillMaxSize(),
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             floatingActionButton = {
                 // Le FAB d'ajout s'efface en mode sélection : les actions passent par la barre contextuelle.
                 if (!selectionMode) {
@@ -231,7 +267,9 @@ internal fun CollectionScreenContent(
                 if (selectionMode) {
                     SelectionTopBar(
                         selectedCount = selectedIds.size,
+                        bulkEditEnabled = filter.listMode == ListMode.FLAT,
                         onClose = onClearSelection,
+                        onEdit = onEditSelection,
                         onSelectAll = onSelectAll
                     )
                 } else {
@@ -735,13 +773,15 @@ private fun SerialContentList(
 }
 
 /**
- * Barre contextuelle du mode sélection (§2.1) : quitter (croix), compteur, « Tout sélectionner ».
- * Les actions Éditer / Rafraîchir / Supprimer seront ajoutées ici par leurs lots (L3 / L7 / L5).
+ * Barre contextuelle du mode sélection (§2.1) : quitter (croix), compteur, Éditer (vue entrées),
+ * « Tout sélectionner ». Les actions Rafraîchir / Supprimer seront ajoutées ici par leurs lots (L7 / L5).
  */
 @Composable
 private fun SelectionTopBar(
     selectedCount: Int,
+    bulkEditEnabled: Boolean,
     onClose: () -> Unit,
+    onEdit: () -> Unit,
     onSelectAll: () -> Unit
 ) {
     Row(
@@ -765,6 +805,15 @@ private fun SelectionTopBar(
                 .weight(1f)
                 .padding(start = 8.dp)
         )
+        // L'édition groupée cible les entrées (vue plate) ; masquée en vue séries (§3.1, hors L3).
+        if (bulkEditEnabled) {
+            IconButton(onClick = onEdit) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = stringResource(R.string.selection_edit)
+                )
+            }
+        }
         IconButton(onClick = onSelectAll) {
             Icon(
                 imageVector = Icons.Default.SelectAll,

@@ -27,8 +27,11 @@ import app.acervatim.domain.usecase.ObserveVisibleCollectionTypesUseCase
 import app.acervatim.domain.repository.AccountRepository
 import app.acervatim.domain.repository.AuthRepository
 import app.acervatim.domain.repository.SyncRepository
+import app.acervatim.domain.usecase.BulkEditDelta
+import app.acervatim.domain.usecase.BulkEditResult
 import app.acervatim.domain.usecase.SetActiveCollectionTypeUseCase
 import app.acervatim.domain.usecase.SetListModeForCollectionTypeUseCase
+import app.acervatim.domain.usecase.UpdateRecordsUseCase
 import app.acervatim.ui.util.sectionLetterOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -61,6 +64,7 @@ class CollectionViewModel @Inject constructor(
     observeCollectionTypeStats: ObserveCollectionTypeStatsUseCase,
     private val setActiveCollectionType: SetActiveCollectionTypeUseCase,
     private val setListMode: SetListModeForCollectionTypeUseCase,
+    private val updateRecords: UpdateRecordsUseCase,
     authRepository: AuthRepository,
     syncRepository: SyncRepository,
     accountRepository: AccountRepository
@@ -230,6 +234,43 @@ class CollectionViewModel @Inject constructor(
     /** Quitte le mode sélection (croix / BackHandler / « Tout désélectionner »). */
     fun clearSelection() {
         _selectedIds.value = emptySet()
+    }
+
+    // ---- Édition groupée (§2.2, lot L3) --------------------------------------------------------
+
+    private val _bulkEditSheetOpen = MutableStateFlow(false)
+    val bulkEditSheetOpen: StateFlow<Boolean> = _bulkEditSheetOpen.asStateFlow()
+
+    /** Bilan de la dernière édition groupée, à consommer par un Snackbar (`null` = rien à afficher). */
+    private val _bulkEditResult = MutableStateFlow<BulkEditResult?>(null)
+    val bulkEditResult: StateFlow<BulkEditResult?> = _bulkEditResult.asStateFlow()
+
+    fun openBulkEdit() {
+        if (_selectedIds.value.isNotEmpty()) _bulkEditSheetOpen.value = true
+    }
+
+    fun closeBulkEdit() {
+        _bulkEditSheetOpen.value = false
+    }
+
+    /** Applique le delta aux entrées sélectionnées, ferme la feuille et sort du mode sélection. */
+    fun applyBulkEdit(delta: BulkEditDelta) {
+        val ids = _selectedIds.value
+        _bulkEditSheetOpen.value = false
+        if (delta.isEmpty || ids.isEmpty()) {
+            clearSelection()
+            return
+        }
+        viewModelScope.launch {
+            val result = updateRecords(ids, delta)
+            _bulkEditResult.value = result
+            clearSelection()
+        }
+    }
+
+    /** Le Snackbar de bilan a été affiché : on réarme l'état. */
+    fun consumeBulkEditResult() {
+        _bulkEditResult.value = null
     }
 
     /** Ids sélectionnables de la vue courante, selon le mode d'affichage (entrées vs séries). */
