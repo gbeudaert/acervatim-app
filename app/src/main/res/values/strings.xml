@@ -57,6 +57,10 @@
     <string name="collection_type_vinyl">Vinyles</string>
     <string name="collection_type_manga">Mangas</string>
     <string name="collection_open_drawer">Ouvrir le menu</string>
+    <!-- Mode sélection multiple (spec-edition-multiple.md §2.1 / §7) -->
+    <string name="selection_count">%1$d sélectionné(s)</string>
+    <string name="selection_select_all">Tout sélectionner</string>
+    <string name="selection_exit">Quitter la sélection</string>
     <string name="collection_counter_manga">%1$d possédés · %2$d souhaités</string>
     <string name="collection_empty_serial_title">Aucune série pour le moment</string>
     <string name="collection_empty_serial_subtitle">Touchez « Nouvelle série » pour créer votre première série.</string>

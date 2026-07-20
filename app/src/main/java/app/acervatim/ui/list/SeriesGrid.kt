@@ -1,6 +1,9 @@
 package app.acervatim.ui.list
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,10 +17,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,7 +48,11 @@ import java.time.Instant
 internal fun SeriesGrid(
     items: List<SeriesWithCounts>,
     onOpenSeries: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    selectionMode: Boolean = false,
+    selectedIds: Set<String> = emptySet(),
+    onEnterSelection: (String) -> Unit = {},
+    onToggleSelection: (String) -> Unit = {}
 ) {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 130.dp),
@@ -51,35 +62,61 @@ internal fun SeriesGrid(
         modifier = modifier.fillMaxSize()
     ) {
         items(items = items, key = { it.series.id }) { item ->
+            val id = item.series.id
             SeriesGridTile(
                 item = item,
-                onClick = { onOpenSeries(item.series.id) }
+                onClick = { onOpenSeries(id) },
+                selectionMode = selectionMode,
+                selected = id in selectedIds,
+                onLongClick = { onEnterSelection(id) },
+                onToggle = { onToggleSelection(id) }
             )
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun SeriesGridTile(
     item: SeriesWithCounts,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    selectionMode: Boolean = false,
+    selected: Boolean = false,
+    onLongClick: () -> Unit = {},
+    onToggle: () -> Unit = {}
 ) {
     val totalKnown = item.series.totalVolumes ?: item.totalVolumesInLibrary
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = { if (selectionMode) onToggle() else onClick() },
+                onLongClick = { if (!selectionMode) onLongClick() }
+            )
     ) {
-        RecordCover(
-            coverPath = item.series.coverPath,
-            contentDescription = item.series.title,
-            cornerRadius = 8.dp,
-            cacheKey = "series-${item.series.id}",
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(0.72f)
-        )
+        Box {
+            RecordCover(
+                coverPath = item.series.coverPath,
+                contentDescription = item.series.title,
+                cornerRadius = 8.dp,
+                cacheKey = "series-${item.series.id}",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(0.72f)
+            )
+            if (selectionMode) {
+                Checkbox(
+                    checked = selected,
+                    onCheckedChange = { onToggle() },
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(4.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
+                )
+            }
+        }
         Spacer(Modifier.height(6.dp))
         Text(
             text = item.series.title,

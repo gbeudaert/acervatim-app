@@ -189,6 +189,58 @@ class CollectionViewModel @Inject constructor(
         initialValue = CollectionUiState.Loading
     )
 
+    // ---- Mode sélection (§2.1) -----------------------------------------------------------------
+
+    private val _selectedIds = MutableStateFlow<Set<String>>(emptySet())
+
+    /**
+     * Ids sélectionnés en mode sélection. **Homogène par vue** (§9) : ids d'entrées en liste plate,
+     * ids de séries en vue séries — les deux ne coexistent pas (vues distinctes). Vide ⇔ hors sélection.
+     */
+    val selectedIds: StateFlow<Set<String>> = _selectedIds.asStateFlow()
+
+    /** `true` dès qu'au moins une cible est sélectionnée (mode sélection actif). */
+    val selectionMode: StateFlow<Boolean> = _selectedIds
+        .map { it.isNotEmpty() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    init {
+        // Changer de collection active vide la sélection : ses ids appartiennent à l'ancienne vue.
+        // (StateFlow déjà conflaté : chaque type distinct déclenche un clear.)
+        viewModelScope.launch {
+            activeCollectionType.collect { clearSelection() }
+        }
+    }
+
+    /** Entre en mode sélection sur une cible (appui long). */
+    fun enterSelection(id: String) {
+        _selectedIds.value = setOf(id)
+    }
+
+    /** Coche/décoche une cible (tap en mode sélection). Décocher la dernière quitte le mode. */
+    fun toggleSelection(id: String) {
+        _selectedIds.update { if (id in it) it - id else it + id }
+    }
+
+    /** Sélectionne toutes les cibles visibles de la vue courante (entrées ou séries). */
+    fun selectAllVisible() {
+        _selectedIds.value = visibleSelectableIds()
+    }
+
+    /** Quitte le mode sélection (croix / BackHandler / « Tout désélectionner »). */
+    fun clearSelection() {
+        _selectedIds.value = emptySet()
+    }
+
+    /** Ids sélectionnables de la vue courante, selon le mode d'affichage (entrées vs séries). */
+    private fun visibleSelectableIds(): Set<String> = when (val s = uiState.value) {
+        is CollectionUiState.FlatContent ->
+            s.sections.asSequence().flatMap { it.entries }.map { it.record.id }.toSet()
+        is CollectionUiState.SerialContent ->
+            s.seriesList.asSequence().map { it.series.id }.toSet()
+        else -> emptySet()
+    }
+
     fun onQueryChange(value: String) {
         _query.value = value
     }
