@@ -14,16 +14,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -46,17 +41,20 @@ import app.acervatim.ui.components.RecordCover
  * - **WISHLIST** : opacité 0.55, icône cœur superposée en haut-droite, badge en couleur primaire.
  * - **IGNORED** : opacité 0.30, icône « interdit » superposée en haut-droite, titre barré.
  *
- * Tap = ouvre le détail du tome. Tap long = menu contextuel pour changer le statut.
+ * Tap = ouvre le détail du tome. Appui long = entre en mode sélection (§2.1). En mode sélection,
+ * un tap coche/décoche et une case à cocher se superpose à la jaquette.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun VolumeTile(
     record: Record,
     onClick: () -> Unit,
-    onSetStatus: (ItemStatus) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    selectionMode: Boolean = false,
+    selected: Boolean = false,
+    onLongClick: () -> Unit = {},
+    onToggle: () -> Unit = {}
 ) {
-    var menuOpen by remember { mutableStateOf(false) }
     val alpha = when (record.status) {
         ItemStatus.OWNED -> 1f
         ItemStatus.WISHLIST -> if (isSystemInDarkTheme()) 0.50f else 0.55f
@@ -66,8 +64,8 @@ internal fun VolumeTile(
     Box(
         modifier = modifier
             .combinedClickable(
-                onClick = onClick,
-                onLongClick = { menuOpen = true }
+                onClick = { if (selectionMode) onToggle() else onClick() },
+                onLongClick = { if (!selectionMode) onLongClick() }
             )
     ) {
         Column(modifier = Modifier.alpha(alpha)) {
@@ -96,39 +94,24 @@ internal fun VolumeTile(
             )
         }
 
+        if (selectionMode) {
+            Checkbox(
+                checked = selected,
+                onCheckedChange = { onToggle() },
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(2.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
+            )
+        }
+
         StatusBadge(
             status = record.status,
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(4.dp)
         )
-
-        DropdownMenu(
-            expanded = menuOpen,
-            onDismissRequest = { menuOpen = false }
-        ) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.item_status_owned)) },
-                onClick = {
-                    onSetStatus(ItemStatus.OWNED)
-                    menuOpen = false
-                }
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.item_status_wishlist)) },
-                onClick = {
-                    onSetStatus(ItemStatus.WISHLIST)
-                    menuOpen = false
-                }
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.item_status_ignored)) },
-                onClick = {
-                    onSetStatus(ItemStatus.IGNORED)
-                    menuOpen = false
-                }
-            )
-        }
     }
 }
 

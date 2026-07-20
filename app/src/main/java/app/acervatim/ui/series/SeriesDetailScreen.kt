@@ -1,5 +1,6 @@
 package app.acervatim.ui.series
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,12 +23,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -38,9 +41,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,6 +56,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -59,7 +66,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.acervatim.R
 import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.Series
+import app.acervatim.domain.usecase.BulkEditResult
 import app.acervatim.ui.components.ZoomableCover
+import app.acervatim.ui.list.BulkEditSheet
 
 @Composable
 fun SeriesDetailScreen(
@@ -72,6 +81,10 @@ fun SeriesDetailScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val event by viewModel.events.collectAsStateWithLifecycle()
+    val selectionMode by viewModel.selectionMode.collectAsStateWithLifecycle()
+    val selectedIds by viewModel.selectedIds.collectAsStateWithLifecycle()
+    val bulkEditSheetOpen by viewModel.bulkEditSheetOpen.collectAsStateWithLifecycle()
+    val bulkEditResult by viewModel.bulkEditResult.collectAsStateWithLifecycle()
 
     LaunchedEffect(event) {
         if (event is SeriesDetailEvent.Deleted) {
@@ -87,9 +100,25 @@ fun SeriesDetailScreen(
         onAddVolume = onAddVolume,
         onScanVolume = onScanVolume,
         onEditSeries = onEditSeries,
-        onSetStatus = viewModel::onSetStatus,
-        onDelete = viewModel::onDelete
+        onDelete = viewModel::onDelete,
+        selectionMode = selectionMode,
+        selectedIds = selectedIds,
+        onEnterSelection = viewModel::enterSelection,
+        onToggleSelection = viewModel::toggleSelection,
+        onSelectAll = viewModel::selectAllVisible,
+        onClearSelection = viewModel::clearSelection,
+        onEditSelection = viewModel::openBulkEdit,
+        bulkEditResult = bulkEditResult,
+        onBulkEditResultShown = viewModel::consumeBulkEditResult
     )
+
+    if (bulkEditSheetOpen && state is SeriesDetailUiState.Loaded) {
+        BulkEditSheet(
+            collectionType = (state as SeriesDetailUiState.Loaded).series.collectionType,
+            onApply = viewModel::applyBulkEdit,
+            onDismiss = viewModel::closeBulkEdit
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -100,69 +129,105 @@ internal fun SeriesDetailContent(
     onOpenVolume: (String) -> Unit,
     onAddVolume: (seriesId: String, suggestedVolume: Int?) -> Unit,
     onEditSeries: (String) -> Unit,
-    onSetStatus: (String, app.acervatim.domain.model.ItemStatus) -> Unit,
     onScanVolume: (seriesId: String) -> Unit = {},
-    onDelete: (cascade: Boolean) -> Unit = {}
+    onDelete: (cascade: Boolean) -> Unit = {},
+    selectionMode: Boolean = false,
+    selectedIds: Set<String> = emptySet(),
+    onEnterSelection: (String) -> Unit = {},
+    onToggleSelection: (String) -> Unit = {},
+    onSelectAll: () -> Unit = {},
+    onClearSelection: () -> Unit = {},
+    onEditSelection: () -> Unit = {},
+    bulkEditResult: BulkEditResult? = null,
+    onBulkEditResultShown: () -> Unit = {}
 ) {
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
+
+    // En mode sélection, le retour système quitte la sélection au lieu de fermer l'écran.
+    BackHandler(enabled = selectionMode) { onClearSelection() }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    LaunchedEffect(bulkEditResult) {
+        val result = bulkEditResult ?: return@LaunchedEffect
+        val message = if (result.hasFailures) {
+            context.getString(R.string.bulk_edit_result_partial, result.updatedCount, result.failedCount)
+        } else {
+            context.getString(R.string.bulk_edit_result, result.updatedCount)
+        }
+        snackbarHostState.showSnackbar(message)
+        onBulkEditResultShown()
+    }
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.series_detail_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.action_back)
-                        )
-                    }
-                },
-                actions = {
-                    // Actions sur la série chargée : scan d'un tome, édition, suppression.
-                    // Indisponibles tant qu'on n'a pas l'id (état Loading/NotFound).
-                    if (state is SeriesDetailUiState.Loaded) {
-                        IconButton(onClick = { onScanVolume(state.series.id) }) {
+            if (selectionMode) {
+                SeriesSelectionTopBar(
+                    selectedCount = selectedIds.size,
+                    onClose = onClearSelection,
+                    onEdit = onEditSelection,
+                    onSelectAll = onSelectAll
+                )
+            } else {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.series_detail_title)) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
                             Icon(
-                                imageVector = Icons.Filled.QrCodeScanner,
-                                contentDescription = stringResource(R.string.series_detail_scan)
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.action_back)
                             )
                         }
-                        Box {
-                            IconButton(onClick = { menuExpanded = true }) {
+                    },
+                    actions = {
+                        // Actions sur la série chargée : scan d'un tome, édition, suppression.
+                        // Indisponibles tant qu'on n'a pas l'id (état Loading/NotFound).
+                        if (state is SeriesDetailUiState.Loaded) {
+                            IconButton(onClick = { onScanVolume(state.series.id) }) {
                                 Icon(
-                                    imageVector = Icons.Filled.MoreVert,
-                                    contentDescription = stringResource(R.string.action_more)
+                                    imageVector = Icons.Filled.QrCodeScanner,
+                                    contentDescription = stringResource(R.string.series_detail_scan)
                                 )
                             }
-                            DropdownMenu(
-                                expanded = menuExpanded,
-                                onDismissRequest = { menuExpanded = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.action_edit)) },
-                                    leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
-                                    onClick = {
-                                        menuExpanded = false
-                                        onEditSeries(state.series.id)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.action_delete)) },
-                                    leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null) },
-                                    onClick = {
-                                        menuExpanded = false
-                                        confirmDelete = true
-                                    }
-                                )
+                            Box {
+                                IconButton(onClick = { menuExpanded = true }) {
+                                    Icon(
+                                        imageVector = Icons.Filled.MoreVert,
+                                        contentDescription = stringResource(R.string.action_more)
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = menuExpanded,
+                                    onDismissRequest = { menuExpanded = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.action_edit)) },
+                                        leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                                        onClick = {
+                                            menuExpanded = false
+                                            onEditSeries(state.series.id)
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.action_delete)) },
+                                        leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null) },
+                                        onClick = {
+                                            menuExpanded = false
+                                            confirmDelete = true
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
-                }
-            )
+                )
+            }
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            if (state is SeriesDetailUiState.Loaded) {
+            // Le FAB d'ajout s'efface en mode sélection.
+            if (!selectionMode && state is SeriesDetailUiState.Loaded) {
                 val maxVolume = state.volumes.mapNotNull { it.volumeNumber }.maxOrNull()
                 val suggested = maxVolume?.plus(1) ?: 1
                 ExtendedFloatingActionButton(
@@ -192,7 +257,10 @@ internal fun SeriesDetailContent(
                     series = state.series,
                     volumes = state.volumes,
                     onOpenVolume = onOpenVolume,
-                    onSetStatus = onSetStatus
+                    selectionMode = selectionMode,
+                    selectedIds = selectedIds,
+                    onEnterSelection = onEnterSelection,
+                    onToggleSelection = onToggleSelection
                 )
             }
         }
@@ -212,6 +280,48 @@ internal fun SeriesDetailContent(
             onDismiss = { confirmDelete = false }
         )
     }
+}
+
+/**
+ * Barre contextuelle du mode sélection des tomes (§2.1) : quitter, compteur, Éditer, Tout sélectionner.
+ * L'action Supprimer (des tomes) sera ajoutée par le lot L5.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SeriesSelectionTopBar(
+    selectedCount: Int,
+    onClose: () -> Unit,
+    onEdit: () -> Unit,
+    onSelectAll: () -> Unit
+) {
+    TopAppBar(
+        title = { Text(stringResource(R.string.selection_count, selectedCount)) },
+        navigationIcon = {
+            IconButton(onClick = onClose) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = stringResource(R.string.selection_exit)
+                )
+            }
+        },
+        actions = {
+            IconButton(onClick = onEdit) {
+                Icon(
+                    imageVector = Icons.Filled.Edit,
+                    contentDescription = stringResource(R.string.selection_edit)
+                )
+            }
+            IconButton(onClick = onSelectAll) {
+                Icon(
+                    imageVector = Icons.Filled.SelectAll,
+                    contentDescription = stringResource(R.string.selection_select_all)
+                )
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        )
+    )
 }
 
 /**
@@ -273,7 +383,10 @@ private fun LoadedContent(
     series: Series,
     volumes: List<Record>,
     onOpenVolume: (String) -> Unit,
-    onSetStatus: (String, app.acervatim.domain.model.ItemStatus) -> Unit
+    selectionMode: Boolean = false,
+    selectedIds: Set<String> = emptySet(),
+    onEnterSelection: (String) -> Unit = {},
+    onToggleSelection: (String) -> Unit = {}
 ) {
     var headerExpanded by rememberSaveable { mutableStateOf(true) }
 
@@ -303,7 +416,10 @@ private fun LoadedContent(
             VolumeTile(
                 record = record,
                 onClick = { onOpenVolume(record.id) },
-                onSetStatus = { status -> onSetStatus(record.id, status) }
+                selectionMode = selectionMode,
+                selected = record.id in selectedIds,
+                onLongClick = { onEnterSelection(record.id) },
+                onToggle = { onToggleSelection(record.id) }
             )
         }
     }

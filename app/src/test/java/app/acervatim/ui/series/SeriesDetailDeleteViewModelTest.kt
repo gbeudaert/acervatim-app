@@ -12,6 +12,8 @@ import app.acervatim.domain.usecase.DeleteSeriesUseCase
 import app.acervatim.domain.usecase.ObserveSeriesByIdUseCase
 import app.acervatim.domain.usecase.ObserveSeriesItemsUseCase
 import app.acervatim.domain.usecase.UpdateItemStatusUseCase
+import app.acervatim.domain.usecase.UpdateRecordUseCase
+import app.acervatim.domain.usecase.UpdateRecordsUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -53,7 +55,8 @@ class SeriesDetailDeleteViewModelTest {
         observeSeries = ObserveSeriesByIdUseCase(series),
         observeItems = ObserveSeriesItemsUseCase(records),
         updateItemStatus = UpdateItemStatusUseCase(records, clock),
-        deleteSeries = DeleteSeriesUseCase(series, records)
+        deleteSeries = DeleteSeriesUseCase(series, records),
+        updateRecords = UpdateRecordsUseCase(records, UpdateRecordUseCase(records, clock))
     )
 
     private suspend fun seedSeriesWithTomes() {

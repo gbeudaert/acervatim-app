@@ -80,8 +80,7 @@ class SeriesDetailContentTest {
                     onBack = {},
                     onOpenVolume = {},
                     onAddVolume = { _, _ -> },
-                    onEditSeries = { editedId = it },
-                    onSetStatus = { _, _ -> }
+                    onEditSeries = { editedId = it }
                 )
             }
         }
@@ -103,8 +102,7 @@ class SeriesDetailContentTest {
                     onBack = {},
                     onOpenVolume = {},
                     onAddVolume = { _, _ -> },
-                    onEditSeries = {},
-                    onSetStatus = { _, _ -> }
+                    onEditSeries = {}
                 )
             }
         }
@@ -124,7 +122,6 @@ class SeriesDetailContentTest {
                     onOpenVolume = {},
                     onAddVolume = { _, _ -> },
                     onEditSeries = {},
-                    onSetStatus = { _, _ -> },
                     onDelete = { deletedCascade = it }
                 )
             }
@@ -152,7 +149,6 @@ class SeriesDetailContentTest {
                     onOpenVolume = {},
                     onAddVolume = { _, _ -> },
                     onEditSeries = {},
-                    onSetStatus = { _, _ -> },
                     onDelete = { deletedCascade = it }
                 )
             }
