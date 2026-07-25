@@ -189,6 +189,12 @@ interface RecordDao {
     @Query("SELECT * FROM records WHERE remoteId = :remoteId LIMIT 1")
     suspend fun getByRemoteId(remoteId: String): RecordEntity?
 
+    @Query("SELECT * FROM records WHERE barcode = :barcode LIMIT 1")
+    suspend fun getEntityByBarcode(barcode: String): RecordEntity?
+
+    @Query("SELECT * FROM records WHERE isbn = :isbn LIMIT 1")
+    suspend fun getEntityByIsbn(isbn: String): RecordEntity?
+
     @Query("SELECT * FROM records WHERE syncState != 'SYNCED'")
     suspend fun listEntitiesNeedingPush(): List<RecordEntity>
 

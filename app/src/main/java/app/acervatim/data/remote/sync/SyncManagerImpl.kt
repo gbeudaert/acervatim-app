@@ -252,7 +252,13 @@ class SyncManagerImpl @Inject constructor(
 
     /** @return true si une ligne a été écrite (serveur gagnant), false si le local l'emporte. */
     private suspend fun upsertPulledItem(dto: ItemDto, col: CollectionEntity, type: CollectionType): Boolean {
+        // Un item jamais synchronisé (créé hors-ligne avant la 1re sync, ou restauré depuis un
+        // autre appareil) peut déjà exister en local sous un autre id, sans remoteId : on le
+        // retrouve par sa clé naturelle (barcode/isbn, uniques en base) pour éviter un conflit
+        // d'index qui ferait échouer silencieusement l'upsert (cf. sync failed / FOREIGN KEY).
         val existing = recordDao.getByRemoteId(dto.id)
+            ?: dto.sourceExternalId(FacadeMapper.PROVIDER_BARCODE)?.let { recordDao.getEntityByBarcode(it) }
+            ?: dto.sourceExternalId(FacadeMapper.PROVIDER_ISBN)?.let { recordDao.getEntityByIsbn(it) }
         val serverUpdated = RemoteDtoMapper.parseInstant(dto.updatedAt)
         // LWW : si une version locale modifiée est plus récente que le serveur, on la garde (à pousser).
         if (existing != null && existing.syncState != SyncState.SYNCED && existing.updatedAt.isAfter(serverUpdated)) {
@@ -295,6 +301,9 @@ class SyncManagerImpl @Inject constructor(
         }
         return true
     }
+
+    private fun ItemDto.sourceExternalId(provider: String): String? =
+        sources.firstOrNull { it.provider == provider }?.externalId
 
     private suspend fun resolveOrCreateArtist(name: String): String {
         val trimmed = name.trim()

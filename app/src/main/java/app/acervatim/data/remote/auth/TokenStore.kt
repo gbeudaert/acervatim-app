@@ -32,6 +32,17 @@ class TokenStore @Inject constructor(
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
+        try {
+            createEncryptedPrefs(context, masterKey)
+        } catch (e: Exception) {
+            // Le fichier chiffré peut survivre à une migration d'appareil sans sa clé Keystore
+            // (non-exportable par nature) : dans ce cas il est illisible, on le recrée à vide.
+            context.deleteSharedPreferences(PREFS_NAME)
+            createEncryptedPrefs(context, masterKey)
+        }
+    }
+
+    private fun createEncryptedPrefs(context: Context, masterKey: MasterKey): SharedPreferences =
         EncryptedSharedPreferences.create(
             context,
             PREFS_NAME,
@@ -39,7 +50,6 @@ class TokenStore @Inject constructor(
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
-    }
 
     private val _authState = MutableStateFlow<AuthState>(readInitialState())
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
