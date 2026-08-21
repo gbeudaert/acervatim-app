@@ -94,6 +94,7 @@ class FakeAcervatimApi : AcervatimApi {
             id = "item-${UUID.randomUUID()}",
             collectionId = collectionId,
             unifiedData = body.unifiedData,
+            userData = body.userData ?: JsonObject(emptyMap()),
             createdAt = ts,
             updatedAt = ts
         )
@@ -101,7 +102,14 @@ class FakeAcervatimApi : AcervatimApi {
 
     override suspend fun patchItem(id: String, body: PatchItemRequest): ItemDto {
         patchedItems += id to body
-        return ItemDto(id = id, collectionId = "c", unifiedData = body.unifiedData, createdAt = ts, updatedAt = ts)
+        return ItemDto(
+            id = id,
+            collectionId = "c",
+            unifiedData = body.unifiedData,
+            userData = body.userData ?: JsonObject(emptyMap()),
+            createdAt = ts,
+            updatedAt = ts
+        )
     }
 
     override suspend fun listCollections(

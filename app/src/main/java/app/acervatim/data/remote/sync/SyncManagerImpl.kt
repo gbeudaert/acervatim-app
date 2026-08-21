@@ -15,7 +15,6 @@ import app.acervatim.data.remote.api.AcervatimApi
 import app.acervatim.data.remote.dto.CollectionDto
 import app.acervatim.data.remote.error.ApiException
 import app.acervatim.data.remote.dto.ItemDto
-import app.acervatim.data.remote.dto.PatchItemRequest
 import app.acervatim.data.remote.mapper.FacadeMapper
 import app.acervatim.data.remote.mapper.RemoteDtoMapper
 import app.acervatim.domain.model.CollectionType
@@ -171,7 +170,7 @@ class SyncManagerImpl @Inject constructor(
                     continue
                 }
             } else {
-                api.patchItem(entity.remoteId, PatchItemRequest(facade.item.unifiedData))
+                api.patchItem(entity.remoteId, RemoteDtoMapper.run { facade.item.toPatchRequest() })
             }
             recordDao.updateSync(entity.id, dto.id, RemoteDtoMapper.parseInstant(dto.updatedAt), SyncState.SYNCED)
             count++

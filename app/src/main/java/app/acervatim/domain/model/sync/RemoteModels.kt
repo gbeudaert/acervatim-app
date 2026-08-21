@@ -60,6 +60,11 @@ data class RemoteItem(
     val nodeLocalId: String? = null,
     val volume: Int? = null,
     val unifiedData: JsonObject = JsonObject(emptyMap()),
+    /**
+     * Données perso/subjectives de l'item (pendant de `RemoteNode.note`/`comment`). Seul `status`
+     * y transite aujourd'hui ; `rating`/`purchasePrice`/`lastPlayedAt` restent app-only.
+     */
+    val userData: JsonObject = JsonObject(emptyMap()),
     val sources: List<RemoteSource> = emptyList(),
     val syncState: SyncState = SyncState.LOCAL_ONLY,
     val updatedAt: Instant,

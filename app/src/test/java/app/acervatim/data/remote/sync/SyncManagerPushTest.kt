@@ -18,6 +18,7 @@ import app.acervatim.domain.repository.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -89,6 +90,31 @@ class SyncManagerPushTest {
         assertEquals(SyncState.SYNCED, entity!!.syncState)
         assertNotNull(entity.remoteId)
         assertTrue(syncManager.status.value is SyncStatus.Success)
+    }
+
+    @Test
+    fun `push carries the item status in userData`() = runTest {
+        recordRepository.upsert(vinylRecord("rec-1").copy(status = ItemStatus.WISHLIST))
+
+        assertTrue(syncManager.syncNow().isSuccess)
+
+        val userData = api.createdItems.first().userData
+        assertNotNull(userData)
+        assertEquals("WISHLIST", userData!!["status"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun `pushed userData carries only the keys the app models`() = runTest {
+        // Sémantique PATCH partielle côté serveur : envoyer une clé non modélisée écraserait la
+        // valeur distante. `note` (note libre par item) n'est pas géré par l'app — il ne part pas.
+        recordRepository.upsert(vinylRecord("rec-1").copy(rating = 5, purchasePrice = 25.0))
+
+        assertTrue(syncManager.syncNow().isSuccess)
+
+        assertEquals(
+            setOf("status", "rating", "purchasePrice", "lastPlayedAt"),
+            api.createdItems.first().userData?.keys
+        )
     }
 
     @Test

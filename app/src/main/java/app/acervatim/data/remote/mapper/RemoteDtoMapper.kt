@@ -55,6 +55,7 @@ object RemoteDtoMapper {
             nodeLocalId = nodeLocalId,
             volume = volume,
             unifiedData = unifiedData,
+            userData = userData,
             sources = sources.map { it.toRemote() },
             syncState = SyncState.SYNCED,
             updatedAt = parseInstant(updatedAt),
@@ -104,10 +105,15 @@ object RemoteDtoMapper {
         unifiedData = unifiedData,
         node = nodeRef,
         volume = volume,
-        sources = sources.map { SourceRefDto(it.provider, it.externalId) }.ifEmpty { null }
+        sources = sources.map { SourceRefDto(it.provider, it.externalId) }.ifEmpty { null },
+        userData = userData.takeIf { it.isNotEmpty() }
     )
 
-    fun RemoteItem.toPatchRequest(): PatchItemRequest = PatchItemRequest(unifiedData = unifiedData)
+    fun RemoteItem.toPatchRequest(): PatchItemRequest = PatchItemRequest(
+        unifiedData = unifiedData,
+        // Merge partiel côté serveur : on n'envoie que les clés que l'app modélise.
+        userData = userData.takeIf { it.isNotEmpty() }
+    )
 
     fun RemoteNode.toCreateRequest(source: SourceRefDto): CreateNodeRequest =
         CreateNodeRequest(level = level, source = source, isWishlist = isWishlist)

@@ -4,9 +4,12 @@ import app.acervatim.domain.model.AcervatimFormat
 import app.acervatim.domain.model.Artist
 import app.acervatim.domain.model.CollectionType
 import app.acervatim.domain.model.ItemStatus
+import app.acervatim.domain.model.MangaExtras
 import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.RecordingSpeed
 import app.acervatim.domain.model.Series
+import app.acervatim.domain.model.readInt
+import app.acervatim.domain.model.readString
 import app.acervatim.domain.model.sync.RemoteItem
 import app.acervatim.domain.model.sync.RemoteNode
 import app.acervatim.domain.model.sync.RemoteSource
@@ -26,9 +29,9 @@ import java.util.UUID
  *
  * C'est ici que vit le « rapprochement maximal du back » : encodage du `unifiedData` selon le profil
  * du type (§9), artistes ↔ `creators`, `barcode`/`isbn`/`discogsId` ↔ `sources`, mapping du statut
- * série, et **isolation des champs app-only** (sans équivalent contrat V1) dans un `localExtras`
- * conservé localement et **jamais poussé**. Aucune donnée locale n'est perdue ; seuls les champs
- * modélisés par le back transitent sur le réseau.
+ * série, statut d'item ↔ `userData.status`, et **isolation des champs app-only** (sans équivalent
+ * contrat V1) dans un `localExtras` conservé localement et **jamais poussé**. Aucune donnée locale
+ * n'est perdue ; seuls les champs modélisés par le back transitent sur le réseau.
  *
  * Fonctions pures (aucune I/O), entièrement testables en JVM.
  */
@@ -58,6 +61,7 @@ object FacadeMapper {
             nodeLocalId = nodeLocalId,
             volume = record.volumeNumber,
             unifiedData = unified,
+            userData = record.toUserData(),
             sources = record.toSources(),
             syncState = SyncState.LOCAL_ONLY,
             updatedAt = record.updatedAt
@@ -74,12 +78,37 @@ object FacadeMapper {
         record.label?.let { put("label", it) }
         record.format?.let { put("format", it.toTypeCode()) }
         record.year?.let { put("releaseDate", "%04d-01-01".format(it)) }
+        record.recordingSpeed?.let { put(KEY_RECORDING_SPEED, it.name) }
+        record.country?.let { put(KEY_COUNTRY, it) }
         record.coverRemoteUrl?.let { put("coverUrl", it) }
     }
 
     private fun buildMangaItemUnified(record: Record): JsonObject = buildJsonObject {
         put("title", record.title)
         record.coverRemoteUrl?.let { put("coverUrl", it) }
+        record.extras.readString(MangaExtras.KEY_PUBLISHER_FR)?.let { put(MangaExtras.KEY_PUBLISHER_FR, it) }
+        record.extras.readInt(MangaExtras.KEY_PAGE_COUNT)?.let { put(MangaExtras.KEY_PAGE_COUNT, it) }
+        record.extras.readString(MangaExtras.KEY_SOURCE_VOLUME_RANGE)
+            ?.let { put(MangaExtras.KEY_SOURCE_VOLUME_RANGE, it) }
+    }
+
+    /**
+     * `userData` poussé : les champs dont **l'app est propriétaire**, nuls compris.
+     *
+     * Le `userData` est **mergé** côté serveur (PATCH partiel), pas remplacé. Deux conséquences :
+     * - envoyer explicitement `null` est nécessaire pour qu'un effacement local (retirer une note,
+     *   un prix) se propage — omettre la clé laisserait la valeur distante en place ;
+     * - les clés que l'app ne modélise pas (`note`, note libre par item côté serveur) ne doivent
+     *   **jamais** être écrites ici : le merge les préserve tant qu'on n'y touche pas.
+     *
+     * `rating` est reborné à 1..5 avant l'envoi : le schéma serveur rejette 0, et un 0 résiduel
+     * (donnée héritée, import) ferait échouer le push de l'item entier en 400.
+     */
+    private fun Record.toUserData(): JsonObject = buildJsonObject {
+        put(KEY_STATUS, status.name)
+        put(KEY_RATING, rating?.takeIf { it in 1..5 })
+        put(KEY_PURCHASE_PRICE, purchasePrice)
+        put(KEY_LAST_PLAYED_AT, lastPlayedAt?.toString())
     }
 
     /** `barcode`/`isbn`/`discogsId` → `sources[]` (providers sans/avec adapter). */
@@ -89,16 +118,29 @@ object FacadeMapper {
         discogsId?.let { add(RemoteSource(PROVIDER_DISCOGS, it.toString())) }
     }
 
-    /** Champs app-only (sans home dans le contrat V1) — conservés localement, jamais poussés. */
+    /**
+     * **Cliché complet du local**, réinjecté par le moteur de sync à chaque pull
+     * (`preservedExtras`, reconstruit depuis le `Record` en base). Ce n'est plus un fourre-tout
+     * « app-only » : depuis A1bis la quasi-totalité de ces champs est aussi poussée, et ils restent
+     * écrits ici comme **filet de repli**. Sans lui, un item synchronisé avant l'ouverture des
+     * canaux `userData`/`unifiedData` étendus — donc sans ces valeurs côté serveur — les perdrait
+     * au premier pull. Cf. [remoteToRecord], qui lit `serveur ?: cliché`.
+     *
+     * Ce filet pourra tomber quand tous les items auront été re-poussés au moins une fois après
+     * A1bis (le serveur détient alors la vérité) — sauf pour `coverPath` et les extras sans home
+     * serveur (`edition`, `tomeSynopsis`, `demographic`, `originalAuthor`), qui restent locaux
+     * par construction.
+     */
     private fun Record.toLocalExtras(): JsonObject = buildJsonObject {
-        rating?.let { put("rating", it) }
-        purchasePrice?.let { put("purchasePrice", it) }
-        recordingSpeed?.let { put("recordingSpeed", it.name) }
-        country?.let { put("country", it) }
+        rating?.let { put(KEY_RATING, it) }
+        purchasePrice?.let { put(KEY_PURCHASE_PRICE, it) }
+        recordingSpeed?.let { put(KEY_RECORDING_SPEED, it.name) }
+        country?.let { put(KEY_COUNTRY, it) }
+        // Photo prise par l'utilisateur : le backend ne stocke aucune image (invariant privacy),
+        // ce champ n'a donc aucune destination serveur et reste local par construction.
         coverPath?.let { put("coverPath", it) }
-        lastPlayedAt?.let { put("lastPlayedAt", it.toString()) }
-        put("status", status.name)
-        // Extras manga déjà hors-contrat (publisherFr, demographic, pageCount, originalAuthor…).
+        lastPlayedAt?.let { put(KEY_LAST_PLAYED_AT, it.toString()) }
+        put(KEY_STATUS, status.name)
         extras.forEach { (k, v) -> put("extra_$k", v) }
     }
 
@@ -112,6 +154,7 @@ object FacadeMapper {
         createdAt: Instant
     ): Record {
         val unified = item.unifiedData
+        val userData = item.userData
         val sources = item.sources
         return Record(
             id = item.localId,
@@ -124,21 +167,51 @@ object FacadeMapper {
             year = unified.string("releaseDate")?.take(4)?.toIntOrNull(),
             label = unified.string("label"),
             format = unified.string("format")?.let { formatFromTypeCode(it) },
-            recordingSpeed = localExtras.string("recordingSpeed")?.let { runCatching { RecordingSpeed.valueOf(it) }.getOrNull() },
-            country = localExtras.string("country"),
-            purchasePrice = localExtras["purchasePrice"]?.jsonPrimitive?.doubleOrNull,
-            rating = localExtras["rating"]?.jsonPrimitive?.intOrNull,
+            recordingSpeed = (unified.string(KEY_RECORDING_SPEED) ?: localExtras.string(KEY_RECORDING_SPEED))
+                ?.let { runCatching { RecordingSpeed.valueOf(it) }.getOrNull() },
+            country = unified.string(KEY_COUNTRY) ?: localExtras.string(KEY_COUNTRY),
+            purchasePrice = userData.double(KEY_PURCHASE_PRICE) ?: localExtras.double(KEY_PURCHASE_PRICE),
+            rating = userData.int(KEY_RATING) ?: localExtras.int(KEY_RATING),
             coverPath = localExtras.string("coverPath"),
             coverRemoteUrl = unified.string("coverUrl"),
             barcode = sources.firstOrNull { it.provider == PROVIDER_BARCODE }?.externalId,
             isbn = sources.firstOrNull { it.provider == PROVIDER_ISBN }?.externalId,
             discogsId = sources.firstOrNull { it.provider == PROVIDER_DISCOGS }?.externalId?.toLongOrNull(),
-            status = localExtras.string("status")?.let { runCatching { ItemStatus.valueOf(it) }.getOrNull() } ?: ItemStatus.OWNED,
-            lastPlayedAt = localExtras.string("lastPlayedAt")?.let { RemoteDtoMapper.parseInstantOrNull(it) },
-            extras = localExtras.extrasMap(),
+            status = resolveStatus(item.userData, localExtras),
+            lastPlayedAt = (userData.string(KEY_LAST_PLAYED_AT) ?: localExtras.string(KEY_LAST_PLAYED_AT))
+                ?.let { RemoteDtoMapper.parseInstantOrNull(it) },
+            extras = mergedExtras(unified, localExtras),
             createdAt = createdAt,
             updatedAt = item.updatedAt
         )
+    }
+
+    /**
+     * Statut effectif d'un item : `userData` (serveur) d'abord, repli sur le cliché local, défaut
+     * [ItemStatus.OWNED] — même défaut que le backend (`DEFAULT_ITEM_STATUS`), donc pas de migration.
+     *
+     * Le repli est ce qui protège les items synchronisés avant l'ouverture du canal `userData` :
+     * le serveur ne connaît pas encore leur statut, le local si. Ils se re-poussent au push suivant.
+     */
+    private fun resolveStatus(userData: JsonObject, localExtras: JsonObject): ItemStatus =
+        userData.itemStatus() ?: localExtras.itemStatus() ?: ItemStatus.OWNED
+
+    private fun JsonObject.itemStatus(): ItemStatus? =
+        string(KEY_STATUS)?.let { runCatching { ItemStatus.valueOf(it) }.getOrNull() }
+
+    /**
+     * Extras manga : ce que le serveur modélise (`publisherFr`, `pageCount`, `sourceVolumeRange`)
+     * l'emporte, le cliché local comble le reste — dont les extras **sans home serveur**
+     * (`edition`, `tomeSynopsis`, `demographic`, `originalAuthor`), qui ne survivent que par lui.
+     */
+    private fun mergedExtras(unified: JsonObject, localExtras: JsonObject): Map<String, String> {
+        val fromServer = buildMap {
+            unified.string(MangaExtras.KEY_PUBLISHER_FR)?.let { put(MangaExtras.KEY_PUBLISHER_FR, it) }
+            unified.int(MangaExtras.KEY_PAGE_COUNT)?.let { put(MangaExtras.KEY_PAGE_COUNT, it.toString()) }
+            unified.string(MangaExtras.KEY_SOURCE_VOLUME_RANGE)
+                ?.let { put(MangaExtras.KEY_SOURCE_VOLUME_RANGE, it) }
+        }
+        return localExtras.extrasMap() + fromServer
     }
 
     // ---- Series → RemoteNode ----------------------------------------------------------------
@@ -212,6 +285,10 @@ object FacadeMapper {
 
     private fun JsonObject.string(key: String): String? = this[key]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
 
+    private fun JsonObject.int(key: String): Int? = this[key]?.jsonPrimitive?.intOrNull
+
+    private fun JsonObject.double(key: String): Double? = this[key]?.jsonPrimitive?.doubleOrNull
+
     private fun JsonObject.stringList(key: String): List<String> =
         (this[key] as? kotlinx.serialization.json.JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull } ?: emptyList()
 
@@ -221,6 +298,14 @@ object FacadeMapper {
         }
     }
 
+    // Clés communes au contrat serveur et au cliché local : mêmes noms des deux côtés, ce qui rend
+    // le repli `serveur ?: local` littéral (cf. [remoteToRecord]).
+    const val KEY_STATUS = "status"
+    const val KEY_RATING = "rating"
+    const val KEY_PURCHASE_PRICE = "purchasePrice"
+    const val KEY_LAST_PLAYED_AT = "lastPlayedAt"
+    const val KEY_RECORDING_SPEED = "recordingSpeed"
+    const val KEY_COUNTRY = "country"
     const val PROVIDER_ISBN = "isbn"
     const val PROVIDER_BARCODE = "barcode"
     const val PROVIDER_DISCOGS = "discogs"
