@@ -345,19 +345,17 @@
     <string name="sync_status_last">Dernière synchro : %1$s</string>
     <string name="sync_status_error">Échec de la synchro : %1$s</string>
     <string name="sync_requires_sign_in">Connectez-vous pour synchroniser.</string>
-    <string name="sync_status_quota_reached">Quota atteint — %1$d éléments non synchronisés. Votre collection locale n\'est pas limitée.</string>
+    <string name="sync_status_limit_reached">%1$d éléments n\'ont pas encore été synchronisés. Ils repartiront à la prochaine synchronisation ; votre collection locale reste complète.</string>
+    <string name="sync_status_premium_required">La synchronisation fait partie du palier premium. Vos données restent sur cet appareil et l\'application fonctionne normalement hors ligne : consultation, édition, recherche et export ne changent pas.</string>
+    <string name="sync_status_premium_required_short">Synchronisation réservée au palier premium</string>
 
-    <!-- Plan & quotas (mode connecté) -->
+    <!-- Plan (mode connecté) -->
     <string name="account_plan_free">Offre gratuite</string>
     <string name="account_plan_premium">Premium</string>
     <string name="account_premium_source_grant">Accès offert (invitation)</string>
     <string name="account_premium_source_subscription">Abonnement actif</string>
     <string name="account_premium_expires">Expire le %1$s</string>
-    <string name="account_quota_title">Quotas de synchronisation</string>
-    <string name="account_quota_collections">Collections</string>
-    <string name="account_quota_items">Éléments</string>
-    <string name="account_quota_value">%1$d / %2$d</string>
-    <string name="account_quota_unlimited">Illimité</string>
+    <string name="account_sync_premium_only">La synchronisation entre appareils fait partie du palier premium, qui finance le fonctionnement du serveur. Tout le reste — collection locale, édition, recherche, import et export — reste gratuit et sans plafond.</string>
     <string name="account_info_unavailable">Informations du compte indisponibles pour le moment.</string>
 
     <!-- Code d'invitation -->
@@ -371,5 +369,6 @@
     <!-- En-tête compte du drawer -->
     <string name="drawer_account_signed_out">Se connecter pour synchroniser</string>
     <string name="drawer_account_signed_in">Connecté</string>
-    <string name="drawer_account_quota_reached">Quota de synchro atteint</string>
+    <string name="drawer_account_limit_reached">Synchronisation partielle</string>
+    <string name="drawer_account_premium_required">Synchro réservée au premium</string>
 </resources>

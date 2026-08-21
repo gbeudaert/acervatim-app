@@ -22,7 +22,6 @@ import app.acervatim.data.remote.dto.PageDto
 import app.acervatim.data.remote.dto.PatchCollectionRequest
 import app.acervatim.data.remote.dto.PatchItemRequest
 import app.acervatim.data.remote.dto.PatchNodeRequest
-import app.acervatim.data.remote.dto.QuotaResponse
 import app.acervatim.data.remote.dto.RedeemInvitationRequest
 import app.acervatim.data.remote.dto.RedeemInvitationResponse
 import app.acervatim.data.remote.dto.SourceWithRawDto
@@ -50,14 +49,15 @@ class FakeAcervatimApi : AcervatimApi {
     /** Ids légers renvoyés par `listItems` (clé = collectionRemoteId). */
     var itemIdsByCollection: Map<String, List<String>> = emptyMap()
 
-    /** `createCollection` lève [ApiException.QuotaExceeded] au-delà de N succès (`null` = jamais). */
-    var collectionQuotaLimit: Int? = null
-    /** `createItem` lève [ApiException.QuotaExceeded] au-delà de N succès (`null` = jamais). */
-    var itemQuotaLimit: Int? = null
+    /** `createCollection` lève [ApiException.TechnicalLimit] au-delà de N succès (`null` = jamais). */
+    var collectionLimit: Int? = null
+    /** `createItem` lève [ApiException.TechnicalLimit] au-delà de N succès (`null` = jamais). */
+    var itemLimit: Int? = null
+    /** Si non nul, toute route de sync lève ce 402 : la sync est premium-only (S2). */
+    var paymentRequired: Boolean = false
 
-    /** Réponses `/v1/me`, `/v1/me/quota`, redeem — lambdas pour pouvoir lever une [ApiException]. */
+    /** Réponses `/v1/me`, redeem — lambdas pour pouvoir lever une [ApiException]. */
     var meHandler: () -> MeResponse = { notImpl() }
-    var quotaHandler: () -> QuotaResponse = { notImpl() }
     var redeemHandler: (RedeemInvitationRequest) -> RedeemInvitationResponse = { notImpl() }
 
     var pullCount = 0
@@ -66,8 +66,9 @@ class FakeAcervatimApi : AcervatimApi {
     private val ts = "2026-06-09T10:00:00Z"
 
     override suspend fun createCollection(body: CreateCollectionRequest): CollectionDto {
-        collectionQuotaLimit?.let { limit ->
-            if (createdCollections.size >= limit) throw ApiException.QuotaExceeded(null)
+        if (paymentRequired) throw ApiException.PaymentRequired(null)
+        collectionLimit?.let { limit ->
+            if (createdCollections.size >= limit) throw ApiException.TechnicalLimit(null)
         }
         createdCollections += body
         return CollectionDto(
@@ -86,8 +87,9 @@ class FakeAcervatimApi : AcervatimApi {
         CollectionDto(id, "u1", "vinyl", body.name ?: "n", body.description, 0, ts, ts)
 
     override suspend fun createItem(collectionId: String, body: CreateItemRequest): ItemDto {
-        itemQuotaLimit?.let { limit ->
-            if (createdItems.size >= limit) throw ApiException.QuotaExceeded(null)
+        if (paymentRequired) throw ApiException.PaymentRequired(null)
+        itemLimit?.let { limit ->
+            if (createdItems.size >= limit) throw ApiException.TechnicalLimit(null)
         }
         createdItems += body
         return ItemDto(
@@ -133,7 +135,6 @@ class FakeAcervatimApi : AcervatimApi {
     // --- compte ------------------------------------------------------------------------------
 
     override suspend fun me(): MeResponse = meHandler()
-    override suspend fun quota(): QuotaResponse = quotaHandler()
     override suspend fun redeemInvitation(body: RedeemInvitationRequest): RedeemInvitationResponse =
         redeemHandler(body)
 

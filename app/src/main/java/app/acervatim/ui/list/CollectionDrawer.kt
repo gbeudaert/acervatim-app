@@ -99,7 +99,8 @@ private fun AccountDrawerHeader(
     state: AccountHeaderUiState,
     onOpenAccount: () -> Unit
 ) {
-    val quotaReached = state.syncStatus is SyncStatus.QuotaReached
+    val limitReached = state.syncStatus is SyncStatus.LimitReached
+    val premiumRequired = state.syncStatus is SyncStatus.PremiumRequired
     val label = if (state.signedIn) {
         stringResource(R.string.drawer_account_signed_in)
     } else {
@@ -107,12 +108,14 @@ private fun AccountDrawerHeader(
     }
     val subLabel = when {
         !state.signedIn -> null
-        quotaReached -> stringResource(R.string.drawer_account_quota_reached)
+        limitReached -> stringResource(R.string.drawer_account_limit_reached)
+        premiumRequired -> stringResource(R.string.drawer_account_premium_required)
         else -> when (val sync = state.syncStatus) {
             SyncStatus.Idle -> stringResource(R.string.sync_status_idle)
             SyncStatus.Running -> stringResource(R.string.sync_status_running)
             is SyncStatus.Success -> stringResource(R.string.sync_status_last, sync.at.toString())
-            is SyncStatus.QuotaReached -> null // couvert par quotaReached
+            is SyncStatus.LimitReached -> null // couvert par limitReached
+            is SyncStatus.PremiumRequired -> null // couvert par premiumRequired
             is SyncStatus.Failure -> stringResource(R.string.sync_status_error, sync.message)
         }
     }
@@ -130,7 +133,7 @@ private fun AccountDrawerHeader(
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (quotaReached || state.syncStatus is SyncStatus.Failure) {
+                        color = if (state.syncStatus is SyncStatus.Failure) {
                             MaterialTheme.colorScheme.error
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant

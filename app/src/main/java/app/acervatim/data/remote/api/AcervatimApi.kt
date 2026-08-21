@@ -20,7 +20,6 @@ import app.acervatim.data.remote.dto.PageDto
 import app.acervatim.data.remote.dto.PatchCollectionRequest
 import app.acervatim.data.remote.dto.PatchItemRequest
 import app.acervatim.data.remote.dto.PatchNodeRequest
-import app.acervatim.data.remote.dto.QuotaResponse
 import app.acervatim.data.remote.dto.RedeemInvitationRequest
 import app.acervatim.data.remote.dto.RedeemInvitationResponse
 import app.acervatim.data.remote.dto.SourceWithRawDto
@@ -51,9 +50,6 @@ interface AcervatimApi {
 
     @GET("v1/me")
     suspend fun me(): MeResponse
-
-    @GET("v1/me/quota")
-    suspend fun quota(): QuotaResponse
 
     @DELETE("v1/me")
     suspend fun deleteAccount(): DeletedResponse

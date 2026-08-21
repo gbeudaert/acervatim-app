@@ -42,7 +42,6 @@ import app.acervatim.R
 import app.acervatim.domain.model.account.AccountInfo
 import app.acervatim.domain.model.auth.AuthState
 import app.acervatim.domain.model.account.PremiumSource
-import app.acervatim.domain.model.account.QuotaBucket
 import app.acervatim.domain.model.sync.SyncStatus
 import java.time.Instant
 import java.time.ZoneId
@@ -186,8 +185,10 @@ private fun SignedInContent(
         style = MaterialTheme.typography.titleMedium
     )
     PlanCard(accountInfo)
-    if (syncStatus is SyncStatus.QuotaReached) {
-        QuotaReachedBanner(skipped = syncStatus.skipped)
+    when (syncStatus) {
+        is SyncStatus.LimitReached -> LimitReachedBanner(skipped = syncStatus.skipped)
+        is SyncStatus.PremiumRequired -> PremiumRequiredBanner()
+        else -> Unit
     }
     SyncStatusLine(syncStatus)
     Button(
@@ -215,7 +216,13 @@ private fun SignedInContent(
     }
 }
 
-/** Carte plan + quotas. Backend muet ⇒ texte neutre, jamais de fonctionnalité retirée. */
+/**
+ * Carte plan. Backend muet ⇒ texte neutre, jamais de fonctionnalité retirée.
+ *
+ * Plus aucun relevé de quota : la notion de palier gratuit plafonné a disparu au sprint S2. Ce qui
+ * est premium, c'est ce qui a un coût serveur réel — dont la synchronisation. Le reste (usage
+ * local, consultation, édition, import/export) reste entier et gratuit.
+ */
 @Composable
 private fun PlanCard(accountInfo: AccountInfo) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -254,13 +261,12 @@ private fun PlanCard(accountInfo: AccountInfo) {
                             )
                         }
                     }
-                    accountInfo.quota?.let { quota ->
+                    if (!premium.isPremium) {
                         Text(
-                            text = stringResource(R.string.account_quota_title),
-                            style = MaterialTheme.typography.titleSmall
+                            text = stringResource(R.string.account_sync_premium_only),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        QuotaRow(stringResource(R.string.account_quota_collections), quota.collections)
-                        QuotaRow(stringResource(R.string.account_quota_items), quota.items)
                     }
                 }
 
@@ -276,43 +282,36 @@ private fun PlanCard(accountInfo: AccountInfo) {
     }
 }
 
+/**
+ * Plafond **technique** atteint : garde-fou anti-emballement, identique pour tous les comptes et
+ * que payer ne lève pas. Ton neutre, surtout pas d'appel à souscrire — ce serait mensonger.
+ */
 @Composable
-private fun QuotaRow(label: String, bucket: QuotaBucket) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(text = label, style = MaterialTheme.typography.bodyMedium)
-            Text(
-                text = if (bucket.unlimited) {
-                    stringResource(R.string.account_quota_unlimited)
-                } else {
-                    stringResource(R.string.account_quota_value, bucket.used, requireNotNull(bucket.max))
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (bucket.reached) MaterialTheme.colorScheme.error
-                else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        if (!bucket.unlimited) {
-            LinearProgressIndicator(
-                progress = { bucket.ratio ?: 0f },
-                modifier = Modifier.fillMaxWidth(),
-                color = if (bucket.reached) MaterialTheme.colorScheme.error
-                else MaterialTheme.colorScheme.primary
-            )
-        }
+private fun LimitReachedBanner(skipped: Int) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Text(
+            text = stringResource(R.string.sync_status_limit_reached, skipped),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(16.dp)
+        )
     }
 }
 
+/** 402 : la sync est premium-only. Le point rassurant à mettre en avant = le local est intact. */
 @Composable
-private fun QuotaReachedBanner(skipped: Int) {
+private fun PremiumRequiredBanner() {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
     ) {
         Text(
-            text = stringResource(R.string.sync_status_quota_reached, skipped),
+            text = stringResource(R.string.sync_status_premium_required),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onErrorContainer,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
             modifier = Modifier.padding(16.dp)
         )
     }
@@ -374,7 +373,8 @@ private fun SyncStatusLine(status: SyncStatus) {
         SyncStatus.Idle -> stringResource(R.string.sync_status_idle)
         SyncStatus.Running -> stringResource(R.string.sync_status_running)
         is SyncStatus.Success -> stringResource(R.string.sync_status_last, status.at.toString())
-        is SyncStatus.QuotaReached -> stringResource(R.string.sync_status_last, status.at.toString())
+        is SyncStatus.LimitReached -> stringResource(R.string.sync_status_last, status.at.toString())
+        is SyncStatus.PremiumRequired -> stringResource(R.string.sync_status_premium_required_short)
         is SyncStatus.Failure -> stringResource(R.string.sync_status_error, status.message)
     }
     val color = if (status is SyncStatus.Failure) MaterialTheme.colorScheme.error

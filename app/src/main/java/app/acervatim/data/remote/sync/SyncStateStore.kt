@@ -23,7 +23,7 @@ class SyncStateStore @Inject constructor(
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    /** Instant de la dernière sync réussie (`Success`/`QuotaReached`), `null` si jamais synchronisé. */
+    /** Instant de la dernière sync réussie (`Success`/`LimitReached`), `null` si jamais synchronisé. */
     var lastSyncAt: Instant?
         get() = prefs.getLong(KEY_LAST_SYNC_AT, 0L).takeIf { it > 0L }?.let(Instant::ofEpochMilli)
         set(value) {

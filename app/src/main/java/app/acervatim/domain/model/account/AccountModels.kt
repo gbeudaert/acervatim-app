@@ -12,21 +12,6 @@ data class PremiumStatus(
     val expiresAt: Instant?
 )
 
-/** Compteur de quota côté serveur. `max == null` ⇒ illimité (premium) : pas de jauge, pas de blocage. */
-data class QuotaBucket(
-    val used: Int,
-    val max: Int?
-) {
-    val unlimited: Boolean get() = max == null
-    val reached: Boolean get() = max != null && used >= max
-    val ratio: Float? get() = max?.takeIf { it > 0 }?.let { (used.toFloat() / it).coerceIn(0f, 1f) }
-}
-
-data class QuotaInfo(
-    val collections: QuotaBucket,
-    val items: QuotaBucket
-)
-
 data class UserProfile(
     val userId: String,
     val createdAt: Instant,
@@ -44,10 +29,13 @@ sealed interface AccountInfo {
     /** Connecté, mais profil non chargé (pas encore fetché, ou `/v1/me` en erreur). */
     data object Unknown : AccountInfo
 
-    /** Profil connu ; [quota] `null` si `/v1/me/quota` a échoué alors que `/v1/me` a répondu. */
+    /**
+     * Profil connu. Plus de relevé de quota : la notion de palier gratuit plafonné a disparu au
+     * sprint S2 (`GET /v1/me/quota` retiré côté serveur). Ce qui reste côté serveur est un plafond
+     * **technique** anti-emballement, identique pour tous et non communiqué.
+     */
     data class Known(
-        val profile: UserProfile,
-        val quota: QuotaInfo?
+        val profile: UserProfile
     ) : AccountInfo
 }
 

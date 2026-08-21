@@ -63,14 +63,6 @@ class DtoSerializationTest {
     }
 
     @Test
-    fun `quota max null means unlimited`() {
-        val raw = """{"collections":{"used":3,"max":null},"items":{"used":42,"max":null}}"""
-        val quota = json.decodeFromString(QuotaResponse.serializer(), raw)
-        assertNull(quota.collections.max)
-        assertNull(quota.items.max)
-    }
-
-    @Test
     fun `vinyl unifiedData omits null and default fields on encode (strict-friendly)`() {
         val dto = VinylUnifiedDataDto(title = "Kind of Blue")
         val encoded = json.encodeToString(VinylUnifiedDataDto.serializer(), dto)
@@ -83,9 +75,11 @@ class DtoSerializationTest {
     @Test
     fun `ApiException maps status codes to typed subclasses`() {
         assertTrue(ApiException.from(401, null) is ApiException.Unauthorized)
-        assertTrue(ApiException.from(402, ProblemDetailsDto(type = "x/quota-exceeded")) is ApiException.QuotaExceeded)
         assertTrue(ApiException.from(402, ProblemDetailsDto(type = "x/payment-required")) is ApiException.PaymentRequired)
+        // 402 sans slug reconnu reste premium-required : le free tier plafonné n'existe plus (S2).
+        assertTrue(ApiException.from(402, null) is ApiException.PaymentRequired)
         assertTrue(ApiException.from(409, null) is ApiException.Conflict)
+        assertTrue(ApiException.from(409, ProblemDetailsDto(type = "x/technical-limit")) is ApiException.TechnicalLimit)
         assertTrue(ApiException.from(404, null) is ApiException.NotFound)
         assertTrue(ApiException.from(400, ProblemDetailsDto(type = "x/bad-request")) is ApiException.BadRequest)
         assertTrue(ApiException.from(400, ProblemDetailsDto(type = "x/validation-error")) is ApiException.Validation)

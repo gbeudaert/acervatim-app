@@ -88,33 +88,41 @@ class SyncManagerImpl @Inject constructor(
             val pulled = pull(syncedTypes)
             val now = clock.instant()
             _status.value = if (pushResult.skipped > 0) {
-                // Quota atteint : sync partielle, pas un échec — surtout pas de retry WorkManager,
-                // le quota ne se libérera pas tout seul.
-                SyncStatus.QuotaReached(now, pushResult.pushed, pulled, pushResult.skipped)
+                // Plafond technique atteint : sync partielle, pas un échec — surtout pas de retry
+                // WorkManager, le plafond ne se libérera pas tout seul.
+                SyncStatus.LimitReached(now, pushResult.pushed, pulled, pushResult.skipped)
             } else {
                 SyncStatus.Success(now, pushResult.pushed, pulled)
             }
             // Persiste pour réafficher la date après un redémarrage (cf. seed de `_status`).
             syncStateStore.lastSyncAt = now
         }.onFailure { error ->
-            Log.w(TAG, "sync failed", error)
-            _status.value = SyncStatus.Failure(error.message ?: "erreur inconnue")
+            if (error is ApiException.PaymentRequired) {
+                // La sync est premium-only (S2) : état terminal, pas une erreur passagère. On ne
+                // retente pas — et surtout on ne touche pas aux données locales, qui restent
+                // pleinement utilisables hors-ligne.
+                Log.i(TAG, "sync refusée : palier premium requis")
+                _status.value = SyncStatus.PremiumRequired(clock.instant())
+            } else {
+                Log.w(TAG, "sync failed", error)
+                _status.value = SyncStatus.Failure(error.message ?: "erreur inconnue")
+            }
         }
     }
 
     // ---- PUSH -------------------------------------------------------------------------------
 
-    /** Bilan du push : [skipped] = créations refusées pour quota, restées `DIRTY`/`LOCAL_ONLY`. */
+    /** Bilan du push : [skipped] = créations refusées par le plafond technique, restées `DIRTY`. */
     private data class PushResult(val pushed: Int, val skipped: Int)
 
     private suspend fun push(syncedTypes: Set<CollectionType>): PushResult {
         var count = 0
         var skipped = 0
-        // Au premier 402 sur une création, on cesse les POST du même type : le quota ne se libère
-        // pas en cours de sync, inutile d'enchaîner les refus (et de risquer un 429). Les PATCH
-        // (entités déjà comptées dans le quota) continuent, eux.
-        var collectionQuotaHit = false
-        var itemQuotaHit = false
+        // Au premier 409 `technical-limit` sur une création, on cesse les POST du même type : le
+        // plafond ne se libère pas en cours de sync, inutile d'enchaîner les refus (et de risquer
+        // un 429). Les PATCH (entités déjà comptées) continuent, eux.
+        var collectionLimitHit = false
+        var itemLimitHit = false
         // 1. Collections
         for (col in collectionDao.listNeedingPush()) {
             // Type désactivé pour la sync ⇒ on ne pousse pas cette collection (données locales).
@@ -122,15 +130,15 @@ class SyncManagerImpl @Inject constructor(
             if (colType != null && colType !in syncedTypes) continue
             val remote = col.toRemoteModel()
             val dto = if (col.remoteId == null) {
-                if (collectionQuotaHit) {
+                if (collectionLimitHit) {
                     skipped++
                     continue
                 }
                 try {
                     api.createCollection(RemoteDtoMapper.run { remote.toCreateRequest() })
-                } catch (e: ApiException.QuotaExceeded) {
-                    Log.i(TAG, "quota collections atteint — création ${col.id} reportée")
-                    collectionQuotaHit = true
+                } catch (e: ApiException.TechnicalLimit) {
+                    Log.i(TAG, "plafond technique collections — création ${col.id} reportée")
+                    collectionLimitHit = true
                     skipped++
                     continue
                 }
@@ -156,16 +164,16 @@ class SyncManagerImpl @Inject constructor(
             val record = recordDao.joinRowsById(entity.id).groupToRecords().firstOrNull() ?: continue
             val facade = FacadeMapper.recordToRemote(record, entity.collectionId, nodeLocalId = null)
             val dto = if (entity.remoteId == null) {
-                if (itemQuotaHit) {
+                if (itemLimitHit) {
                     skipped++
                     continue
                 }
                 val request = RemoteDtoMapper.run { facade.item.toCreateRequest(nodeRef = null) }
                 try {
                     api.createItem(collectionRemoteId, request)
-                } catch (e: ApiException.QuotaExceeded) {
-                    Log.i(TAG, "quota items atteint — création ${entity.id} reportée")
-                    itemQuotaHit = true
+                } catch (e: ApiException.TechnicalLimit) {
+                    Log.i(TAG, "plafond technique items — création ${entity.id} reportée")
+                    itemLimitHit = true
                     skipped++
                     continue
                 }

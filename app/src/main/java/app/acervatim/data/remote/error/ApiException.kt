@@ -33,11 +33,11 @@ sealed class ApiException(
     class Unauthorized(problem: ProblemDetailsDto?) :
         ApiException(401, problem, problem?.detail ?: "Session expirée")
 
-    /** 402 `quota-exceeded` — limite free tier atteinte (collections / items). */
-    class QuotaExceeded(problem: ProblemDetailsDto?) :
-        ApiException(402, problem, problem?.detail ?: "Quota atteint")
-
-    /** 402 `payment-required` — endpoint premium (non utilisé en V1, anticipé). */
+    /**
+     * 402 `payment-required` — la fonctionnalité elle-même est réservée au palier premium.
+     * Depuis le sprint S2, la **synchronisation** en fait partie : c'est un état terminal, pas
+     * une erreur passagère. Ne jamais le retenter en boucle — seul un changement de palier le lève.
+     */
     class PaymentRequired(problem: ProblemDetailsDto?) :
         ApiException(402, problem, problem?.detail ?: "Premium requis")
 
@@ -52,6 +52,16 @@ sealed class ApiException(
     /** 409 — doublon (même tome série+volume) ou invitation épuisée. */
     class Conflict(problem: ProblemDetailsDto?) :
         ApiException(409, problem, problem?.detail ?: "Conflit")
+
+    /**
+     * 409 `technical-limit` — plafond **technique** anti-emballement atteint côté serveur.
+     *
+     * Ce n'est pas une limite de palier : elle est identique pour tous les comptes et payer ne la
+     * lève pas (c'est pourquoi le backend répond 409 et non 402). Elle a remplacé l'ancien
+     * `402 quota-exceeded` du free tier, disparu avec les quotas au sprint S2.
+     */
+    class TechnicalLimit(problem: ProblemDetailsDto?) :
+        ApiException(409, problem, problem?.detail ?: "Plafond technique atteint")
 
     /** 410 — invitation périmée. */
     class Gone(problem: ProblemDetailsDto?) :
@@ -79,10 +89,10 @@ sealed class ApiException(
             when (statusCode) {
                 400 -> if (problem?.typeSlug == "bad-request") BadRequest(problem) else Validation(problem)
                 401 -> Unauthorized(problem)
-                402 -> if (problem?.typeSlug == "payment-required") PaymentRequired(problem) else QuotaExceeded(problem)
+                402 -> PaymentRequired(problem)
                 403 -> Forbidden(problem)
                 404 -> NotFound(problem)
-                409 -> Conflict(problem)
+                409 -> if (problem?.typeSlug == "technical-limit") TechnicalLimit(problem) else Conflict(problem)
                 410 -> Gone(problem)
                 413 -> PayloadTooLarge(problem)
                 429 -> TooManyRequests(problem)

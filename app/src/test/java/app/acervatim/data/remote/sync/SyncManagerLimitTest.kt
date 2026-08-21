@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import app.acervatim.data.local.db.AcervatimDatabase
+import app.acervatim.data.local.db.groupToRecords
 import app.acervatim.data.repository.LocalCollectionResolver
 import app.acervatim.data.repository.RecordRepositoryImpl
 import app.acervatim.domain.model.Artist
@@ -32,10 +33,18 @@ import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
 
-/** Sync partielle : un 402 quota-exceeded ne doit jamais faire échouer la sync (cf. plan §2). */
+/**
+ * Les deux façons dont le serveur peut refuser d'écrire, et ce que l'app doit en faire.
+ *
+ * - **409 `technical-limit`** — plafond anti-emballement. Sync *partielle* : on saute, on ne
+ *   retente pas, on ne perd rien. A remplacé l'ancien 402 `quota-exceeded` du free tier, disparu
+ *   avec les quotas au sprint S2 ; le comportement attendu est inchangé.
+ * - **402 `payment-required`** — la sync est premium-only (S2). Etat *terminal* : ni retry, ni
+ *   erreur générique, et surtout aucune donnée locale touchée.
+ */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
-class SyncManagerQuotaTest {
+class SyncManagerLimitTest {
 
     private lateinit var db: AcervatimDatabase
     private lateinit var api: FakeAcervatimApi
@@ -71,21 +80,21 @@ class SyncManagerQuotaTest {
     fun tearDown() = db.close()
 
     @Test
-    fun `item quota reached mid-push keeps remaining records dirty and still pulls`() = runTest {
+    fun `technical limit reached mid-push keeps remaining records dirty and still pulls`() = runTest {
         recordRepository.upsert(vinylRecord("rec-1", "Kind of Blue"))
         recordRepository.upsert(vinylRecord("rec-2", "A Love Supreme"))
-        api.itemQuotaLimit = 1 // le 2e createItem renverra 402
+        api.itemLimit = 1 // le 2e createItem renverra 409 technical-limit
 
         val result = syncManager.syncNow()
 
         assertTrue(result.isSuccess) // surtout pas un échec : pas de retry WorkManager
         val status = syncManager.status.value
-        assertTrue(status is SyncStatus.QuotaReached)
-        status as SyncStatus.QuotaReached
+        assertTrue(status is SyncStatus.LimitReached)
+        status as SyncStatus.LimitReached
         // 1 collection + 1 item poussés, 1 item resté local.
         assertEquals(2, status.pushed)
         assertEquals(1, status.skipped)
-        // Le pull a bien eu lieu malgré le quota.
+        // Le pull a bien eu lieu malgré le plafond.
         assertTrue(api.pullCount > 0)
 
         // Exactement un des deux records est SYNCED, l'autre reste à pousser, intact.
@@ -103,16 +112,16 @@ class SyncManagerQuotaTest {
     }
 
     @Test
-    fun `collection quota reached skips collection and its items without failing`() = runTest {
+    fun `collection limit reached skips collection and its items without failing`() = runTest {
         recordRepository.upsert(vinylRecord("rec-1", "Kind of Blue"))
-        api.collectionQuotaLimit = 0 // toute création de collection renvoie 402
+        api.collectionLimit = 0 // toute création de collection renvoie 409 technical-limit
 
         val result = syncManager.syncNow()
 
         assertTrue(result.isSuccess)
         val status = syncManager.status.value
-        assertTrue(status is SyncStatus.QuotaReached)
-        status as SyncStatus.QuotaReached
+        assertTrue(status is SyncStatus.LimitReached)
+        status as SyncStatus.LimitReached
         assertEquals(0, status.pushed)
         // Seule la collection compte en skipped ; l'item suit le skip silencieux existant
         // (« collection non synchronisée ») et sera compté à la prochaine sync.
@@ -126,32 +135,59 @@ class SyncManagerQuotaTest {
     }
 
     @Test
-    fun `patches still go through after the create quota is hit`() = runTest {
+    fun `patches still go through after the create limit is hit`() = runTest {
         // 1re sync sans limite : collection + item créés et SYNCED.
         recordRepository.upsert(vinylRecord("rec-1", "Kind of Blue"))
         assertTrue(syncManager.syncNow().isSuccess)
         assertEquals(1, api.createdItems.size)
 
-        // Modif locale (PATCH attendu) + nouvelle création (bloquée par quota).
+        // Modif locale (PATCH attendu) + nouvelle création (bloquée par le plafond).
         recordRepository.upsert(vinylRecord("rec-1", "Kind of Blue (Remaster)"))
         recordRepository.upsert(vinylRecord("rec-2", "A Love Supreme"))
-        api.itemQuotaLimit = 1 // déjà 1 création passée → toute nouvelle création 402
+        api.itemLimit = 1 // déjà 1 création passée → toute nouvelle création 409
 
         val result = syncManager.syncNow()
 
         assertTrue(result.isSuccess)
         val status = syncManager.status.value
-        assertTrue(status is SyncStatus.QuotaReached)
-        status as SyncStatus.QuotaReached
+        assertTrue(status is SyncStatus.LimitReached)
+        status as SyncStatus.LimitReached
         assertEquals(1, status.skipped)
-        // Le PATCH de rec-1 est passé malgré le quota de création atteint.
+        // Le PATCH de rec-1 est passé malgré le plafond de création atteint.
         assertEquals(1, api.patchedItems.size)
         assertEquals(SyncState.SYNCED, db.recordDao().getEntityById("rec-1")!!.syncState)
         assertTrue(db.recordDao().getEntityById("rec-2")!!.syncState != SyncState.SYNCED)
     }
 
     @Test
-    fun `success status is unchanged when no quota is hit`() = runTest {
+    fun `payment required ends in a terminal PremiumRequired state, not a failure`() = runTest {
+        recordRepository.upsert(vinylRecord("rec-1", "Kind of Blue"))
+        api.paymentRequired = true
+
+        val result = syncManager.syncNow()
+
+        // Un 402 n'est pas une panne : pas de Failure, donc pas de bandeau d'erreur ni de retry.
+        assertTrue(result.isFailure)
+        assertTrue(syncManager.status.value is SyncStatus.PremiumRequired)
+    }
+
+    @Test
+    fun `payment required leaves local data untouched`() = runTest {
+        recordRepository.upsert(vinylRecord("rec-1", "Kind of Blue"))
+        api.paymentRequired = true
+
+        syncManager.syncNow()
+
+        // L'invariant offline-first : perdre la sync ne retire rien de la collection locale.
+        val entity = db.recordDao().getEntityById("rec-1")
+        assertNotNull(entity)
+        assertNull(entity!!.remoteId)
+        assertTrue(entity.syncState != SyncState.SYNCED)
+        assertEquals("Kind of Blue", db.recordDao().joinRowsById("rec-1").groupToRecords().first().title)
+    }
+
+    @Test
+    fun `success status is unchanged when no limit is hit`() = runTest {
         recordRepository.upsert(vinylRecord("rec-1", "Kind of Blue"))
 
         val result = syncManager.syncNow()

@@ -48,11 +48,7 @@ class AccountRepositoryImpl @Inject constructor(
             cache.value = userId to AccountInfo.Unknown
             return
         }
-        val quota = runCatching { api.quota().toDomain() }.getOrElse { error ->
-            Log.i(TAG, "quota indisponible: ${error.message}")
-            null
-        }
-        cache.value = userId to AccountInfo.Known(profile, quota)
+        cache.value = userId to AccountInfo.Known(profile)
     }
 
     override suspend fun redeemInvitation(code: String): Result<InvitationRedeemResult> =

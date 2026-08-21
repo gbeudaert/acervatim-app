@@ -67,7 +67,7 @@ class AccountViewModelTest {
     @Test
     fun `uiState reflects account info from repository`() = runTest {
         auth.state.value = AuthState.SignedIn("u1")
-        account.info.value = AccountInfo.Known(profile(premium = true), quota = null)
+        account.info.value = AccountInfo.Known(profile(premium = true))
 
         vm().uiState.test {
             val state = expectMostRecentItem().let { first ->

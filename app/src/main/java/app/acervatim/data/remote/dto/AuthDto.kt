@@ -32,22 +32,6 @@ data class PremiumDto(
     val expiresAt: Long? = null
 )
 
-/**
- * `GET /v1/me/quota` (§4). `max == null` ⇒ illimité (compte premium) : ne pas afficher de jauge,
- * ne pas bloquer.
- */
-@Serializable
-data class QuotaResponse(
-    val collections: QuotaBucketDto = QuotaBucketDto(),
-    val items: QuotaBucketDto = QuotaBucketDto()
-)
-
-@Serializable
-data class QuotaBucketDto(
-    val used: Int = 0,
-    val max: Int? = null
-)
-
 /** `GET /health` (§12). */
 @Serializable
 data class HealthResponse(
