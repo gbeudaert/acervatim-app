@@ -1,6 +1,7 @@
 package app.acervatim.ui.navigation
 
 import android.net.Uri
+import app.acervatim.domain.model.CollectionType
 
 internal object AcervatimDestinations {
     const val COLLECTION_ROUTE: String = "collection"
@@ -11,6 +12,7 @@ internal object AcervatimDestinations {
     const val SETTINGS_ROUTE: String = "settings"
     const val MANAGE_COLLECTION_TYPES_ROUTE: String = "settings/collection-types"
     const val ACCOUNT_ROUTE: String = "account"
+    const val SHARING_ROUTE: String = "sharing/{${AcervatimNavArgs.COLLECTION_TYPE}}"
     const val SCAN_ROUTE: String =
         "scan?${AcervatimNavArgs.COLLECTION_TYPE}={${AcervatimNavArgs.COLLECTION_TYPE}}" +
             "&${AcervatimNavArgs.SERIES_IMPORT}={${AcervatimNavArgs.SERIES_IMPORT}}" +
@@ -51,6 +53,9 @@ internal object AcervatimDestinations {
 
     fun seriesImport(barcode: String): String =
         "series/import?${AcervatimNavArgs.BARCODE}=${Uri.encode(barcode)}"
+
+    /** Écran de gestion des partages de la collection d'un type donné. */
+    fun sharing(collectionType: CollectionType): String = "sharing/${collectionType.name}"
 
     fun recordDetail(id: String): String = "record/$id"
     fun editRecord(id: String): String = "record/$id/edit"

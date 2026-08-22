@@ -97,6 +97,7 @@ fun CollectionScreen(
     onOpenSeries: (String) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAccount: () -> Unit,
+    onOpenSharing: (CollectionType) -> Unit,
     viewModel: CollectionViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -130,6 +131,7 @@ fun CollectionScreen(
         onOpenFilters = viewModel::openFilterSheet,
         onOpenSettings = onOpenSettings,
         onOpenAccount = onOpenAccount,
+        onOpenSharing = { onOpenSharing(activeType) },
         onCollectionTypeSelected = viewModel::onCollectionTypeSelected,
         onAddRecord = onAddRecord,
         onScanRecord = { onScanRecord(activeType) },
@@ -188,6 +190,7 @@ internal fun CollectionScreenContent(
     onOpenFilters: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAccount: () -> Unit,
+    onOpenSharing: () -> Unit,
     onCollectionTypeSelected: (CollectionType) -> Unit,
     onAddRecord: () -> Unit,
     onScanRecord: () -> Unit,
@@ -276,6 +279,10 @@ internal fun CollectionScreenContent(
                 onOpenAccount = {
                     scope.launch { drawerState.close() }
                     onOpenAccount()
+                },
+                onOpenSharing = {
+                    scope.launch { drawerState.close() }
+                    onOpenSharing()
                 }
             )
         }
@@ -1025,6 +1032,7 @@ private fun CollectionScreenEmptyPreview() {
             onOpenFilters = {},
             onOpenSettings = {},
             onOpenAccount = {},
+            onOpenSharing = {},
             onCollectionTypeSelected = {},
             onAddRecord = {},
             onScanRecord = {},

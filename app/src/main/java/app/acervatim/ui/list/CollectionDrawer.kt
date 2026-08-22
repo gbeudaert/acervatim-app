@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +44,7 @@ internal fun CollectionDrawerContent(
     onCollectionTypeSelected: (CollectionType) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAccount: () -> Unit,
+    onOpenSharing: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     ModalDrawerSheet(modifier = modifier) {
@@ -76,6 +78,17 @@ internal fun CollectionDrawerContent(
         Spacer(Modifier.height(8.dp))
 
         Column {
+            // Réservé aux comptes premium : le partage suppose une collection synchronisée. Un
+            // compte non premium ne voit pas l'entrée plutôt que d'y buter sur un 402.
+            if (accountHeader.isPremium == true) {
+                NavigationDrawerItem(
+                    icon = { Icon(imageVector = Icons.Outlined.Share, contentDescription = null) },
+                    label = { Text(stringResource(R.string.sharing_open)) },
+                    selected = false,
+                    onClick = onOpenSharing,
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+            }
             NavigationDrawerItem(
                 icon = { Icon(imageVector = Icons.Outlined.Settings, contentDescription = null) },
                 label = { Text(stringResource(R.string.collection_open_settings)) },
@@ -173,7 +186,8 @@ private fun CollectionDrawerPreview() {
             accountHeader = AccountHeaderUiState(signedIn = false),
             onCollectionTypeSelected = {},
             onOpenSettings = {},
-            onOpenAccount = {}
+            onOpenAccount = {},
+            onOpenSharing = {}
         )
     }
 }

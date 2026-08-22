@@ -8,6 +8,8 @@ import app.acervatim.data.remote.dto.CreateItemRequest
 import app.acervatim.data.remote.dto.CoverResponseDto
 import app.acervatim.data.remote.dto.CreateImportJobRequest
 import app.acervatim.data.remote.dto.CreateNodeRequest
+import app.acervatim.data.remote.dto.CreateShareRequest
+import app.acervatim.data.remote.dto.CreatedShareDto
 import app.acervatim.data.remote.dto.DeletedResponse
 import app.acervatim.data.remote.dto.EditionMappingDto
 import app.acervatim.data.remote.dto.ImportJobDto
@@ -22,6 +24,7 @@ import app.acervatim.data.remote.dto.PatchItemRequest
 import app.acervatim.data.remote.dto.PatchNodeRequest
 import app.acervatim.data.remote.dto.RedeemInvitationRequest
 import app.acervatim.data.remote.dto.RedeemInvitationResponse
+import app.acervatim.data.remote.dto.ShareDto
 import app.acervatim.data.remote.dto.SourceWithRawDto
 import app.acervatim.data.remote.dto.SubscriptionDto
 import app.acervatim.data.remote.dto.UnifiedItemDto
@@ -222,4 +225,36 @@ interface AcervatimApi {
 
     @POST("v1/invitations/redeem")
     suspend fun redeemInvitation(@Body body: RedeemInvitationRequest): RedeemInvitationResponse
+
+    // ---- Partages de collection (§12) --------------------------------------------------------
+
+    /**
+     * Émet un partage. Premium requis sur le **requérant** (402 sinon) : partager suppose la sync
+     * cloud. La réponse porte le code en clair — **la seule fois** : le serveur n'en garde que le
+     * HMAC. Ne jamais le journaliser ni le persister.
+     */
+    @POST("v1/collections/{id}/shares")
+    suspend fun createShare(
+        @Path("id") id: String,
+        @Body body: CreateShareRequest
+    ): CreatedShareDto
+
+    /**
+     * Partages non révoqués de la collection (liste nue, sans enveloppe de pagination), membres
+     * actifs inclus. Les partages **expirés** y figurent encore : le propriétaire doit pouvoir voir
+     * pourquoi son code ne prend plus.
+     */
+    @GET("v1/collections/{id}/shares")
+    suspend fun listShares(@Path("id") id: String): List<ShareDto>
+
+    /** Révoque le partage entier (code + tous ses membres). `204` sans corps ; idempotent. */
+    @DELETE("v1/shares/{id}")
+    suspend fun revokeShare(@Path("id") id: String): Response<Unit>
+
+    /** Éjecte un seul membre ; le code reste valide pour les autres. `204` sans corps. */
+    @DELETE("v1/shares/{id}/members/{memberUserId}")
+    suspend fun revokeShareMember(
+        @Path("id") id: String,
+        @Path("memberUserId") memberUserId: String
+    ): Response<Unit>
 }

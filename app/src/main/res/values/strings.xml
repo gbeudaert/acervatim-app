@@ -371,4 +371,74 @@
     <string name="drawer_account_signed_in">Connecté</string>
     <string name="drawer_account_limit_reached">Synchronisation partielle</string>
     <string name="drawer_account_premium_required">Synchro réservée au premium</string>
+    <!-- Partage de collection (propriétaire) -->
+    <string name="sharing_title">Partager la collection</string>
+    <string name="sharing_open">Partager cette collection</string>
+    <string name="sharing_intro">Vous générez un code, puis vous le transmettez vous-même à la personne concernée (message, oral…). Il n\'y a pas d\'invitation par e-mail : les comptes Acervatim sont anonymes, aucun contact n\'est enregistré.</string>
+    <string name="sharing_create_action">Créer un partage</string>
+    <string name="sharing_empty">Aucun partage pour l\'instant.</string>
+    <string name="sharing_active_shares">Partages actifs</string>
+
+    <string name="sharing_not_synced_title">Collection pas encore synchronisée</string>
+    <string name="sharing_not_synced_message">Le partage porte sur la copie serveur de votre collection. Lancez une synchronisation depuis l\'écran Compte, puis revenez ici.</string>
+    <string name="sharing_load_error">Impossible de charger les partages.</string>
+    <string name="sharing_retry">Réessayer</string>
+
+    <string name="sharing_premium_title">Le partage fait partie du palier premium</string>
+    <string name="sharing_premium_message">Partager une collection suppose qu\'elle soit synchronisée, ce qui a un coût serveur réel. Vos partages déjà créés restent révocables ici.</string>
+
+    <!-- Portées -->
+    <string name="sharing_scope_label">Ce que verra le membre</string>
+    <string name="sharing_scope_all">Toute la collection</string>
+    <string name="sharing_scope_all_desc">Possédés, wantlist et éléments ignorés.</string>
+    <string name="sharing_scope_owned">Uniquement les possédés</string>
+    <string name="sharing_scope_owned_desc">Ce que vous possédez, sans votre wantlist.</string>
+    <string name="sharing_scope_wantlist">Uniquement la wantlist</string>
+    <string name="sharing_scope_wantlist_desc">Ce que vous cherchez, sans le reste de la collection.</string>
+
+    <!-- Options de création -->
+    <string name="sharing_max_uses_label">Nombre de personnes</string>
+    <string name="sharing_max_uses_hint">Nombre de personnes pouvant utiliser ce code.</string>
+    <string name="sharing_expiry_label">Expiration du code</string>
+    <string name="sharing_expiry_never">Jamais</string>
+    <string name="sharing_expiry_7d">7 jours</string>
+    <string name="sharing_expiry_30d">30 jours</string>
+
+    <!-- Code affiché une seule fois -->
+    <string name="sharing_code_title">Votre code de partage</string>
+    <string name="sharing_code_warning">Ce code ne sera plus jamais affiché : le serveur n\'en garde qu\'une empreinte. Transmettez-le maintenant.</string>
+    <string name="sharing_code_copy">Copier</string>
+    <string name="sharing_code_copied">Code copié.</string>
+    <string name="sharing_code_send">Partager via…</string>
+    <string name="sharing_code_send_subject">Code de partage Acervatim</string>
+    <string name="sharing_code_done">J\'ai transmis le code</string>
+
+    <!-- Liste des partages -->
+    <string name="sharing_state_active">Actif</string>
+    <string name="sharing_state_expired">Expiré</string>
+    <string name="sharing_state_exhausted">Épuisé</string>
+    <string name="sharing_created_at">Créé le %1$s</string>
+    <string name="sharing_expires_at">Expire le %1$s</string>
+    <string name="sharing_uses">%1$d / %2$d utilisation(s)</string>
+    <plurals name="sharing_members_count">
+        <item quantity="one">%d membre</item>
+        <item quantity="other">%d membres</item>
+    </plurals>
+    <string name="sharing_no_member">Personne n\'a encore rejoint.</string>
+    <string name="sharing_member_label">Membre %1$s</string>
+    <string name="sharing_member_since">A rejoint le %1$s</string>
+
+    <!-- Révocation -->
+    <string name="sharing_revoke">Révoquer le partage</string>
+    <string name="sharing_revoke_confirm_title">Révoquer ce partage ?</string>
+    <string name="sharing_revoke_confirm_message">Le code cessera de fonctionner et les membres qui l\'ont utilisé perdront l\'accès. C\'est définitif : un code révoqué ne peut pas être réactivé.</string>
+    <string name="sharing_revoke_member">Retirer ce membre</string>
+    <string name="sharing_revoke_member_confirm_title">Retirer ce membre ?</string>
+    <string name="sharing_revoke_member_confirm_message">Cette personne perdra l\'accès à la collection et ne pourra pas revenir avec le même code. Les autres membres ne sont pas affectés.</string>
+    <string name="sharing_revoke_action">Révoquer</string>
+
+    <!-- Erreurs -->
+    <string name="sharing_error_premium">Action réservée au palier premium.</string>
+    <string name="sharing_error_network">Serveur injoignable. Réessayez plus tard.</string>
+    <string name="sharing_error_unknown">L\'action a échoué.</string>
 </resources>

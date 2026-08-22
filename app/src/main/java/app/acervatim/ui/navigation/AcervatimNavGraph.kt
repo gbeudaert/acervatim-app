@@ -18,6 +18,7 @@ import app.acervatim.ui.scan.BarcodeScanScreen
 import app.acervatim.ui.series.AddEditSeriesScreen
 import app.acervatim.ui.series.SeriesDetailScreen
 import app.acervatim.ui.series.SeriesImportScreen
+import app.acervatim.ui.sharing.SharingScreen
 import app.acervatim.ui.settings.ManageCollectionTypesScreen
 import app.acervatim.ui.settings.SettingsScreen
 
@@ -47,8 +48,19 @@ fun AcervatimNavGraph(
                     navController.navigate(AcervatimDestinations.seriesDetail(id))
                 },
                 onOpenSettings = { navController.navigate(AcervatimDestinations.SETTINGS_ROUTE) },
-                onOpenAccount = { navController.navigate(AcervatimDestinations.ACCOUNT_ROUTE) }
+                onOpenAccount = { navController.navigate(AcervatimDestinations.ACCOUNT_ROUTE) },
+                onOpenSharing = { type ->
+                    navController.navigate(AcervatimDestinations.sharing(type))
+                }
             )
+        }
+        composable(
+            route = AcervatimDestinations.SHARING_ROUTE,
+            arguments = listOf(
+                navArgument(AcervatimNavArgs.COLLECTION_TYPE) { type = NavType.StringType }
+            )
+        ) {
+            SharingScreen(onBack = { navController.popBackStack() })
         }
         composable(
             route = AcervatimDestinations.ADD_RECORD_ROUTE,

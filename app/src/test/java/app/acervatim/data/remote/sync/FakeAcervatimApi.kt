@@ -10,6 +10,8 @@ import app.acervatim.data.remote.dto.CreateCollectionRequest
 import app.acervatim.data.remote.dto.CreateImportJobRequest
 import app.acervatim.data.remote.dto.CreateItemRequest
 import app.acervatim.data.remote.dto.CreateNodeRequest
+import app.acervatim.data.remote.dto.CreateShareRequest
+import app.acervatim.data.remote.dto.CreatedShareDto
 import app.acervatim.data.remote.dto.DeletedResponse
 import app.acervatim.data.remote.dto.EditionMappingDto
 import app.acervatim.data.remote.dto.ImportJobDto
@@ -24,6 +26,7 @@ import app.acervatim.data.remote.dto.PatchItemRequest
 import app.acervatim.data.remote.dto.PatchNodeRequest
 import app.acervatim.data.remote.dto.RedeemInvitationRequest
 import app.acervatim.data.remote.dto.RedeemInvitationResponse
+import app.acervatim.data.remote.dto.ShareDto
 import app.acervatim.data.remote.dto.SourceWithRawDto
 import app.acervatim.data.remote.dto.SubscriptionDto
 import app.acervatim.data.remote.dto.UnifiedItemDto
@@ -161,6 +164,10 @@ class FakeAcervatimApi : AcervatimApi {
     override suspend fun connectedProviders(): PageDto<ConnectedProviderDto> = notImpl()
     override suspend fun revokeOAuth(provider: String): Response<Unit> = notImpl()
     override suspend fun verifySubscription(body: VerifySubscriptionRequest): SubscriptionDto = notImpl()
+    override suspend fun createShare(id: String, body: CreateShareRequest): CreatedShareDto = notImpl()
+    override suspend fun listShares(id: String): List<ShareDto> = notImpl()
+    override suspend fun revokeShare(id: String): Response<Unit> = notImpl()
+    override suspend fun revokeShareMember(id: String, memberUserId: String): Response<Unit> = notImpl()
 
     private fun notImpl(): Nothing = throw NotImplementedError("not needed in tests")
 }
