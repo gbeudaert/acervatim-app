@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Le backend local tourne en HTTP simple (http://<ip-lan>:3000) : autorisé en debug
+         uniquement, jamais dans le manifest principal. -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>

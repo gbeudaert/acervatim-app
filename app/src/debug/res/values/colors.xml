@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fond d'icône adaptative distinct (API 26+) : l'icône debug se repère d'un coup d'œil
+     à côté de celle du Play Store. -->
+<resources>
+    <color name="ic_launcher_background">#E0A03C</color>
+</resources>

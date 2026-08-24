@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Variante debug : nom distinct pour différencier l'installation locale de celle du Play Store. -->
+<resources>
+    <string name="app_name">Acervatim Dev</string>
+</resources>

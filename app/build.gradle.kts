@@ -18,6 +18,16 @@ val keystoreProps = Properties().apply {
     if (keystorePropsFile.exists()) load(FileInputStream(keystorePropsFile))
 }
 
+// URL du backend visée par la variante debug. Par défaut l'API publique (le debug reste
+// utilisable tel quel) ; pour taper un backend local, poser dans `local.properties` (non
+// versionné) :  devApiBaseUrl=http://192.168.1.20:3000/   (émulateur : http://10.0.2.2:3000/)
+val localPropsFile = rootProject.file("local.properties")
+val localProps = Properties().apply {
+    if (localPropsFile.exists()) FileInputStream(localPropsFile).use { load(it) }
+}
+val devApiBaseUrl: String = localProps.getProperty("devApiBaseUrl")?.takeIf { it.isNotBlank() }
+    ?: "https://api.acervatim.app/"
+
 android {
     namespace = "app.acervatim"
     compileSdk = 35
@@ -48,8 +58,14 @@ android {
 
     buildTypes {
         debug {
-            // Backend de développement (émulateur → host machine via 10.0.2.2, ou host de staging).
-            buildConfigField("String", "API_BASE_URL", "\"https://api.acervatim.app/\"")
+            // applicationId distinct : la build locale s'installe *à côté* de celle du Play
+            // Store (nom « Acervatim Dev » et fond d'icône orange via src/debug/res).
+            // Contrepartie : le client OAuth Android doit exister pour ce package
+            // (cf. docs developpeur/auth-google.md), sinon Sign-In → DEVELOPER_ERROR 10.
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            // Backend de développement, surchargeable par `devApiBaseUrl` dans local.properties.
+            buildConfigField("String", "API_BASE_URL", "\"$devApiBaseUrl\"")
         }
         release {
             isMinifyEnabled = true
