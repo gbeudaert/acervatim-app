@@ -5,6 +5,7 @@ import app.acervatim.domain.model.ItemStatus
 import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.RecordArtistEntry
 import app.acervatim.domain.model.RecordFilter
+import app.acervatim.domain.model.RecordSort
 import kotlinx.coroutines.flow.Flow
 import java.time.Instant
 
@@ -12,13 +13,27 @@ interface RecordRepository {
 
     fun observeAll(): Flow<List<Record>>
 
-    fun observeFiltered(filter: RecordFilter): Flow<List<Record>>
+    /**
+     * `sort` est passé à côté du filtre, jamais dedans : restreindre ce qu'on voit et ordonner
+     * ce qui reste sont deux gestes distincts, et réinitialiser les filtres ne doit pas
+     * reprendre la main sur l'ordre choisi.
+     */
+    fun observeFiltered(
+        filter: RecordFilter,
+        sort: RecordSort = RecordSort.DEFAULT
+    ): Flow<List<Record>>
 
     /** Mode ON ("duplicate"): un disque à N artistes apparaît N fois. */
-    fun observeFlattenedByArtist(filter: RecordFilter): Flow<List<RecordArtistEntry>>
+    fun observeFlattenedByArtist(
+        filter: RecordFilter,
+        sort: RecordSort = RecordSort.DEFAULT
+    ): Flow<List<RecordArtistEntry>>
 
     /** Mode OFF ("primary"): un disque par ligne, sous son artiste principal. */
-    fun observeByPrimaryArtist(filter: RecordFilter): Flow<List<RecordArtistEntry>>
+    fun observeByPrimaryArtist(
+        filter: RecordFilter,
+        sort: RecordSort = RecordSort.DEFAULT
+    ): Flow<List<RecordArtistEntry>>
 
     fun observeById(id: String): Flow<Record?>
 

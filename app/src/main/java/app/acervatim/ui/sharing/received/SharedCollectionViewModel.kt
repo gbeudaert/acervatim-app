@@ -9,6 +9,8 @@ import app.acervatim.domain.model.ItemStatus
 import app.acervatim.domain.model.ListMode
 import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.RecordFilter
+import app.acervatim.domain.model.RecordSort
+import app.acervatim.domain.model.recordComparator
 import app.acervatim.domain.model.Series
 import app.acervatim.domain.model.SeriesWithCounts
 import app.acervatim.domain.model.matches
@@ -195,14 +197,21 @@ class SharedCollectionViewModel @Inject constructor(
             listMode = state.listMode
         )
         val now = clock.instant()
-        val visible = content.records.filter { filter.matches(it, now) }
+        // Une collection reçue n'a ni base locale ni préférence de tri : l'ordre doit être posé
+        // ici, avec le comparateur jumeau de l'`ORDER BY` local, sinon la liste sortirait dans
+        // l'ordre où le serveur l'a renvoyée. Le tri reste celui d'avant AD2 (artiste, A→Z) ;
+        // le rendre choisissable côté partage demanderait de le persister par partage.
+        val sort = RecordSort.DEFAULT
+        val visible = content.records
+            .filter { filter.matches(it, now) }
+            .sortedWith(recordComparator(sort))
 
         _uiState.update {
             it.copy(
                 collection = CollectionUiState.from(
                     filter = filter,
                     entries = if (duplicateByArtist) {
-                        visible.toEntriesFlattenedByArtist()
+                        visible.toEntriesFlattenedByArtist(sort)
                     } else {
                         visible.toEntriesByPrimaryArtist()
                     },
@@ -216,6 +225,7 @@ class SharedCollectionViewModel @Inject constructor(
                     } else {
                         DisplayMode.LIST
                     },
+                    sort = sort,
                     now = now
                 )
             )

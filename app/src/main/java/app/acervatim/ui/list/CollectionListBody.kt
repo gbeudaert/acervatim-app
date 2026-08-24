@@ -144,8 +144,13 @@ internal fun ContentList(
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
             state.sections.forEach { section ->
-                stickyHeader(key = "header_${section.letter}") {
-                    SectionHeader(section.letter)
+                // Pas de lettre = l'ordre n'est pas alphabétique : la liste coule sans en-tête
+                // plutôt que d'en afficher un qui ne dirait rien de l'ordre réel.
+                val letter = section.letter
+                if (letter != null) {
+                    stickyHeader(key = "header_$letter") {
+                        SectionHeader(letter)
+                    }
                 }
                 items(
                     items = section.entries,

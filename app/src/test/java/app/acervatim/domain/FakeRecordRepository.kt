@@ -6,6 +6,10 @@ import app.acervatim.domain.model.ItemStatus
 import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.RecordArtistEntry
 import app.acervatim.domain.model.RecordFilter
+import app.acervatim.domain.model.RecordSort
+import app.acervatim.domain.model.recordComparator
+import app.acervatim.domain.model.toEntriesByPrimaryArtist
+import app.acervatim.domain.model.toEntriesFlattenedByArtist
 import app.acervatim.domain.model.normalizeArtistName
 import app.acervatim.domain.repository.RecordRepository
 import kotlinx.coroutines.flow.Flow
@@ -22,51 +26,24 @@ class FakeRecordRepository : RecordRepository {
 
     override fun observeAll(): Flow<List<Record>> = state.asStateFlow()
 
-    override fun observeFiltered(filter: RecordFilter): Flow<List<Record>> =
-        state.map { list ->
-            list.asSequence()
-                .filter(matches(filter))
-                .sortedWith(compareBy(
-                    { it.primaryArtist?.name?.lowercase().orEmpty() },
-                    { it.title.lowercase() }
-                ))
-                .toList()
-        }
+    /**
+     * Même ordre que la vraie implémentation, obtenu par les **mêmes** comparateurs : un faux
+     * qui trierait à sa façon validerait un ordre que l'app ne produit jamais.
+     */
+    override fun observeFiltered(filter: RecordFilter, sort: RecordSort): Flow<List<Record>> =
+        state.map { list -> list.filter(matches(filter)).sortedWith(recordComparator(sort)) }
 
-    override fun observeFlattenedByArtist(filter: RecordFilter): Flow<List<RecordArtistEntry>> =
-        state.map { list ->
-            list.asSequence()
-                .filter(matches(filter))
-                .flatMap { record ->
-                    record.artists.asSequence().map { artist ->
-                        RecordArtistEntry(record, artist, featuringArtists = emptyList())
-                    }
-                }
-                .sortedWith(compareBy(
-                    { it.displayedArtist.name.lowercase() },
-                    { it.record.title.lowercase() }
-                ))
-                .toList()
-        }
+    override fun observeFlattenedByArtist(
+        filter: RecordFilter,
+        sort: RecordSort
+    ): Flow<List<RecordArtistEntry>> =
+        observeFiltered(filter, sort).map { it.toEntriesFlattenedByArtist(sort) }
 
-    override fun observeByPrimaryArtist(filter: RecordFilter): Flow<List<RecordArtistEntry>> =
-        state.map { list ->
-            list.asSequence()
-                .filter(matches(filter))
-                .mapNotNull { record ->
-                    val primary = record.primaryArtist ?: return@mapNotNull null
-                    RecordArtistEntry(
-                        record = record,
-                        displayedArtist = primary,
-                        featuringArtists = record.featuringArtists
-                    )
-                }
-                .sortedWith(compareBy(
-                    { it.displayedArtist.name.lowercase() },
-                    { it.record.title.lowercase() }
-                ))
-                .toList()
-        }
+    override fun observeByPrimaryArtist(
+        filter: RecordFilter,
+        sort: RecordSort
+    ): Flow<List<RecordArtistEntry>> =
+        observeFiltered(filter, sort).map { it.toEntriesByPrimaryArtist() }
 
     override fun observeById(id: String): Flow<Record?> =
         state.map { list -> list.firstOrNull { it.id == id } }

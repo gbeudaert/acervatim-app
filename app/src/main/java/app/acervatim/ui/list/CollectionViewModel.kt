@@ -15,6 +15,10 @@ import app.acervatim.domain.model.ListMode
 import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.RecordArtistEntry
 import app.acervatim.domain.model.RecordFilter
+import app.acervatim.domain.model.RecordSort
+import app.acervatim.domain.model.RecordSortField
+import app.acervatim.domain.model.naturalDirection
+import app.acervatim.domain.model.hasLetterSections
 import app.acervatim.domain.model.SeriesWithCounts
 import app.acervatim.domain.model.StatusFilter
 import app.acervatim.domain.usecase.CollectionStats
@@ -28,6 +32,7 @@ import app.acervatim.domain.usecase.ObserveDisplayModeForCollectionTypeUseCase
 import app.acervatim.domain.usecase.ObserveFilteredRecordsUseCase
 import app.acervatim.domain.usecase.ObserveListModeForCollectionTypeUseCase
 import app.acervatim.domain.usecase.ObserveSeriesWithCountsUseCase
+import app.acervatim.domain.usecase.ObserveSortForCollectionTypeUseCase
 import app.acervatim.domain.usecase.ObserveVisibleCollectionTypesUseCase
 import app.acervatim.domain.repository.AccountRepository
 import app.acervatim.domain.repository.AuthRepository
@@ -42,6 +47,7 @@ import app.acervatim.domain.usecase.RefreshResult
 import app.acervatim.domain.usecase.SetActiveCollectionTypeUseCase
 import app.acervatim.domain.usecase.SetDisplayModeForCollectionTypeUseCase
 import app.acervatim.domain.usecase.SetListModeForCollectionTypeUseCase
+import app.acervatim.domain.usecase.SetSortForCollectionTypeUseCase
 import app.acervatim.domain.usecase.UpdateRecordsUseCase
 import app.acervatim.ui.util.sectionLetterOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -75,12 +81,14 @@ class CollectionViewModel @Inject constructor(
     observeVisibleCollectionTypes: ObserveVisibleCollectionTypesUseCase,
     observeListMode: ObserveListModeForCollectionTypeUseCase,
     observeDisplayMode: ObserveDisplayModeForCollectionTypeUseCase,
+    observeSort: ObserveSortForCollectionTypeUseCase,
     observeGenres: ObserveDistinctGenresUseCase,
     observeStats: ObserveCollectionStatsUseCase,
     observeCollectionTypeStats: ObserveCollectionTypeStatsUseCase,
     private val setActiveCollectionType: SetActiveCollectionTypeUseCase,
     private val setListMode: SetListModeForCollectionTypeUseCase,
     private val setDisplayMode: SetDisplayModeForCollectionTypeUseCase,
+    private val setSort: SetSortForCollectionTypeUseCase,
     private val updateRecords: UpdateRecordsUseCase,
     private val deleteRecords: DeleteRecordsUseCase,
     private val refreshMetadata: RefreshMetadataUseCase,
@@ -166,6 +174,18 @@ class CollectionViewModel @Inject constructor(
         )
 
     /**
+     * Tri du type actif. Persisté par [CollectionType] comme les deux modes : c'est une
+     * préférence d'affichage, pas un filtre — elle survit au bouton « réinitialiser ».
+     */
+    val sort: StateFlow<RecordSort> = activeCollectionType
+        .flatMapLatest { type -> observeSort(type) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = RecordSort.DEFAULT
+        )
+
+    /**
      * Filtre exposé à l'UI (FilterSheet) — `listMode` provient du DataStore persisté par
      * [CollectionType], `collectionType` du type actif, le reste de [_advancedFilter].
      */
@@ -192,28 +212,35 @@ class CollectionViewModel @Inject constructor(
     ) { q, f -> f.copy(query = q) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RecordFilter())
 
+    private data class ContentQuery(
+        val filter: RecordFilter,
+        val displayMode: DisplayMode,
+        val sort: RecordSort
+    )
+
+    private val contentQuery: Flow<ContentQuery> =
+        combine(effectiveFilter, displayMode, sort, ::ContentQuery)
+
     private val flatContentFlow: Flow<List<RecordArtistEntry>> =
-        combine(effectiveFilter, displayMode) { filter, display -> filter to display }
-            .flatMapLatest { (filter, display) ->
-                // La liste plate est la seule vue à dupliquer un disque par artiste : grille et
-                // galerie affichent une tuile par disque, elles lisent [tileRecordsFlow].
-                if (filter.listMode == ListMode.FLAT && display == DisplayMode.LIST) {
-                    observeCollectionEntries(filter)
-                } else {
-                    flowOf(emptyList())
-                }
+        contentQuery.flatMapLatest { (filter, display, sort) ->
+            // La liste plate est la seule vue à dupliquer un disque par artiste : grille et
+            // galerie affichent une tuile par disque, elles lisent [tileRecordsFlow].
+            if (filter.listMode == ListMode.FLAT && display == DisplayMode.LIST) {
+                observeCollectionEntries(filter, sort)
+            } else {
+                flowOf(emptyList())
             }
+        }
 
     /** Disques bruts (un par item, sans duplication par artiste) — grille et galerie. */
     private val tileRecordsFlow: Flow<List<Record>> =
-        combine(effectiveFilter, displayMode) { filter, display -> filter to display }
-            .flatMapLatest { (filter, display) ->
-                if (filter.listMode == ListMode.FLAT && display != DisplayMode.LIST) {
-                    observeFilteredRecords(filter)
-                } else {
-                    flowOf(emptyList())
-                }
+        contentQuery.flatMapLatest { (filter, display, sort) ->
+            if (filter.listMode == ListMode.FLAT && display != DisplayMode.LIST) {
+                observeFilteredRecords(filter, sort)
+            } else {
+                flowOf(emptyList())
             }
+        }
 
     private val serialContentFlow: Flow<List<SeriesWithCounts>> =
         effectiveFilter.flatMapLatest { filter ->
@@ -229,15 +256,18 @@ class CollectionViewModel @Inject constructor(
         val filter: RecordFilter,
         val entries: List<RecordArtistEntry>,
         val series: List<SeriesWithCounts>,
-        val stats: CollectionStats
+        val stats: CollectionStats,
+        val sort: RecordSort
     )
 
     private val contentInputs: Flow<ContentInputs> = combine(
         effectiveFilter,
         flatContentFlow,
         serialContentFlow,
-        statsFlow
-    ) { filter, entries, series, stats -> ContentInputs(filter, entries, series, stats) }
+        statsFlow,
+        sort,
+        ::ContentInputs
+    )
 
     val uiState: StateFlow<CollectionUiState> = combine(
         contentInputs,
@@ -251,6 +281,7 @@ class CollectionViewModel @Inject constructor(
             records = records,
             stats = inputs.stats,
             displayMode = display,
+            sort = inputs.sort,
             now = clock.instant()
         )
     }.stateIn(
@@ -451,6 +482,30 @@ class CollectionViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Choisir un champ déjà actif **inverse** le sens ; en choisir un autre part de son sens
+     * naturel (dernières écoutes et meilleures notes en tête, artistes de A à Z). Sans ça,
+     * demander « les mieux notés » afficherait d'abord les une étoile.
+     */
+    fun onSortFieldSelected(field: RecordSortField) {
+        val current = sort.value
+        val next = if (current.field == field) {
+            current.copy(direction = current.direction.toggled())
+        } else {
+            RecordSort(field = field, direction = field.naturalDirection)
+        }
+        viewModelScope.launch {
+            setSort(activeCollectionType.value, next)
+        }
+    }
+
+    fun onSortDirectionToggled() {
+        val current = sort.value
+        viewModelScope.launch {
+            setSort(activeCollectionType.value, current.copy(direction = current.direction.toggled()))
+        }
+    }
+
     fun applyFilter(
         listMode: ListMode,
         status: StatusFilter,
@@ -495,8 +550,13 @@ data class AccountHeaderUiState(
     val isPremium: Boolean? = null
 )
 
+/**
+ * Tranche de liste plate. [letter] est **nulle** dès que l'ordre n'est pas alphabétique : sur un
+ * tri par année ou par dernière écoute, un en-tête « A » annoncerait un classement qui n'existe
+ * pas. La liste n'affiche alors aucun en-tête et reste d'un seul tenant.
+ */
 @Immutable
-data class CollectionSection(val letter: String, val entries: List<RecordArtistEntry>)
+data class CollectionSection(val letter: String?, val entries: List<RecordArtistEntry>)
 
 /**
  * Tuile de jaquette — la maille commune de la grille et de la galerie. Un disque, un tome ou une
@@ -592,6 +652,34 @@ sealed interface CollectionUiState {
         /** Au-delà, un item est « oublié » — même seuil que le filtre `notPlayedSinceSixMonths`. */
         private const val FORGOTTEN_AFTER_DAYS = 182L
 
+        /**
+         * Découpe la liste en sections **sans jamais la réordonner** : les entrées arrivent déjà
+         * dans l'ordre du tri (SQL en local, comparateur ailleurs), un regroupement qui trierait
+         * ses clés écraserait ce choix — c'était le cas tant que l'ordre alphabétique était le
+         * seul possible.
+         *
+         * La lettre vient de l'artiste ou du titre selon le champ trié : sur un tri par titre,
+         * des en-têtes tirés du nom d'artiste ne suivraient plus l'ordre affiché.
+         */
+        private fun sectionsFor(
+            entries: List<RecordArtistEntry>,
+            sort: RecordSort
+        ): List<CollectionSection> {
+            if (!sort.field.hasLetterSections) {
+                return listOf(CollectionSection(letter = null, entries = entries))
+            }
+            return entries
+                .groupBy {
+                    val source = if (sort.field == RecordSortField.TITLE) {
+                        it.record.title
+                    } else {
+                        it.displayedArtist.name
+                    }
+                    sectionLetterOf(source)
+                }
+                .map { (letter, list) -> CollectionSection(letter = letter, entries = list) }
+        }
+
         fun from(
             filter: RecordFilter,
             entries: List<RecordArtistEntry>,
@@ -599,6 +687,7 @@ sealed interface CollectionUiState {
             records: List<Record>,
             stats: CollectionStats,
             displayMode: DisplayMode,
+            sort: RecordSort,
             now: Instant
         ): CollectionUiState {
             val hasFilters = filter.isAnyAdvancedFilterActive || filter.query.isNotBlank()
@@ -623,12 +712,7 @@ sealed interface CollectionUiState {
                     } else {
                         FlatContent(
                             activeCollectionType = type,
-                            sections = entries
-                                .groupBy { sectionLetterOf(it.displayedArtist.name) }
-                                .toSortedMap()
-                                .map { (letter, list) ->
-                                    CollectionSection(letter = letter, entries = list)
-                                },
+                            sections = sectionsFor(entries, sort),
                             ownedCount = stats.ownedCount,
                             wishlistCount = stats.wishlistCount,
                             hasActiveFilters = hasFilters

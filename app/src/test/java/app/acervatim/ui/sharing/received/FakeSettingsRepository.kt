@@ -2,6 +2,7 @@ package app.acervatim.ui.sharing.received
 
 import app.acervatim.domain.model.CollectionType
 import app.acervatim.domain.model.DisplayMode
+import app.acervatim.domain.model.RecordSort
 import app.acervatim.domain.model.ListMode
 import app.acervatim.domain.model.defaultDisplayMode
 import app.acervatim.domain.repository.SettingsRepository
@@ -39,6 +40,10 @@ internal class FakeSettingsRepository(
         flowOf(type.defaultDisplayMode)
 
     override suspend fun setDisplayMode(type: CollectionType, mode: DisplayMode) = Unit
+
+    override fun observeSort(type: CollectionType): Flow<RecordSort> = flowOf(RecordSort.DEFAULT)
+
+    override suspend fun setSort(type: CollectionType, sort: RecordSort) = Unit
 
     override fun observeVisibleCollectionTypes(): Flow<Set<CollectionType>> =
         flowOf(CollectionType.entries.toSet())

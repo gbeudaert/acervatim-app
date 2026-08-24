@@ -2,6 +2,7 @@ package app.acervatim.domain.usecase
 
 import app.acervatim.domain.model.RecordArtistEntry
 import app.acervatim.domain.model.RecordFilter
+import app.acervatim.domain.model.RecordSort
 import app.acervatim.domain.repository.RecordRepository
 import app.acervatim.domain.repository.SettingsRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -15,14 +16,17 @@ class ObserveCollectionEntriesUseCase @Inject constructor(
     private val settingsRepository: SettingsRepository
 ) {
     @OptIn(ExperimentalCoroutinesApi::class)
-    operator fun invoke(filter: RecordFilter): Flow<List<RecordArtistEntry>> =
+    operator fun invoke(
+        filter: RecordFilter,
+        sort: RecordSort = RecordSort.DEFAULT
+    ): Flow<List<RecordArtistEntry>> =
         settingsRepository.observeDuplicateAlbumsPerArtist()
             .distinctUntilChanged()
             .flatMapLatest { duplicate ->
                 if (duplicate) {
-                    recordRepository.observeFlattenedByArtist(filter)
+                    recordRepository.observeFlattenedByArtist(filter, sort)
                 } else {
-                    recordRepository.observeByPrimaryArtist(filter)
+                    recordRepository.observeByPrimaryArtist(filter, sort)
                 }
             }
 }

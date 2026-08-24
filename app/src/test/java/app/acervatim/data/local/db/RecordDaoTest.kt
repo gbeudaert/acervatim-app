@@ -18,6 +18,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.Instant
+import app.acervatim.domain.model.RecordFilter
+import app.acervatim.domain.model.RecordSort
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
@@ -46,7 +48,7 @@ class RecordDaoTest {
 
     @Test
     fun `observeFilteredJoinRows emits empty list initially`() = runTest {
-        recordDao.observeFilteredJoinRows("", null, null, null, null, null).test {
+        filteredRows().test {
             assertEquals(emptyList<RecordWithArtistsRow>(), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
@@ -57,7 +59,7 @@ class RecordDaoTest {
         val now = Instant.parse("2026-05-16T10:00:00Z")
         insertRecord(id = "rec-1", title = "Get Lucky", artists = listOf("Daft Punk", "Pharrell"), now = now)
 
-        recordDao.observeFilteredJoinRows("", null, null, null, null, null).test {
+        filteredRows().test {
             val rows = awaitItem()
             assertEquals(2, rows.size)
             val names = rows.sortedBy { it.position }.map { it.artistName }
@@ -72,7 +74,7 @@ class RecordDaoTest {
         insertRecord("r1", "Animals", listOf("Pink Floyd"), now)
         insertRecord("r2", "Random Access Memories", listOf("Daft Punk", "Nile Rodgers"), now)
 
-        recordDao.observeFilteredJoinRows("nile", null, null, null, null, null).test {
+        filteredRows(RecordFilter(query = "nile")).test {
             val rows = awaitItem()
             val recordIds = rows.map { it.record.id }.distinct()
             assertEquals(listOf("r2"), recordIds)
@@ -111,7 +113,7 @@ class RecordDaoTest {
 
         recordDao.deleteById("rec-1")
 
-        recordDao.observeFilteredJoinRows("", null, null, null, null, null).test {
+        filteredRows().test {
             assertEquals(emptyList<RecordWithArtistsRow>(), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
@@ -216,5 +218,16 @@ class RecordDaoTest {
         extras = emptyMap(),
         createdAt = now,
         updatedAt = now
+    )
+
+    /**
+     * La requête filtrée est désormais construite hors du DAO (l'`ORDER BY` dépend du tri) : le
+     * test passe par le même constructeur que la production plutôt que par un SQL parallèle.
+     */
+    private fun filteredRows(
+        filter: RecordFilter = RecordFilter(),
+        sort: RecordSort = RecordSort.DEFAULT
+    ) = recordDao.observeFilteredJoinRows(
+        RecordQueries.filteredJoinRows(filter = filter, sort = sort, notPlayedSince = null)
     )
 }

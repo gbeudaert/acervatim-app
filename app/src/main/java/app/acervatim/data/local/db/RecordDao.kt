@@ -4,8 +4,10 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.RawQuery
 import androidx.room.Transaction
 import androidx.room.Upsert
+import androidx.sqlite.db.SupportSQLiteQuery
 import app.acervatim.domain.model.AcervatimFormat
 import app.acervatim.domain.model.CollectionType
 import app.acervatim.domain.model.ItemStatus
@@ -17,44 +19,25 @@ import java.time.Instant
 interface RecordDao {
 
     /**
-     * Renvoie toutes les paires (disque × artiste) correspondant au filtre.
-     * Le repository regroupe par disque pour reconstruire le modèle domaine.
+     * Renvoie toutes les paires (disque × artiste) correspondant au filtre, dans l'ordre du tri
+     * demandé. La requête elle-même est construite par `RecordQueries.filteredJoinRows` : la
+     * clause `ORDER BY` dépend du tri choisi, ce qu'une `@Query` figée ne sait pas exprimer.
+     *
+     * `observedEntities` est ce qui rend le `Flow` réactif : une requête brute étant opaque pour
+     * Room, il faut lui dire quelles tables surveiller, sinon la liste ne se rafraîchirait plus
+     * après un ajout ou une écoute.
      *
      * `collectionTypeFilter` null = toutes collections confondues (rare ; utilisé pour les
      * statistiques globales). En usage courant on filtre toujours sur la collection active.
      */
-    @Query(
-        """
-        SELECT r.*,
-               a.id AS artist_id, a.name AS artist_name, ra.position AS artist_position
-        FROM records r
-        INNER JOIN record_artists ra ON ra.recordId = r.id
-        INNER JOIN artists a ON a.id = ra.artistId
-        WHERE (
-                :query = ''
-                OR r.title LIKE '%' || :query || '%'
-                OR EXISTS (
-                    SELECT 1 FROM record_artists ra2
-                    INNER JOIN artists a2 ON a2.id = ra2.artistId
-                    WHERE ra2.recordId = r.id AND a2.name LIKE '%' || :query || '%'
-                )
-            )
-          AND (:collectionTypeFilter IS NULL OR r.collectionType = :collectionTypeFilter)
-          AND (:statusFilter IS NULL OR r.status = :statusFilter)
-          AND (:genreFilter IS NULL OR r.genre = :genreFilter)
-          AND (:formatFilter IS NULL OR r.format = :formatFilter)
-          AND (:notPlayedSince IS NULL OR r.lastPlayedAt IS NULL OR r.lastPlayedAt < :notPlayedSince)
-        ORDER BY r.id, ra.position
-        """
+    @RawQuery(
+        observedEntities = [
+            RecordEntity::class,
+            ArtistEntity::class,
+            RecordArtistCrossRef::class
+        ]
     )
-    fun observeFilteredJoinRows(
-        query: String,
-        collectionTypeFilter: CollectionType?,
-        statusFilter: ItemStatus?,
-        genreFilter: String?,
-        formatFilter: AcervatimFormat?,
-        notPlayedSince: Instant?
-    ): Flow<List<RecordWithArtistsRow>>
+    fun observeFilteredJoinRows(query: SupportSQLiteQuery): Flow<List<RecordWithArtistsRow>>
 
     @Query(
         """

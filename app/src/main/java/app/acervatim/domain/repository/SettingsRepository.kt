@@ -2,6 +2,7 @@ package app.acervatim.domain.repository
 
 import app.acervatim.domain.model.CollectionType
 import app.acervatim.domain.model.DisplayMode
+import app.acervatim.domain.model.RecordSort
 import app.acervatim.domain.model.ListMode
 import kotlinx.coroutines.flow.Flow
 
@@ -43,6 +44,16 @@ interface SettingsRepository {
     fun observeDisplayMode(type: CollectionType): Flow<DisplayMode>
 
     suspend fun setDisplayMode(type: CollectionType, mode: DisplayMode)
+
+    /**
+     * Tri de la collection choisi pour un [CollectionType] donné. Persisté comme les deux modes
+     * ci-dessus, et pour la même raison : trier ses vinyles par année et ses mangas par numéro
+     * n'a rien de contradictoire. Renvoie [RecordSort.DEFAULT] si rien n'a été choisi, ou si la
+     * valeur stockée n'est plus lisible (champ renommé entre deux versions).
+     */
+    fun observeSort(type: CollectionType): Flow<RecordSort>
+
+    suspend fun setSort(type: CollectionType, sort: RecordSort)
 
     /**
      * Types de collection que l'utilisateur a choisi d'afficher (drawer + bascule de collection).

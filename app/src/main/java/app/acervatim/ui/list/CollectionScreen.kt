@@ -78,6 +78,8 @@ import app.acervatim.domain.model.CollectionType
 import app.acervatim.domain.model.DisplayMode
 import app.acervatim.domain.model.ListMode
 import app.acervatim.domain.model.RecordFilter
+import app.acervatim.domain.model.RecordSort
+import app.acervatim.domain.model.RecordSortField
 import app.acervatim.domain.model.StatusFilter
 import app.acervatim.domain.usecase.BulkEditResult
 import app.acervatim.domain.usecase.CollectionTypeStats
@@ -118,6 +120,7 @@ fun CollectionScreen(
     val bulkDeleteResult by viewModel.bulkDeleteResult.collectAsStateWithLifecycle()
     val refreshResult by viewModel.refreshResult.collectAsStateWithLifecycle()
     val displayMode by viewModel.displayMode.collectAsStateWithLifecycle()
+    val sort by viewModel.sort.collectAsStateWithLifecycle()
 
     CollectionScreenContent(
         state = state,
@@ -129,6 +132,9 @@ fun CollectionScreen(
         accountHeader = accountHeader,
         displayMode = displayMode,
         onDisplayModeSelected = viewModel::onDisplayModeSelected,
+        sort = sort,
+        onSortFieldSelected = viewModel::onSortFieldSelected,
+        onSortDirectionToggled = viewModel::onSortDirectionToggled,
         selectionMode = selectionMode,
         selectedIds = selectedIds,
         onQueryChange = viewModel::onQueryChange,
@@ -193,6 +199,9 @@ internal fun CollectionScreenContent(
     accountHeader: AccountHeaderUiState,
     displayMode: DisplayMode,
     onDisplayModeSelected: (DisplayMode) -> Unit,
+    sort: RecordSort,
+    onSortFieldSelected: (RecordSortField) -> Unit,
+    onSortDirectionToggled: () -> Unit,
     onQueryChange: (String) -> Unit,
     onClearQuery: () -> Unit,
     onOpenFilters: () -> Unit,
@@ -345,6 +354,9 @@ internal fun CollectionScreenContent(
                         activeFilterCount = activeFilterCount,
                         displayMode = displayMode,
                         onDisplayModeSelected = onDisplayModeSelected,
+                        sort = sort,
+                        onSortFieldSelected = onSortFieldSelected,
+                        onSortDirectionToggled = onSortDirectionToggled,
                         onRecordClick = onRecordClick,
                         state = state
                     )
@@ -659,6 +671,9 @@ private fun CollectionSearchBar(
     activeFilterCount: Int,
     displayMode: DisplayMode,
     onDisplayModeSelected: (DisplayMode) -> Unit,
+    sort: RecordSort,
+    onSortFieldSelected: (RecordSortField) -> Unit,
+    onSortDirectionToggled: () -> Unit,
     onRecordClick: (String) -> Unit,
     state: CollectionUiState
 ) {
@@ -701,6 +716,9 @@ private fun CollectionSearchBar(
                         activeFilterCount = activeFilterCount,
                         displayMode = displayMode,
                         onDisplayModeSelected = onDisplayModeSelected,
+                        sort = sort,
+                        onSortFieldSelected = onSortFieldSelected,
+                        onSortDirectionToggled = onSortDirectionToggled,
                         onClear = onClearQuery,
                         onOpenFilters = onOpenFilters,
                         onOpenSettings = onOpenSettings
@@ -741,6 +759,9 @@ private fun SearchBarTrailing(
     activeFilterCount: Int,
     displayMode: DisplayMode,
     onDisplayModeSelected: (DisplayMode) -> Unit,
+    sort: RecordSort,
+    onSortFieldSelected: (RecordSortField) -> Unit,
+    onSortDirectionToggled: () -> Unit,
     onClear: () -> Unit,
     onOpenFilters: () -> Unit,
     onOpenSettings: () -> Unit
@@ -753,6 +774,11 @@ private fun SearchBarTrailing(
             )
         }
     }
+    SortAction(
+        sort = sort,
+        onSortFieldSelected = onSortFieldSelected,
+        onSortDirectionToggled = onSortDirectionToggled
+    )
     DisplayModeAction(displayMode = displayMode, onDisplayModeSelected = onDisplayModeSelected)
     BadgedBox(
         badge = {
@@ -897,7 +923,10 @@ private fun CollectionScreenEmptyPreview() {
             onRecordClick = {},
             onSeriesClick = {},
             displayMode = DisplayMode.LIST,
-            onDisplayModeSelected = {}
+            onDisplayModeSelected = {},
+            sort = RecordSort.DEFAULT,
+            onSortFieldSelected = {},
+            onSortDirectionToggled = {}
         )
     }
 }

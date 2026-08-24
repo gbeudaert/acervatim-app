@@ -15,6 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import app.acervatim.domain.model.RecordSort
 
 /**
  * Rubriques de la galerie et tuiles de la grille — la logique de tri/découpage qui décide de ce
@@ -135,7 +136,8 @@ class CollectionTileStateTest {
             records = emptyList(),
             stats = stats,
             displayMode = DisplayMode.GALLERY,
-            now = now
+            sort = RecordSort.DEFAULT,
+        now = now
         ) as CollectionUiState.TileContent
 
         assertTrue(state.serial)
@@ -153,7 +155,8 @@ class CollectionTileStateTest {
                 records = emptyList(),
                 stats = stats,
                 displayMode = mode,
-                now = now
+                sort = RecordSort.DEFAULT,
+        now = now
             )
             val serial = state as CollectionUiState.SerialContent
             assertEquals(mode, serial.displayMode)
@@ -169,7 +172,8 @@ class CollectionTileStateTest {
             records = emptyList(),
             stats = stats,
             displayMode = DisplayMode.LIST,
-            now = now
+            sort = RecordSort.DEFAULT,
+        now = now
         )
 
         val flat = state as CollectionUiState.FlatContent
@@ -185,7 +189,8 @@ class CollectionTileStateTest {
             records = emptyList(),
             stats = CollectionStats(ownedCount = 0, wishlistCount = 0),
             displayMode = DisplayMode.GALLERY,
-            now = now
+            sort = RecordSort.DEFAULT,
+        now = now
         )
 
         assertTrue(state is CollectionUiState.Empty)
@@ -203,6 +208,7 @@ class CollectionTileStateTest {
         records = records,
         stats = stats,
         displayMode = displayMode,
+        sort = RecordSort.DEFAULT,
         now = now
     ) as CollectionUiState.TileContent
 

@@ -2,6 +2,7 @@ package app.acervatim.domain
 
 import app.acervatim.domain.model.CollectionType
 import app.acervatim.domain.model.DisplayMode
+import app.acervatim.domain.model.RecordSort
 import app.acervatim.domain.model.ListMode
 import app.acervatim.domain.model.defaultDisplayMode
 import app.acervatim.domain.repository.SettingsRepository
@@ -50,6 +51,15 @@ class FakeSettingsRepository(
 
     override suspend fun setDisplayMode(type: CollectionType, mode: DisplayMode) {
         displayModes.value = displayModes.value + (type to mode)
+    }
+
+    private val sorts = MutableStateFlow<Map<CollectionType, RecordSort>>(emptyMap())
+
+    override fun observeSort(type: CollectionType): Flow<RecordSort> =
+        sorts.map { it[type] ?: RecordSort.DEFAULT }
+
+    override suspend fun setSort(type: CollectionType, sort: RecordSort) {
+        sorts.value = sorts.value + (type to sort)
     }
 
     override fun observeVisibleCollectionTypes(): Flow<Set<CollectionType>> = visibleTypes.asStateFlow()

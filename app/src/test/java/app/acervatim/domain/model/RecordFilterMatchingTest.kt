@@ -5,6 +5,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
+import app.acervatim.domain.model.RecordSort
+import app.acervatim.domain.model.recordComparator
 
 /**
  * Le prédicat en mémoire doit dire **exactement** ce que dit le `WHERE` de
@@ -129,14 +131,17 @@ class RecordFilterMatchingTest {
             record(title = "Kind of Blue", artists = listOf("Miles Davis")),
             record(title = "Bitches Brew", artists = listOf("miles davis"))
         )
-        val ordered = records.toEntriesByPrimaryArtist().map { it.record.title }
+        val ordered = records
+            .sortedWith(recordComparator(RecordSort.DEFAULT))
+            .toEntriesByPrimaryArtist()
+            .map { it.record.title }
         assertEquals(listOf("Bitches Brew", "Kind of Blue", "OK Computer"), ordered)
     }
 
     @Test
     fun `mode doublons - une ligne par artiste du disque`() {
         val r = record(artists = listOf("Daft Punk", "Pharrell Williams"))
-        assertEquals(2, listOf(r).toEntriesFlattenedByArtist().size)
+        assertEquals(2, listOf(r).toEntriesFlattenedByArtist(RecordSort.DEFAULT).size)
     }
 
     @Test

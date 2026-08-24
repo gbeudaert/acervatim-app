@@ -5,15 +5,16 @@ import app.acervatim.data.local.db.AcervatimDatabase
 import app.acervatim.data.local.db.ArtistDao
 import app.acervatim.data.local.db.ArtistEntity
 import app.acervatim.data.local.db.RecordDao
+import app.acervatim.data.local.db.RecordQueries
 import app.acervatim.data.local.db.groupToRecords
 import app.acervatim.data.local.db.toEntity
 import app.acervatim.domain.model.CollectionType
 import app.acervatim.domain.model.ItemStatus
 import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.RecordArtistEntry
-import app.acervatim.domain.model.RECORD_BY_PRIMARY_ARTIST
 import app.acervatim.domain.model.RECORD_BY_VOLUME
 import app.acervatim.domain.model.RecordFilter
+import app.acervatim.domain.model.RecordSort
 import app.acervatim.domain.model.toEntriesByPrimaryArtist
 import app.acervatim.domain.model.toEntriesFlattenedByArtist
 import app.acervatim.domain.model.normalizeArtistName
@@ -37,29 +38,38 @@ class RecordRepositoryImpl @Inject constructor(
     private val clock: Clock
 ) : RecordRepository {
 
-    private fun rawFlow(filter: RecordFilter) =
+    private fun rawFlow(filter: RecordFilter, sort: RecordSort) =
         recordDao.observeFilteredJoinRows(
-            query = filter.query.trim(),
-            collectionTypeFilter = filter.collectionType,
-            statusFilter = filter.status.toItemStatus(),
-            genreFilter = filter.genre,
-            formatFilter = filter.format,
-            notPlayedSince = notPlayedSinceCutoff(filter)
+            RecordQueries.filteredJoinRows(
+                filter = filter,
+                sort = sort,
+                notPlayedSince = notPlayedSinceCutoff(filter)
+            )
         )
 
     override fun observeAll(): Flow<List<Record>> = observeFiltered(RecordFilter())
 
-    override fun observeFiltered(filter: RecordFilter): Flow<List<Record>> =
-        rawFlow(filter).map { rows ->
-            rows.groupToRecords().sortedWith(RECORD_BY_PRIMARY_ARTIST)
+    /**
+     * Aucun `sortedWith` ici : l'ordre vient de l'`ORDER BY` de la requête et `groupToRecords`
+     * le conserve. Retrier en mémoire supposerait de charger toute la collection avant de
+     * pouvoir en afficher la première ligne.
+     */
+    override fun observeFiltered(filter: RecordFilter, sort: RecordSort): Flow<List<Record>> =
+        rawFlow(filter, sort).map { rows -> rows.groupToRecords() }
+
+    override fun observeFlattenedByArtist(
+        filter: RecordFilter,
+        sort: RecordSort
+    ): Flow<List<RecordArtistEntry>> =
+        rawFlow(filter, sort).map { rows ->
+            rows.groupToRecords().toEntriesFlattenedByArtist(sort)
         }
 
-    override fun observeFlattenedByArtist(filter: RecordFilter): Flow<List<RecordArtistEntry>> =
-        rawFlow(filter).map { rows -> rows.groupToRecords().toEntriesFlattenedByArtist()
-        }
-
-    override fun observeByPrimaryArtist(filter: RecordFilter): Flow<List<RecordArtistEntry>> =
-        rawFlow(filter).map { rows -> rows.groupToRecords().toEntriesByPrimaryArtist() }
+    override fun observeByPrimaryArtist(
+        filter: RecordFilter,
+        sort: RecordSort
+    ): Flow<List<RecordArtistEntry>> =
+        rawFlow(filter, sort).map { rows -> rows.groupToRecords().toEntriesByPrimaryArtist() }
 
     override fun observeById(id: String): Flow<Record?> =
         recordDao.observeByIdJoinRows(id).map { rows ->

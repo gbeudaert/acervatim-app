@@ -8,6 +8,9 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import app.acervatim.domain.model.CollectionType
 import app.acervatim.domain.model.DisplayMode
+import app.acervatim.domain.model.RecordSort
+import app.acervatim.domain.model.RecordSortField
+import app.acervatim.domain.model.SortDirection
 import app.acervatim.domain.model.defaultDisplayMode
 import app.acervatim.domain.model.ListMode
 import app.acervatim.domain.repository.SettingsRepository
@@ -70,6 +73,17 @@ class DataStoreSettingsRepository @Inject constructor(
         }
     }
 
+    override fun observeSort(type: CollectionType): Flow<RecordSort> {
+        val key = sortKey(type)
+        return dataStore.data.map { prefs -> parseSort(prefs[key]) }
+    }
+
+    override suspend fun setSort(type: CollectionType, sort: RecordSort) {
+        dataStore.edit { prefs ->
+            prefs[sortKey(type)] = "${sort.field.name}:${sort.direction.name}"
+        }
+    }
+
     override fun observeVisibleCollectionTypes(): Flow<Set<CollectionType>> =
         dataStore.data.map { prefs ->
             val raw = prefs[KEY_VISIBLE_COLLECTION_TYPES]
@@ -129,6 +143,24 @@ class DataStoreSettingsRepository @Inject constructor(
 
     private fun displayModeKey(type: CollectionType) =
         stringPreferencesKey("display_mode_${type.name}")
+
+    private fun sortKey(type: CollectionType) =
+        stringPreferencesKey("sort_${type.name}")
+
+    /**
+     * `CHAMP:SENS`, deux énumérations plutôt qu'un entier ordinal : réordonner
+     * [RecordSortField] un jour ne doit pas transformer silencieusement le tri de tout le monde.
+     * Toute valeur illisible retombe sur le tri par défaut.
+     */
+    private fun parseSort(raw: String?): RecordSort {
+        val parts = raw?.split(':') ?: return RecordSort.DEFAULT
+        if (parts.size != 2) return RecordSort.DEFAULT
+        val field = runCatching { RecordSortField.valueOf(parts[0]) }.getOrNull()
+            ?: return RecordSort.DEFAULT
+        val direction = runCatching { SortDirection.valueOf(parts[1]) }.getOrNull()
+            ?: return RecordSort.DEFAULT
+        return RecordSort(field, direction)
+    }
 
     private companion object {
         val KEY_DUPLICATE_ALBUMS_PER_ARTIST = booleanPreferencesKey("duplicate_albums_per_artist")
