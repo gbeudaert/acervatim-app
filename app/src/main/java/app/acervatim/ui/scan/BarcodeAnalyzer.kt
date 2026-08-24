@@ -28,12 +28,22 @@ class BarcodeAnalyzer(
 
     private val paused = AtomicBoolean(false)
 
+    // Une lecture isolée (flou de bougé, reflet) peut décoder une valeur erronée sur une
+    // seule frame : on n'accepte un code que lu identiquement sur plusieurs frames de suite,
+    // et une seule fois par session de scan (jusqu'au prochain resume()).
+    private var lastValue: String? = null
+    private var consecutiveCount = 0
+    private var confirmed = false
+
     fun pause() {
         paused.set(true)
     }
 
     fun resume() {
         paused.set(false)
+        lastValue = null
+        consecutiveCount = 0
+        confirmed = false
     }
 
     @SuppressLint("UnsafeOptInUsageError")
@@ -50,14 +60,31 @@ class BarcodeAnalyzer(
         val input = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
         scanner.process(input)
             .addOnSuccessListener { barcodes ->
-                barcodes.firstOrNull { !it.rawValue.isNullOrBlank() }
-                    ?.rawValue
-                    ?.let(onBarcodeDetected)
+                val value = barcodes.firstOrNull { !it.rawValue.isNullOrBlank() }?.rawValue
+                onCandidate(value)
             }
             .addOnCompleteListener { imageProxy.close() }
     }
 
+    private fun onCandidate(value: String?) {
+        if (confirmed) return
+        if (value == null || value != lastValue) {
+            lastValue = value
+            consecutiveCount = if (value == null) 0 else 1
+        } else {
+            consecutiveCount++
+        }
+        if (consecutiveCount >= CONFIRMATION_THRESHOLD) {
+            confirmed = true
+            onBarcodeDetected(value!!)
+        }
+    }
+
     fun release() {
         scanner.close()
+    }
+
+    private companion object {
+        const val CONFIRMATION_THRESHOLD = 2
     }
 }
