@@ -71,6 +71,7 @@ internal fun VolumeTile(
         Column(modifier = Modifier.alpha(alpha)) {
             RecordCover(
                 coverPath = record.coverPath,
+                coverUrl = record.coverRemoteUrl,
                 contentDescription = record.title,
                 cornerRadius = 8.dp,
                 cacheKey = record.id,

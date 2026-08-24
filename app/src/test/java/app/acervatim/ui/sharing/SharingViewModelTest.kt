@@ -1,23 +1,19 @@
 package app.acervatim.ui.sharing
 
-import androidx.lifecycle.SavedStateHandle
-import app.acervatim.domain.model.CollectionType
+import app.acervatim.domain.model.ItemStatus
 import app.acervatim.domain.model.account.AccountInfo
 import app.acervatim.domain.model.account.PremiumSource
 import app.acervatim.domain.model.account.PremiumStatus
 import app.acervatim.domain.model.account.UserProfile
-import app.acervatim.domain.model.account.InvitationRedeemResult
 import app.acervatim.domain.model.sharing.CollectionShare
-import app.acervatim.domain.model.sharing.CreatedShare
-import app.acervatim.domain.model.sharing.ShareScope
+import app.acervatim.domain.model.sharing.ShareEntry
+import app.acervatim.domain.model.sharing.ShareScopePreset
 import app.acervatim.domain.model.sharing.ShareState
+import app.acervatim.domain.model.sharing.SharableCollection
 import app.acervatim.domain.model.sharing.SharingException
 import app.acervatim.domain.model.sharing.SharingFailure
-import app.acervatim.domain.repository.AccountRepository
-import app.acervatim.domain.repository.SharingRepository
+import app.acervatim.domain.model.sharing.canonical
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -33,9 +29,10 @@ import org.junit.Test
 import java.time.Instant
 
 /**
- * JVM pur : le ViewModel ne touche ni au `Context` ni aux ressources. Les cas couverts sont ceux qui
- * font mal en production — la collection jamais synchronisée, le 402, et surtout le code de partage
- * qui ne doit **jamais** survivre à l'écran.
+ * JVM pur : le ViewModel ne touche ni au `Context` ni aux ressources.
+ *
+ * Les cas couverts sont ceux qui font mal en production — rien de synchronisé, le 402, le partage
+ * disparu sous les pieds, et surtout le code de partage qui ne doit **jamais** survivre à l'écran.
  */
 class SharingViewModelTest {
 
@@ -55,28 +52,33 @@ class SharingViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun handle(type: CollectionType = CollectionType.VINYL) =
-        SavedStateHandle(mapOf(SharingViewModel.COLLECTION_TYPE_ARG to type.name))
-
-    private fun vm(type: CollectionType = CollectionType.VINYL) =
-        SharingViewModel(sharing, account, handle(type))
+    private fun vm() = SharingViewModel(sharing, account)
 
     @Test
-    fun `charge les partages de la collection du type demande`() = runTest {
-        sharing.remoteIds[CollectionType.MANGA] = "col-manga"
-        sharing.shares["col-manga"] = listOf(share(id = "s1", scope = ShareScope.WANTLIST))
+    fun `charge les partages du compte, toutes collections confondues`() = runTest {
+        sharing.sharable = listOf(collection("col-1", "Vinyles", "vinyl"))
+        sharing.shares = listOf(
+            share(
+                id = "s1",
+                entries = listOf(
+                    entry("col-1", "Vinyles", setOf(ItemStatus.OWNED)),
+                    entry("col-2", "Mangas", setOf(ItemStatus.WISHLIST))
+                )
+            )
+        )
 
-        val v = vm(CollectionType.MANGA)
+        val v = vm()
         advanceUntilIdle()
 
         val content = v.uiState.value.content
         assertTrue(content is SharingContent.Shares)
-        assertEquals("s1", (content as SharingContent.Shares).shares.single().id)
-        assertEquals(CollectionType.MANGA, v.uiState.value.collectionType)
+        val loaded = (content as SharingContent.Shares).shares.single()
+        assertEquals("s1", loaded.id)
+        assertEquals(listOf("col-1", "col-2"), loaded.collections.map { it.collectionId })
     }
 
     @Test
-    fun `collection jamais synchronisee - pas d'id serveur, pas d'appel reseau`() = runTest {
+    fun `rien de synchronise - pas d'id serveur, pas d'appel reseau`() = runTest {
         val v = vm()
         advanceUntilIdle()
 
@@ -86,7 +88,7 @@ class SharingViewModelTest {
 
     @Test
     fun `echec de chargement distingue de la liste vide`() = runTest {
-        sharing.remoteIds[CollectionType.VINYL] = "col-1"
+        sharing.sharable = listOf(collection("col-1", "Vinyles", "vinyl"))
         sharing.listResult = Result.failure(SharingException(SharingFailure.NETWORK))
 
         val v = vm()
@@ -97,38 +99,77 @@ class SharingViewModelTest {
     }
 
     @Test
-    fun `creation expose le code puis recharge la liste`() = runTest {
-        sharing.remoteIds[CollectionType.VINYL] = "col-1"
-        sharing.shares["col-1"] = emptyList()
+    fun `creation - un seul code pour plusieurs collections, statuts au choix`() = runTest {
+        sharing.sharable = listOf(
+            collection("col-1", "Vinyles", "vinyl"),
+            collection("col-2", "Mangas", "manga")
+        )
         val v = vm()
         advanceUntilIdle()
 
-        sharing.shares["col-1"] = listOf(share(id = "s1", scope = ShareScope.OWNED))
-        v.createShare(ShareScope.OWNED, maxUses = 3, expiresAt = null)
+        v.createShare(
+            entries = mapOf(
+                "col-1" to setOf(ItemStatus.OWNED, ItemStatus.WISHLIST),
+                "col-2" to setOf(ItemStatus.WISHLIST)
+            ),
+            label = "Foyer",
+            maxUses = 3,
+            expiresAt = null
+        )
         advanceUntilIdle()
 
+        val call = sharing.lastCreate!!
+        assertEquals(setOf("col-1", "col-2"), call.entries.keys)
+        assertEquals(setOf(ItemStatus.OWNED, ItemStatus.WISHLIST), call.entries.getValue("col-1"))
+        assertEquals("Foyer", call.label)
+        assertEquals(3, call.maxUses)
         assertEquals("CODE-123", v.createdShare.value?.code)
-        assertEquals(ShareScope.OWNED, sharing.lastCreate?.scope)
-        assertEquals(3, sharing.lastCreate?.maxUses)
-        val content = v.uiState.value.content
-        assertEquals(1, (content as SharingContent.Shares).shares.size)
         assertFalse(v.uiState.value.busy)
     }
 
     @Test
-    fun `le code est oublie des que l'ecran de resultat est quitte`() = runTest {
-        sharing.remoteIds[CollectionType.VINYL] = "col-1"
-        sharing.shares["col-1"] = emptyList()
-        val savedState = handle()
-        val v = SharingViewModel(sharing, account, savedState)
+    fun `une collection sans statut coche n'est pas partagee`() = runTest {
+        sharing.sharable = listOf(collection("col-1", "Vinyles", "vinyl"))
+        val v = vm()
         advanceUntilIdle()
 
-        v.createShare(ShareScope.ALL, maxUses = 1, expiresAt = null)
+        v.createShare(
+            entries = mapOf("col-1" to setOf(ItemStatus.OWNED), "col-2" to emptySet()),
+            label = null,
+            maxUses = 1,
+            expiresAt = null
+        )
+        advanceUntilIdle()
+
+        assertEquals(setOf("col-1"), sharing.lastCreate!!.entries.keys)
+    }
+
+    @Test
+    fun `tout decoche - aucune creation tentee`() = runTest {
+        sharing.sharable = listOf(collection("col-1", "Vinyles", "vinyl"))
+        val v = vm()
+        advanceUntilIdle()
+
+        v.createShare(mapOf("col-1" to emptySet()), label = null, maxUses = 1, expiresAt = null)
+        advanceUntilIdle()
+
+        assertNull(sharing.lastCreate)
+        assertNull(v.createdShare.value)
+    }
+
+    @Test
+    fun `le code ne vit qu'en memoire et s'oublie a la fermeture`() = runTest {
+        sharing.sharable = listOf(collection("col-1", "Vinyles", "vinyl"))
+        val v = vm()
+        advanceUntilIdle()
+
+        v.createShare(mapOf("col-1" to setOf(ItemStatus.OWNED)), null, 1, null)
         advanceUntilIdle()
         assertEquals("CODE-123", v.createdShare.value?.code)
 
-        // Rien du code ne doit avoir été confié à l'état sauvegardé (il survivrait au process death).
-        assertTrue(savedState.keys().none { key -> savedState.get<Any?>(key).toString().contains("CODE-123") })
+        // La liste rechargée depuis le serveur ne porte jamais le code : il n'existe qu'ici.
+        val listed = (v.uiState.value.content as? SharingContent.Shares)?.shares.orEmpty()
+        assertTrue(listed.none { it.toString().contains("CODE-123") })
 
         v.consumeCreatedShare()
         assertNull(v.createdShare.value)
@@ -136,15 +177,14 @@ class SharingViewModelTest {
 
     @Test
     fun `402 a la creation - erreur premium et perte du droit de creer`() = runTest {
-        sharing.remoteIds[CollectionType.VINYL] = "col-1"
-        sharing.shares["col-1"] = emptyList()
+        sharing.sharable = listOf(collection("col-1", "Vinyles", "vinyl"))
         val v = vm()
         advanceUntilIdle()
         assertTrue(v.uiState.value.canCreate)
 
         sharing.createResult = Result.failure(SharingException(SharingFailure.PREMIUM_REQUIRED))
         account.info.value = AccountInfo.Known(profile(premium = false))
-        v.createShare(ShareScope.OWNED, maxUses = 1, expiresAt = null)
+        v.createShare(mapOf("col-1" to setOf(ItemStatus.OWNED)), null, 1, null)
         advanceUntilIdle()
 
         assertEquals(SharingFailure.PREMIUM_REQUIRED, v.uiState.value.error)
@@ -153,16 +193,20 @@ class SharingViewModelTest {
     }
 
     @Test
-    fun `compte non premium - creation fermee, revocation ouverte`() = runTest {
+    fun `compte non premium - creation fermee, renommage et revocation ouverts`() = runTest {
         account.info.value = AccountInfo.Known(profile(premium = false))
-        sharing.remoteIds[CollectionType.VINYL] = "col-1"
-        sharing.shares["col-1"] = listOf(share(id = "s1", scope = ShareScope.ALL))
+        sharing.sharable = listOf(collection("col-1", "Vinyles", "vinyl"))
+        sharing.shares = listOf(share("s1", listOf(entry("col-1", "Vinyles", setOf(ItemStatus.OWNED)))))
 
         val v = vm()
         advanceUntilIdle()
         assertFalse(v.uiState.value.canCreate)
 
-        sharing.shares["col-1"] = emptyList()
+        v.renameShare("s1", "Chez Alice")
+        advanceUntilIdle()
+        assertEquals("s1" to "Chez Alice", sharing.renamed.single())
+
+        sharing.shares = emptyList()
         v.revokeShare("s1")
         advanceUntilIdle()
 
@@ -173,8 +217,7 @@ class SharingViewModelTest {
     @Test
     fun `profil inconnu - on laisse tenter, le serveur tranchera`() = runTest {
         account.info.value = AccountInfo.Unknown
-        sharing.remoteIds[CollectionType.VINYL] = "col-1"
-        sharing.shares["col-1"] = emptyList()
+        sharing.sharable = listOf(collection("col-1", "Vinyles", "vinyl"))
 
         val v = vm()
         advanceUntilIdle()
@@ -183,9 +226,57 @@ class SharingViewModelTest {
     }
 
     @Test
+    fun `renommer avec une chaine vide efface le libelle`() = runTest {
+        sharing.sharable = listOf(collection("col-1", "Vinyles", "vinyl"))
+        sharing.shares = listOf(share("s1", listOf(entry("col-1", "Vinyles", setOf(ItemStatus.OWNED)))))
+        val v = vm()
+        advanceUntilIdle()
+
+        v.renameShare("s1", "")
+        advanceUntilIdle()
+
+        assertEquals("s1" to "", sharing.renamed.single())
+    }
+
+    @Test
+    fun `404 sur une action - la liste est resynchronisee au lieu d'etre crue`() = runTest {
+        sharing.sharable = listOf(collection("col-1", "Vinyles", "vinyl"))
+        sharing.shares = listOf(share("s1", listOf(entry("col-1", "Vinyles", setOf(ItemStatus.OWNED)))))
+        val v = vm()
+        advanceUntilIdle()
+        val before = sharing.listCount
+
+        sharing.renameResult = Result.failure(SharingException(SharingFailure.GONE))
+        v.renameShare("s1", "Disparu")
+        advanceUntilIdle()
+
+        assertEquals(SharingFailure.GONE, v.uiState.value.error)
+        assertTrue("la liste doit avoir été rechargée", sharing.listCount > before)
+    }
+
+    @Test
+    fun `404 a la creation - collection inconnue du serveur, pas un partage disparu`() = runTest {
+        sharing.sharable = listOf(collection("col-1", "Vinyles", "vinyl"))
+        val v = vm()
+        advanceUntilIdle()
+
+        // Le serveur ne reconnaît pas la collection envoyée : l'app tient un `remoteId` périmé.
+        // Le dire « ce partage n'existe plus » serait faux — il n'y en a pas encore.
+        sharing.createResult = Result.failure(SharingException(SharingFailure.COLLECTION_GONE))
+        sharing.sharable = emptyList()
+        v.createShare(mapOf("col-1" to setOf(ItemStatus.OWNED)), null, 1, null)
+        advanceUntilIdle()
+
+        assertEquals(SharingFailure.COLLECTION_GONE, v.uiState.value.error)
+        // C'est le sélecteur de collections qu'il faut refaire, pas seulement la liste des partages.
+        assertTrue(v.uiState.value.sharable.isEmpty())
+        assertEquals(SharingContent.NotSynced, v.uiState.value.content)
+    }
+
+    @Test
     fun `revocation d'un membre recharge la liste`() = runTest {
-        sharing.remoteIds[CollectionType.VINYL] = "col-1"
-        sharing.shares["col-1"] = listOf(share(id = "s1", scope = ShareScope.ALL))
+        sharing.sharable = listOf(collection("col-1", "Vinyles", "vinyl"))
+        sharing.shares = listOf(share("s1", listOf(entry("col-1", "Vinyles", setOf(ItemStatus.OWNED)))))
         val v = vm()
         advanceUntilIdle()
 
@@ -197,27 +288,48 @@ class SharingViewModelTest {
 
     @Test
     fun `l'etat d'un partage derive de l'expiration puis de l'epuisement`() {
-        val now = Instant.parse("2026-08-21T12:00:00Z")
-        val expired = share(id = "s", scope = ShareScope.ALL)
-            .copy(expiresAt = now.minusSeconds(1), maxUses = 5, usedCount = 0)
-        val exhausted = share(id = "s", scope = ShareScope.ALL)
-            .copy(expiresAt = null, maxUses = 2, usedCount = 2)
-        val active = share(id = "s", scope = ShareScope.ALL)
-            .copy(expiresAt = now.plusSeconds(60), maxUses = 2, usedCount = 1)
+        val now = Instant.parse("2026-08-22T12:00:00Z")
+        val base = share("s", listOf(entry("col-1", "Vinyles", setOf(ItemStatus.OWNED))))
+        val expired = base.copy(expiresAt = now.minusSeconds(1), maxUses = 5, usedCount = 0)
+        val exhausted = base.copy(expiresAt = null, maxUses = 2, usedCount = 2)
+        val active = base.copy(expiresAt = now.plusSeconds(60), maxUses = 2, usedCount = 1)
 
         assertEquals(ShareState.EXPIRED, expired.stateAt(now))
         assertEquals(ShareState.EXHAUSTED, exhausted.stateAt(now))
         assertEquals(ShareState.ACTIVE, active.stateAt(now))
     }
 
-    private fun share(id: String, scope: ShareScope) = CollectionShare(
+    @Test
+    fun `les raccourcis d'UI ne sont que des ensembles de statuts`() {
+        assertEquals(ShareScopePreset.ALL, ShareScopePreset.matching(ItemStatus.entries.toSet()))
+        assertEquals(ShareScopePreset.OWNED, ShareScopePreset.matching(setOf(ItemStatus.OWNED)))
+        assertEquals(ShareScopePreset.WANTLIST, ShareScopePreset.matching(setOf(ItemStatus.WISHLIST)))
+        // « Possédés et désirés, sans les ignorés » : exactement ce que les portées interdisaient.
+        assertNull(ShareScopePreset.matching(setOf(ItemStatus.OWNED, ItemStatus.WISHLIST)))
+    }
+
+    @Test
+    fun `l'ordre canonique ne depend pas de l'ordre de cochage`() {
+        val a = setOf(ItemStatus.WISHLIST, ItemStatus.OWNED).canonical()
+        val b = setOf(ItemStatus.OWNED, ItemStatus.WISHLIST).canonical()
+        assertEquals(a, b)
+        assertEquals(listOf(ItemStatus.OWNED, ItemStatus.WISHLIST), a)
+    }
+
+    private fun collection(id: String, name: String, type: String) =
+        SharableCollection(collectionId = id, name = name, typeCode = type)
+
+    private fun entry(id: String, name: String, statuses: Set<ItemStatus>) =
+        ShareEntry(collectionId = id, name = name, typeCode = "vinyl", statuses = statuses)
+
+    private fun share(id: String, entries: List<ShareEntry>) = CollectionShare(
         id = id,
-        collectionId = "col-1",
-        scope = scope,
+        label = null,
         maxUses = 1,
         usedCount = 0,
         expiresAt = null,
-        createdAt = Instant.parse("2026-08-21T10:00:00Z")
+        createdAt = Instant.parse("2026-08-22T10:00:00Z"),
+        collections = entries
     )
 
     private fun profile(premium: Boolean) = UserProfile(
@@ -229,65 +341,4 @@ class SharingViewModelTest {
             expiresAt = null
         )
     )
-
-    private class FakeSharingRepository : SharingRepository {
-        val remoteIds = mutableMapOf<CollectionType, String>()
-        val shares = mutableMapOf<String, List<CollectionShare>>()
-        val revokedShares = mutableListOf<String>()
-        val revokedMembers = mutableListOf<Pair<String, String>>()
-        var listCount = 0
-        var lastCreate: CreateCall? = null
-        var listResult: Result<List<CollectionShare>>? = null
-        var createResult: Result<CreatedShare>? = null
-
-        data class CreateCall(val scope: ShareScope, val maxUses: Int, val expiresAt: Instant?)
-
-        override suspend fun remoteCollectionId(type: CollectionType): String? = remoteIds[type]
-
-        override suspend fun shares(collectionId: String): Result<List<CollectionShare>> {
-            listCount++
-            return listResult ?: Result.success(shares[collectionId].orEmpty())
-        }
-
-        override suspend fun createShare(
-            collectionId: String,
-            scope: ShareScope,
-            maxUses: Int,
-            expiresAt: Instant?
-        ): Result<CreatedShare> {
-            lastCreate = CreateCall(scope, maxUses, expiresAt)
-            return createResult ?: Result.success(
-                CreatedShare(
-                    id = "s1",
-                    code = "CODE-123",
-                    scope = scope,
-                    maxUses = maxUses,
-                    expiresAt = expiresAt
-                )
-            )
-        }
-
-        override suspend fun revokeShare(shareId: String): Result<Unit> {
-            revokedShares += shareId
-            return Result.success(Unit)
-        }
-
-        override suspend fun revokeMember(shareId: String, memberUserId: String): Result<Unit> {
-            revokedMembers += shareId to memberUserId
-            return Result.success(Unit)
-        }
-    }
-
-    private class FakeAccountRepository : AccountRepository {
-        val info = MutableStateFlow<AccountInfo>(AccountInfo.Unknown)
-        var refreshCount = 0
-
-        override val accountInfo: Flow<AccountInfo> = info
-        override suspend fun refresh() {
-            refreshCount++
-        }
-
-        override suspend fun redeemInvitation(code: String): Result<InvitationRedeemResult> =
-            Result.success(InvitationRedeemResult(alreadyRedeemed = false, premiumGranted = false))
-    }
 }

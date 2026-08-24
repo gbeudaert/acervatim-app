@@ -8,6 +8,7 @@ import app.acervatim.data.remote.account.AccountRepositoryImpl
 import app.acervatim.data.remote.auth.AuthRepositoryImpl
 import app.acervatim.data.remote.oauth.OAuthRepositoryImpl
 import app.acervatim.data.remote.search.ExternalSearchRepositoryImpl
+import app.acervatim.data.remote.sharing.SharedCollectionRepositoryImpl
 import app.acervatim.data.remote.sharing.SharingRepositoryImpl
 import app.acervatim.data.remote.sync.SyncManagerImpl
 import app.acervatim.data.repository.RecordRepositoryImpl
@@ -18,6 +19,7 @@ import app.acervatim.domain.repository.ExternalSearchRepository
 import app.acervatim.domain.repository.OAuthRepository
 import app.acervatim.domain.repository.RecordRepository
 import app.acervatim.domain.repository.SeriesRepository
+import app.acervatim.domain.repository.SharedCollectionRepository
 import app.acervatim.domain.repository.SharingRepository
 import app.acervatim.domain.repository.SyncRepository
 import javax.inject.Singleton
@@ -59,4 +61,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindSharingRepository(impl: SharingRepositoryImpl): SharingRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSharedCollectionRepository(
+        impl: SharedCollectionRepositoryImpl
+    ): SharedCollectionRepository
 }

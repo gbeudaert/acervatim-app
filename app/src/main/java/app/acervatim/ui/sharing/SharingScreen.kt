@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -49,11 +50,14 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.acervatim.R
+import app.acervatim.domain.model.ItemStatus
 import app.acervatim.domain.model.sharing.CollectionShare
+import app.acervatim.domain.model.sharing.ShareEntry
 import app.acervatim.domain.model.sharing.ShareMember
-import app.acervatim.domain.model.sharing.ShareScope
+import app.acervatim.domain.model.sharing.ShareScopePreset
 import app.acervatim.domain.model.sharing.ShareState
 import app.acervatim.domain.model.sharing.SharingFailure
+import app.acervatim.domain.model.sharing.canonical
 import app.acervatim.ui.theme.AcervatimTheme
 import java.time.Instant
 import java.time.ZoneId
@@ -61,7 +65,12 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
 /**
- * Écran propriétaire du partage : créer un code, voir qui a rejoint, révoquer.
+ * Écran propriétaire du partage : créer un code, voir ce qu'il expose et qui a rejoint, renommer,
+ * révoquer.
+ *
+ * Il n'est **plus ancré sur une collection** : un partage en réunit plusieurs sous un seul code
+ * (sprint backend S5). Il vit donc au niveau du compte, et l'entrée du drawer parle des « partages »
+ * et non de « cette collection ».
  *
  * Le code d'un partage n'apparaît qu'ici, une fois, dans [ShareCodeDialog] — il n'est ni sauvegardé
  * ni réaffichable. Tout l'écran est construit autour de ça : proposer la transmission immédiate
@@ -82,6 +91,7 @@ fun SharingScreen(
         onBack = onBack,
         onOpenCreate = { createSheetVisible = true },
         onRetry = viewModel::retry,
+        onRename = viewModel::renameShare,
         onRevokeShare = viewModel::revokeShare,
         onRevokeMember = viewModel::revokeMember,
         onErrorShown = viewModel::consumeError,
@@ -90,17 +100,18 @@ fun SharingScreen(
 
     if (createSheetVisible) {
         CreateShareSheet(
+            sharable = state.sharable,
             busy = state.busy,
-            onCreate = { scope, maxUses, expiresAt ->
+            onCreate = { entries, label, maxUses, expiresAt ->
                 createSheetVisible = false
-                viewModel.createShare(scope, maxUses, expiresAt)
+                viewModel.createShare(entries, label, maxUses, expiresAt)
             },
             onDismiss = { createSheetVisible = false }
         )
     }
 
     created?.let { share ->
-        ShareCodeDialog(share = share, onDismiss = viewModel::consumeCreatedShare)
+        ShareCodeDialog(created = share, onDismiss = viewModel::consumeCreatedShare)
     }
 }
 
@@ -111,6 +122,7 @@ internal fun SharingScreenContent(
     onBack: () -> Unit,
     onOpenCreate: () -> Unit,
     onRetry: () -> Unit,
+    onRename: (shareId: String, label: String) -> Unit,
     onRevokeShare: (String) -> Unit,
     onRevokeMember: (shareId: String, memberUserId: String) -> Unit,
     onErrorShown: () -> Unit,
@@ -168,6 +180,7 @@ internal fun SharingScreenContent(
                         canCreate = state.canCreate,
                         busy = state.busy,
                         onOpenCreate = onOpenCreate,
+                        onRename = onRename,
                         onRevokeShare = onRevokeShare,
                         onRevokeMember = onRevokeMember
                     )
@@ -183,6 +196,7 @@ private fun SharesContent(
     canCreate: Boolean,
     busy: Boolean,
     onOpenCreate: () -> Unit,
+    onRename: (shareId: String, label: String) -> Unit,
     onRevokeShare: (String) -> Unit,
     onRevokeMember: (shareId: String, memberUserId: String) -> Unit
 ) {
@@ -201,8 +215,8 @@ private fun SharesContent(
             Text(stringResource(R.string.sharing_create_action))
         }
     } else {
-        // Premium perdu (ou jamais eu) : plus de création, mais la révocation reste ouverte —
-        // sinon on retiendrait en otage des partages déjà émis.
+        // Premium perdu (ou jamais eu) : plus de création, mais renommage et révocation restent
+        // ouverts — sinon on retiendrait en otage des partages déjà émis.
         NoticeCard(
             titleRes = R.string.sharing_premium_title,
             messageRes = R.string.sharing_premium_message
@@ -228,6 +242,7 @@ private fun SharesContent(
             share = share,
             now = now,
             busy = busy,
+            onRename = { label -> onRename(share.id, label) },
             onRevokeShare = { onRevokeShare(share.id) },
             onRevokeMember = { memberId -> onRevokeMember(share.id, memberId) }
         )
@@ -239,11 +254,13 @@ private fun ShareCard(
     share: CollectionShare,
     now: Instant,
     busy: Boolean,
+    onRename: (String) -> Unit,
     onRevokeShare: () -> Unit,
     onRevokeMember: (String) -> Unit
 ) {
     var confirmRevoke by remember { mutableStateOf(false) }
     var memberToRevoke by remember { mutableStateOf<String?>(null) }
+    var renaming by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -256,11 +273,26 @@ private fun ShareCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = stringResource(share.scope.labelRes()),
-                    style = MaterialTheme.typography.titleMedium
+                    // Un partage sans libellé n'est pas anonyme pour rien : le champ est optionnel.
+                    // On donne un titre neutre plutôt qu'une ligne vide.
+                    text = share.label?.takeIf { it.isNotBlank() }
+                        ?: stringResource(R.string.sharing_unnamed),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(end = 8.dp)
                 )
-                ShareStateChip(state = share.stateAt(now))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ShareStateChip(state = share.stateAt(now))
+                    IconButton(onClick = { renaming = true }, enabled = !busy) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = stringResource(R.string.sharing_rename_action)
+                        )
+                    }
+                }
             }
+
+            ShareEntriesBlock(entries = share.collections)
+
             Text(
                 text = stringResource(R.string.sharing_created_at, formatShareDate(share.createdAt)),
                 style = MaterialTheme.typography.bodySmall,
@@ -317,6 +349,17 @@ private fun ShareCard(
         }
     }
 
+    if (renaming) {
+        ShareLabelDialog(
+            current = share.label,
+            hintRes = R.string.sharing_label_hint,
+            onConfirm = {
+                renaming = false
+                onRename(it)
+            },
+            onDismiss = { renaming = false }
+        )
+    }
     if (confirmRevoke) {
         ConfirmDialog(
             titleRes = R.string.sharing_revoke_confirm_title,
@@ -338,6 +381,29 @@ private fun ShareCard(
             },
             onDismiss = { memberToRevoke = null }
         )
+    }
+}
+
+/**
+ * Ce que le partage expose, collection par collection.
+ *
+ * C'est le cœur de l'écran depuis S5 : sans ce bloc, deux codes portant le même libellé seraient
+ * indiscernables alors qu'ils n'exposent pas les mêmes données. Les statuts sont **non modifiables**
+ * — re-scoper un partage vivant changerait sans le dire ce que ses membres voient déjà ; il faut
+ * révoquer et réémettre.
+ */
+@Composable
+private fun ShareEntriesBlock(entries: List<ShareEntry>) {
+    if (entries.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        entries.forEach { entry ->
+            Text(text = entry.name, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                text = shareScopeSummary(entry.statuses),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -424,7 +490,7 @@ private fun ConfirmDialog(
 }
 
 @Composable
-private fun NoticeCard(titleRes: Int, messageRes: Int) {
+internal fun NoticeCard(titleRes: Int, messageRes: Int) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
@@ -448,7 +514,7 @@ private fun NoticeCard(titleRes: Int, messageRes: Int) {
 }
 
 @Composable
-private fun FailedContent(onRetry: () -> Unit) {
+internal fun FailedContent(onRetry: () -> Unit) {
     Text(
         text = stringResource(R.string.sharing_load_error),
         style = MaterialTheme.typography.bodyMedium,
@@ -462,7 +528,7 @@ private fun FailedContent(onRetry: () -> Unit) {
 }
 
 @Composable
-private fun CenteredProgress() {
+internal fun CenteredProgress() {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Center
@@ -471,20 +537,44 @@ private fun CenteredProgress() {
     }
 }
 
-internal fun ShareScope.labelRes(): Int = when (this) {
-    ShareScope.ALL -> R.string.sharing_scope_all
-    ShareScope.OWNED -> R.string.sharing_scope_owned
-    ShareScope.WANTLIST -> R.string.sharing_scope_wantlist
+/**
+ * Résumé de ce qu'un partage expose d'une collection : « Toute la collection » quand l'ensemble est
+ * complet, sinon la liste des statuts.
+ *
+ * Les anciennes portées survivent ainsi comme vocabulaire d'**affichage** : elles se lisent mieux
+ * qu'une énumération, mais elles ne contraignent plus le choix.
+ *
+ * Les libellés sont résolus dans une boucle plutôt que dans un `joinToString { }` : le `transform`
+ * de `joinToString` est noinline, son corps n'est donc pas un contexte @Composable.
+ */
+@Composable
+internal fun shareScopeSummary(statuses: Set<ItemStatus>): String {
+    if (statuses.isEmpty()) return stringResource(R.string.sharing_statuses_none)
+    if (ShareScopePreset.matching(statuses) == ShareScopePreset.ALL) {
+        return stringResource(R.string.sharing_scope_all)
+    }
+    val labels = mutableListOf<String>()
+    for (status in statuses.canonical()) labels += stringResource(status.shareLabelRes())
+    return labels.joinToString(", ")
 }
 
-internal fun ShareScope.descriptionRes(): Int = when (this) {
-    ShareScope.ALL -> R.string.sharing_scope_all_desc
-    ShareScope.OWNED -> R.string.sharing_scope_owned_desc
-    ShareScope.WANTLIST -> R.string.sharing_scope_wantlist_desc
+/**
+ * Libellé d'un statut **du point de vue du membre** : « ce que je verrai », pas le nom technique.
+ * C'est la formulation qui évite d'exposer une wantlist par erreur.
+ */
+internal fun ItemStatus.shareLabelRes(): Int = when (this) {
+    ItemStatus.OWNED -> R.string.sharing_status_owned
+    ItemStatus.WISHLIST -> R.string.sharing_status_wishlist
+    ItemStatus.IGNORED -> R.string.sharing_status_ignored
 }
 
-private fun SharingFailure.messageRes(): Int = when (this) {
+internal fun SharingFailure.messageRes(): Int = when (this) {
     SharingFailure.PREMIUM_REQUIRED -> R.string.sharing_error_premium
+    SharingFailure.CODE_INVALID -> R.string.sharing_error_code_invalid
+    SharingFailure.OWN_SHARE -> R.string.sharing_error_own_share
+    SharingFailure.TOO_MANY_ATTEMPTS -> R.string.sharing_error_too_many
+    SharingFailure.GONE -> R.string.sharing_error_gone
+    SharingFailure.COLLECTION_GONE -> R.string.sharing_error_collection_gone
     SharingFailure.NETWORK -> R.string.sharing_error_network
     SharingFailure.UNKNOWN -> R.string.sharing_error_unknown
 }
@@ -497,7 +587,7 @@ internal fun formatShareDate(instant: Instant): String =
 @Preview(showBackground = true)
 @Composable
 private fun SharingScreenPreview() {
-    val now = Instant.parse("2026-08-21T10:00:00Z")
+    val now = Instant.parse("2026-08-22T10:00:00Z")
     AcervatimTheme {
         SharingScreenContent(
             state = SharingUiState(
@@ -505,22 +595,32 @@ private fun SharingScreenPreview() {
                     listOf(
                         CollectionShare(
                             id = "s1",
-                            collectionId = "c1",
-                            scope = ShareScope.OWNED,
+                            label = "Wantlist manga avec Alice",
                             maxUses = 3,
                             usedCount = 1,
                             expiresAt = null,
                             createdAt = now,
+                            collections = listOf(
+                                ShareEntry("c1", "Mangas", "manga", setOf(ItemStatus.WISHLIST)),
+                                ShareEntry(
+                                    "c2",
+                                    "Vinyles",
+                                    "vinyl",
+                                    setOf(ItemStatus.OWNED, ItemStatus.WISHLIST)
+                                )
+                            ),
                             members = listOf(ShareMember("8f3c1d2e-aaaa-bbbb-cccc-ddddeeeeffff", now))
                         ),
                         CollectionShare(
                             id = "s2",
-                            collectionId = "c1",
-                            scope = ShareScope.WANTLIST,
+                            label = null,
                             maxUses = 1,
                             usedCount = 1,
                             expiresAt = now,
-                            createdAt = now
+                            createdAt = now,
+                            collections = listOf(
+                                ShareEntry("c2", "Vinyles", "vinyl", ItemStatus.entries.toSet())
+                            )
                         )
                     )
                 )
@@ -528,6 +628,7 @@ private fun SharingScreenPreview() {
             onBack = {},
             onOpenCreate = {},
             onRetry = {},
+            onRename = { _, _ -> },
             onRevokeShare = {},
             onRevokeMember = { _, _ -> },
             onErrorShown = {}

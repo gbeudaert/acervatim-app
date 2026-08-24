@@ -41,9 +41,10 @@ import app.acervatim.domain.model.sharing.CreatedShare
  */
 @Composable
 internal fun ShareCodeDialog(
-    share: CreatedShare,
+    created: CreatedShare,
     onDismiss: () -> Unit
 ) {
+    val share = created.share
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
@@ -53,11 +54,19 @@ internal fun ShareCodeDialog(
         title = { Text(stringResource(R.string.sharing_code_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = stringResource(share.scope.labelRes()),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                // Rappel de ce que le code ouvre : c'est le dernier moment où le propriétaire peut
+                // s'apercevoir qu'il expose plus qu'il ne voulait — après, seule la révocation reste.
+                share.collections.forEach { entry ->
+                    Text(
+                        text = stringResource(
+                            R.string.sharing_code_exposes,
+                            entry.name,
+                            shareScopeSummary(entry.statuses)
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -65,7 +74,7 @@ internal fun ShareCodeDialog(
                     )
                 ) {
                     Text(
-                        text = share.code,
+                        text = created.code,
                         style = MaterialTheme.typography.titleLarge,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
@@ -80,7 +89,7 @@ internal fun ShareCodeDialog(
                 )
                 OutlinedButton(
                     onClick = {
-                        clipboard.setText(AnnotatedString(share.code))
+                        clipboard.setText(AnnotatedString(created.code))
                         copied = true
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -107,7 +116,7 @@ internal fun ShareCodeDialog(
                                 Intent.EXTRA_SUBJECT,
                                 context.getString(R.string.sharing_code_send_subject)
                             )
-                            putExtra(Intent.EXTRA_TEXT, share.code)
+                            putExtra(Intent.EXTRA_TEXT, created.code)
                         }
                         context.startActivity(Intent.createChooser(send, null))
                     },

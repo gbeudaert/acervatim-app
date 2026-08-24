@@ -22,12 +22,25 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import java.io.File
 
+/**
+ * Jaquette d'un item.
+ *
+ * Deux sources, dans cet ordre : le **fichier local** ([coverPath], photo prise ou image
+ * téléchargée par cet appareil), puis l'**URL du provider** ([coverUrl]). L'ordre compte — une image
+ * locale est celle que l'utilisateur a choisie, elle prime sur celle du catalogue.
+ *
+ * [coverUrl] existe parce que le fichier local est, par construction, propre à un appareil : une
+ * collection reçue en partage n'en a aucun (le backend ne stocke aucune image), et un disque
+ * synchronisé depuis un autre téléphone non plus. Sans ce repli, les deux affichaient un placeholder
+ * alors que l'URL était disponible.
+ */
 @Composable
 fun RecordCover(
     coverPath: String?,
     contentDescription: String?,
     cornerRadius: Dp,
     modifier: Modifier = Modifier,
+    coverUrl: String? = null,
     cacheKey: String? = null,
     placeholderIconSize: Dp = 24.dp
 ) {
@@ -38,12 +51,15 @@ fun RecordCover(
         contentAlignment = Alignment.Center
     ) {
         val file = coverPath?.let(::File)?.takeIf { it.exists() }
-        if (file != null) {
+        val source: Any? = file ?: coverUrl?.takeIf { it.isNotBlank() }
+        if (source != null) {
             val context = LocalContext.current
             val request = ImageRequest.Builder(context)
-                .data(file)
+                .data(source)
                 .crossfade(true)
-                .apply { if (cacheKey != null) memoryCacheKey(cacheKey) }
+                // Clé mémoire seulement pour le fichier local : elle est indexée sur l'id de l'item,
+                // or la même URL peut être partagée par plusieurs items (rééditions).
+                .apply { if (cacheKey != null && file != null) memoryCacheKey(cacheKey) }
                 .build()
             AsyncImage(
                 model = request,

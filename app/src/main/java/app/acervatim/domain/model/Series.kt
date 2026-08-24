@@ -13,6 +13,14 @@ data class Series(
     val totalVolumes: Int? = null,
     val synopsis: String? = null,
     val coverPath: String? = null,
+    /**
+     * Jaquette distante (URL provider), pendant de [Record.coverRemoteUrl].
+     *
+     * Champ **domaine seulement** : Room ne le stocke pas, il reste donc `null` pour les séries
+     * locales. Il sert aux séries reconstruites depuis le réseau — une collection reçue en partage,
+     * qui n'a par définition aucun fichier local.
+     */
+    val coverRemoteUrl: String? = null,
     val createdAt: Instant,
     val updatedAt: Instant
 )

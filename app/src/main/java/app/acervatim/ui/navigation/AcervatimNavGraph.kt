@@ -19,6 +19,10 @@ import app.acervatim.ui.series.AddEditSeriesScreen
 import app.acervatim.ui.series.SeriesDetailScreen
 import app.acervatim.ui.series.SeriesImportScreen
 import app.acervatim.ui.sharing.SharingScreen
+import app.acervatim.ui.sharing.received.ReceivedSharesScreen
+import app.acervatim.ui.sharing.received.SharedCollectionScreen
+import app.acervatim.ui.sharing.received.SharedItemDetailScreen
+import app.acervatim.ui.sharing.received.SharedSeriesDetailScreen
 import app.acervatim.ui.settings.ManageCollectionTypesScreen
 import app.acervatim.ui.settings.SettingsScreen
 
@@ -49,18 +53,69 @@ fun AcervatimNavGraph(
                 },
                 onOpenSettings = { navController.navigate(AcervatimDestinations.SETTINGS_ROUTE) },
                 onOpenAccount = { navController.navigate(AcervatimDestinations.ACCOUNT_ROUTE) },
-                onOpenSharing = { type ->
-                    navController.navigate(AcervatimDestinations.sharing(type))
+                onOpenSharing = {
+                    navController.navigate(AcervatimDestinations.SHARING_ROUTE)
+                },
+                onOpenReceivedShares = {
+                    navController.navigate(AcervatimDestinations.RECEIVED_SHARES_ROUTE)
+                }
+            )
+        }
+        composable(AcervatimDestinations.SHARING_ROUTE) {
+            SharingScreen(onBack = { navController.popBackStack() })
+        }
+        composable(AcervatimDestinations.RECEIVED_SHARES_ROUTE) {
+            ReceivedSharesScreen(
+                onBack = { navController.popBackStack() },
+                onOpenSharedCollection = { collectionId ->
+                    navController.navigate(AcervatimDestinations.sharedCollection(collectionId))
                 }
             )
         }
         composable(
-            route = AcervatimDestinations.SHARING_ROUTE,
+            route = AcervatimDestinations.SHARED_COLLECTION_ROUTE,
             arguments = listOf(
-                navArgument(AcervatimNavArgs.COLLECTION_TYPE) { type = NavType.StringType }
+                navArgument(AcervatimNavArgs.COLLECTION_ID) { type = NavType.StringType }
             )
         ) {
-            SharingScreen(onBack = { navController.popBackStack() })
+            val collectionId = it.arguments
+                ?.getString(AcervatimNavArgs.COLLECTION_ID)
+                .orEmpty()
+            SharedCollectionScreen(
+                onBack = { navController.popBackStack() },
+                onOpenItem = { itemId ->
+                    navController.navigate(AcervatimDestinations.sharedItem(itemId))
+                },
+                onOpenSeries = { seriesId ->
+                    navController.navigate(
+                        AcervatimDestinations.sharedSeries(collectionId, seriesId)
+                    )
+                }
+            )
+        }
+        composable(
+            route = AcervatimDestinations.SHARED_SERIES_ROUTE,
+            arguments = listOf(
+                navArgument(AcervatimNavArgs.COLLECTION_ID) { type = NavType.StringType },
+                navArgument(AcervatimNavArgs.SERIES_ID) { type = NavType.StringType }
+            )
+        ) {
+            SharedSeriesDetailScreen(
+                onBack = { navController.popBackStack() },
+                onOpenVolume = { itemId ->
+                    navController.navigate(AcervatimDestinations.sharedItem(itemId))
+                }
+            )
+        }
+        composable(
+            route = AcervatimDestinations.SHARED_ITEM_ROUTE,
+            arguments = listOf(
+                navArgument(AcervatimNavArgs.ITEM_ID) { type = NavType.StringType }
+            )
+        ) {
+            // Aucune callback d'édition : une vue partagée n'en propose aucune (le backend la
+            // refuserait au guard, l'UI ne la construit pas).
+            SharedItemDetailScreen(onBack = { navController.popBackStack() })
         }
         composable(
             route = AcervatimDestinations.ADD_RECORD_ROUTE,

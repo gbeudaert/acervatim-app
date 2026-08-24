@@ -179,6 +179,11 @@
     <string name="recording_speed_45">45 tr/min</string>
     <string name="recording_speed_78">78 tr/min</string>
     <string name="recording_speed_other">Autre</string>
+    <!-- Libellés courts : puce de fin de ligne dans la liste (la place y est comptée). -->
+    <string name="recording_speed_33_short">33 tr</string>
+    <string name="recording_speed_45_short">45 tr</string>
+    <string name="recording_speed_78_short">78 tr</string>
+    <string name="recording_speed_other_short">Autre</string>
 
     <!-- Detail screen -->
     <string name="detail_not_found">Disque introuvable</string>
@@ -367,34 +372,50 @@
     <string name="account_redeem_error">Code invalide ou expiré.</string>
 
     <!-- En-tête compte du drawer -->
+    <!-- Pied du drawer : la version, premier renseignement demandé sur un rapport de bug. -->
+    <string name="drawer_version">Version %1$s</string>
+    <string name="drawer_version_debug">Version %1$s (%2$d) · debug</string>
     <string name="drawer_account_signed_out">Se connecter pour synchroniser</string>
     <string name="drawer_account_signed_in">Connecté</string>
     <string name="drawer_account_limit_reached">Synchronisation partielle</string>
     <string name="drawer_account_premium_required">Synchro réservée au premium</string>
-    <!-- Partage de collection (propriétaire) -->
-    <string name="sharing_title">Partager la collection</string>
-    <string name="sharing_open">Partager cette collection</string>
+    <!-- Partage de collection : côté propriétaire -->
+    <string name="sharing_title">Mes partages</string>
+    <string name="sharing_open">Mes partages</string>
     <string name="sharing_intro">Vous générez un code, puis vous le transmettez vous-même à la personne concernée (message, oral…). Il n\'y a pas d\'invitation par e-mail : les comptes Acervatim sont anonymes, aucun contact n\'est enregistré.</string>
     <string name="sharing_create_action">Créer un partage</string>
     <string name="sharing_empty">Aucun partage pour l\'instant.</string>
     <string name="sharing_active_shares">Partages actifs</string>
+    <string name="sharing_unnamed">Partage sans nom</string>
 
-    <string name="sharing_not_synced_title">Collection pas encore synchronisée</string>
-    <string name="sharing_not_synced_message">Le partage porte sur la copie serveur de votre collection. Lancez une synchronisation depuis l\'écran Compte, puis revenez ici.</string>
+    <string name="sharing_not_synced_title">Rien n\'est encore synchronisé</string>
+    <string name="sharing_not_synced_message">Le partage porte sur la copie serveur de vos collections. Lancez une synchronisation depuis l\'écran Compte, puis revenez ici.</string>
     <string name="sharing_load_error">Impossible de charger les partages.</string>
     <string name="sharing_retry">Réessayer</string>
 
-    <string name="sharing_premium_title">Le partage fait partie du palier premium</string>
-    <string name="sharing_premium_message">Partager une collection suppose qu\'elle soit synchronisée, ce qui a un coût serveur réel. Vos partages déjà créés restent révocables ici.</string>
+    <string name="sharing_premium_title">Émettre un partage fait partie du palier premium</string>
+    <string name="sharing_premium_message">Partager une collection suppose qu\'elle soit synchronisée, ce qui a un coût serveur réel. Vos partages déjà créés restent renommables et révocables ici.</string>
 
-    <!-- Portées -->
-    <string name="sharing_scope_label">Ce que verra le membre</string>
+    <!-- Libellé privé : le propriétaire et le membre nomment chacun le partage pour eux-mêmes -->
+    <string name="sharing_label_field">Nom du partage</string>
+    <string name="sharing_label_hint">Pour vous repérer, par exemple « Wantlist manga avec Alice ». Privé : les membres ne le voient pas.</string>
+    <string name="sharing_rename_title">Renommer le partage</string>
+    <string name="sharing_rename_action">Renommer</string>
+
+    <!-- Ce qu\'un partage expose : une ou plusieurs collections, statuts au choix -->
+    <string name="sharing_collections_label">Ce que verra le membre</string>
+    <string name="sharing_collections_hint">Cochez, pour chaque collection, ce qu\'elle laisse voir. Une collection sans rien de coché n\'est pas partagée.</string>
+    <string name="sharing_collection_excluded">Non partagée.</string>
     <string name="sharing_scope_all">Toute la collection</string>
-    <string name="sharing_scope_all_desc">Possédés, wantlist et éléments ignorés.</string>
-    <string name="sharing_scope_owned">Uniquement les possédés</string>
-    <string name="sharing_scope_owned_desc">Ce que vous possédez, sans votre wantlist.</string>
-    <string name="sharing_scope_wantlist">Uniquement la wantlist</string>
-    <string name="sharing_scope_wantlist_desc">Ce que vous cherchez, sans le reste de la collection.</string>
+    <string name="sharing_statuses_none">Rien d\'exposé.</string>
+    <string name="sharing_status_owned">Possédés</string>
+    <string name="sharing_status_wishlist">Wantlist</string>
+    <string name="sharing_status_ignored">Écartés</string>
+    <string name="sharing_summary_none">Sélectionnez au moins une collection.</string>
+    <plurals name="sharing_summary_collections">
+        <item quantity="one">%d collection partagée</item>
+        <item quantity="other">%d collections partagées</item>
+    </plurals>
 
     <!-- Options de création -->
     <string name="sharing_max_uses_label">Nombre de personnes</string>
@@ -406,6 +427,7 @@
 
     <!-- Code affiché une seule fois -->
     <string name="sharing_code_title">Votre code de partage</string>
+    <string name="sharing_code_exposes">%1$s : %2$s</string>
     <string name="sharing_code_warning">Ce code ne sera plus jamais affiché : le serveur n\'en garde qu\'une empreinte. Transmettez-le maintenant.</string>
     <string name="sharing_code_copy">Copier</string>
     <string name="sharing_code_copied">Code copié.</string>
@@ -434,11 +456,55 @@
     <string name="sharing_revoke_confirm_message">Le code cessera de fonctionner et les membres qui l\'ont utilisé perdront l\'accès. C\'est définitif : un code révoqué ne peut pas être réactivé.</string>
     <string name="sharing_revoke_member">Retirer ce membre</string>
     <string name="sharing_revoke_member_confirm_title">Retirer ce membre ?</string>
-    <string name="sharing_revoke_member_confirm_message">Cette personne perdra l\'accès à la collection et ne pourra pas revenir avec le même code. Les autres membres ne sont pas affectés.</string>
+    <string name="sharing_revoke_member_confirm_message">Cette personne perdra l\'accès aux collections partagées et ne pourra pas revenir avec le même code. Les autres membres ne sont pas affectés.</string>
     <string name="sharing_revoke_action">Révoquer</string>
 
     <!-- Erreurs -->
     <string name="sharing_error_premium">Action réservée au palier premium.</string>
+    <string name="sharing_error_code_invalid">Ce code ne permet pas (ou plus) de rejoindre un partage.</string>
+    <string name="sharing_error_own_share">C\'est votre propre partage : vous y avez déjà accès.</string>
+    <string name="sharing_error_too_many">Trop de tentatives. Patientez une minute avant de réessayer.</string>
+    <string name="sharing_error_collection_gone">Une des collections n\'existe plus côté serveur. Relancez une synchronisation depuis l\'écran Compte, puis réessayez.</string>
+    <string name="sharing_error_gone">Ce partage n\'existe plus.</string>
     <string name="sharing_error_network">Serveur injoignable. Réessayez plus tard.</string>
     <string name="sharing_error_unknown">L\'action a échoué.</string>
+
+    <!-- Partage de collection : côté membre -->
+    <string name="received_title">Partagé avec moi</string>
+    <string name="received_open">Partagé avec moi</string>
+    <string name="received_intro">Ces collections appartiennent à quelqu\'un d\'autre. Vous les consultez en lecture seule, elles ne sont pas enregistrées sur votre appareil, et elles disparaîtront si leur propriétaire retire le partage.</string>
+    <string name="received_empty">Vous n\'avez rejoint aucun partage.</string>
+    <string name="received_unnamed">Partage sans nom</string>
+    <string name="received_joined_at">Rejoint le %1$s</string>
+    <string name="received_already_member">Vous aviez déjà rejoint ce partage.</string>
+    <plurals name="received_item_count">
+        <item quantity="one">%d élément visible</item>
+        <item quantity="other">%d éléments visibles</item>
+    </plurals>
+
+    <string name="received_join_title">Rejoindre un partage</string>
+    <string name="received_join_action">Rejoindre un partage</string>
+    <string name="received_join_message">Saisissez le code que le propriétaire vous a transmis. Pas besoin d\'être premium pour consulter ce qu\'on vous partage.</string>
+    <string name="received_join_code_field">Code de partage</string>
+    <string name="received_label_field">Nom du partage (facultatif)</string>
+    <string name="received_label_hint">Pour vous repérer, par exemple « Wantlist manga de Bob ». Privé : le propriétaire ne le voit pas.</string>
+
+    <!-- Consultation d\'une collection partagée -->
+    <string name="shared_readonly_banner">Collection partagée — lecture seule</string>
+    <string name="shared_empty">Rien à afficher dans ce qui vous est partagé.</string>
+    <string name="shared_mode_serial">Series</string>
+    <string name="shared_mode_flat">Tous les elements</string>
+    <string name="shared_untitled">Sans titre</string>
+    <string name="shared_gone_title">Ce partage n\'est plus accessible</string>
+    <string name="shared_gone_message">Le propriétaire a retiré le partage, ou vous en a retiré. Aucune de vos propres données n\'est affectée.</string>
+    <string name="shared_suspended_title">Partage momentanément suspendu</string>
+    <string name="shared_suspended_message">Le propriétaire n\'a plus de compte premium : le partage est suspendu, pas supprimé. L\'accès reviendra s\'il reprend son abonnement.</string>
+    <string name="shared_fact_creators">Auteurs</string>
+    <string name="shared_fact_genre">Genres</string>
+    <string name="shared_fact_label">Label</string>
+    <string name="shared_fact_format">Format</string>
+    <string name="shared_fact_release_date">Date de sortie</string>
+    <string name="shared_fact_volume">Tome</string>
+    <string name="shared_fact_rating">Note du propriétaire</string>
+    <string name="shared_fact_last_played">Dernière écoute</string>
 </resources>

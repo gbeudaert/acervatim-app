@@ -97,7 +97,8 @@ fun CollectionScreen(
     onOpenSeries: (String) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAccount: () -> Unit,
-    onOpenSharing: (CollectionType) -> Unit,
+    onOpenSharing: () -> Unit,
+    onOpenReceivedShares: () -> Unit,
     viewModel: CollectionViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -131,7 +132,8 @@ fun CollectionScreen(
         onOpenFilters = viewModel::openFilterSheet,
         onOpenSettings = onOpenSettings,
         onOpenAccount = onOpenAccount,
-        onOpenSharing = { onOpenSharing(activeType) },
+        onOpenSharing = onOpenSharing,
+        onOpenReceivedShares = onOpenReceivedShares,
         onCollectionTypeSelected = viewModel::onCollectionTypeSelected,
         onAddRecord = onAddRecord,
         onScanRecord = { onScanRecord(activeType) },
@@ -191,6 +193,7 @@ internal fun CollectionScreenContent(
     onOpenSettings: () -> Unit,
     onOpenAccount: () -> Unit,
     onOpenSharing: () -> Unit,
+    onOpenReceivedShares: () -> Unit,
     onCollectionTypeSelected: (CollectionType) -> Unit,
     onAddRecord: () -> Unit,
     onScanRecord: () -> Unit,
@@ -283,6 +286,10 @@ internal fun CollectionScreenContent(
                 onOpenSharing = {
                     scope.launch { drawerState.close() }
                     onOpenSharing()
+                },
+                onOpenReceivedShares = {
+                    scope.launch { drawerState.close() }
+                    onOpenReceivedShares()
                 }
             )
         }
@@ -750,172 +757,6 @@ private fun SearchBarTrailing(
     }
 }
 
-@Composable
-private fun LoadingState() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        CircularProgressIndicator()
-    }
-}
-
-@Composable
-private fun EmptyState(state: CollectionUiState.Empty) {
-    val (titleRes, subtitleRes, icon) = when {
-        state.hasActiveFilters -> Triple(
-            R.string.collection_empty_filtered_title,
-            R.string.collection_empty_filtered_subtitle,
-            Icons.Outlined.Album
-        )
-        state.listMode == ListMode.SERIAL -> Triple(
-            R.string.collection_empty_serial_title,
-            R.string.collection_empty_serial_subtitle,
-            Icons.Outlined.Book
-        )
-        state.activeCollectionType == CollectionType.MANGA -> Triple(
-            R.string.collection_empty_manga_title,
-            R.string.collection_empty_manga_subtitle,
-            Icons.Outlined.Book
-        )
-        else -> Triple(
-            R.string.collection_empty_title,
-            R.string.collection_empty_subtitle,
-            Icons.Outlined.Album
-        )
-    }
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 32.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(72.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(Modifier.height(16.dp))
-            Text(
-                text = stringResource(titleRes),
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(subtitleRes),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun ContentList(
-    state: CollectionUiState.FlatContent,
-    onRecordClick: (String) -> Unit,
-    selectionMode: Boolean = false,
-    selectedIds: Set<String> = emptySet(),
-    onEnterSelection: (String) -> Unit = {},
-    onToggleSelection: (String) -> Unit = {}
-) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text(
-            text = stringResource(
-                if (state.activeCollectionType == CollectionType.MANGA)
-                    R.string.collection_counter_manga
-                else
-                    R.string.collection_counter,
-                state.ownedCount,
-                state.wishlistCount
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 96.dp)
-        ) {
-            state.sections.forEach { section ->
-                stickyHeader(key = "header_${section.letter}") {
-                    SectionHeader(section.letter)
-                }
-                items(
-                    items = section.entries,
-                    key = { entry -> "${entry.record.id}#${entry.displayedArtist.id}" }
-                ) { entry ->
-                    val id = entry.record.id
-                    val selected = id in selectedIds
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .then(
-                                if (selected) Modifier.background(
-                                    MaterialTheme.colorScheme.secondaryContainer
-                                ) else Modifier
-                            )
-                            .combinedClickable(
-                                onClick = {
-                                    if (selectionMode) onToggleSelection(id) else onRecordClick(id)
-                                },
-                                onLongClick = { if (!selectionMode) onEnterSelection(id) }
-                            )
-                    ) {
-                        if (selectionMode) {
-                            Checkbox(
-                                checked = selected,
-                                onCheckedChange = { onToggleSelection(id) },
-                                modifier = Modifier.padding(start = 8.dp)
-                            )
-                        }
-                        RecordRow(entry = entry, modifier = Modifier.weight(1f))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SerialContentList(
-    state: CollectionUiState.SerialContent,
-    onSeriesClick: (String) -> Unit,
-    selectionMode: Boolean = false,
-    selectedIds: Set<String> = emptySet(),
-    onEnterSelection: (String) -> Unit = {},
-    onToggleSelection: (String) -> Unit = {}
-) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text(
-            text = stringResource(
-                R.string.collection_counter_manga,
-                state.ownedCount,
-                state.wishlistCount
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-        SeriesGrid(
-            items = state.seriesList,
-            onOpenSeries = onSeriesClick,
-            selectionMode = selectionMode,
-            selectedIds = selectedIds,
-            onEnterSelection = onEnterSelection,
-            onToggleSelection = onToggleSelection
-        )
-    }
-}
-
 /**
  * Barre contextuelle du mode sélection (§2.1) : quitter (croix), compteur, Éditer (vue entrées),
  * « Tout sélectionner ». Les actions Rafraîchir / Supprimer seront ajoutées ici par leurs lots (L7 / L5).
@@ -981,22 +822,16 @@ private fun SelectionTopBar(
     }
 }
 
-@Composable
-private fun SectionHeader(letter: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        Text(
-            text = letter,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary
-        )
-    }
-}
-
+/**
+ * En-tête de section (une lettre) d'une liste plate.
+ *
+ * Le fond est **explicitement tonal**, pas `surface` : en `surface` l'en-tête se confondait avec le
+ * fond de l'écran normal — la lettre y flottait sans relief — alors qu'il ressortait comme un
+ * bandeau dans la `SearchBar` étendue, dont le conteneur est plus foncé. Même composable, deux
+ * rendus. Un ton propre le rend identique quel que soit l'hôte.
+ *
+ * Opaque également par nécessité : c'est un `stickyHeader`, les lignes défilent dessous.
+ */
 private fun RecordFilter.activeFilterCount(): Int {
     var count = 0
     if (status != StatusFilter.ALL) count++
@@ -1033,6 +868,7 @@ private fun CollectionScreenEmptyPreview() {
             onOpenSettings = {},
             onOpenAccount = {},
             onOpenSharing = {},
+            onOpenReceivedShares = {},
             onCollectionTypeSelected = {},
             onAddRecord = {},
             onScanRecord = {},

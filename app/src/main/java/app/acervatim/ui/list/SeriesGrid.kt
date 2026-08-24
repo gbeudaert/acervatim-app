@@ -98,6 +98,7 @@ internal fun SeriesGridTile(
         Box {
             RecordCover(
                 coverPath = item.series.coverPath,
+                coverUrl = item.series.coverRemoteUrl,
                 contentDescription = item.series.title,
                 cornerRadius = 8.dp,
                 cacheKey = "series-${item.series.id}",

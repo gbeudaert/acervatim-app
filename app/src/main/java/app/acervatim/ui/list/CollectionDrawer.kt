@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.FolderShared
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.HorizontalDivider
@@ -24,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.acervatim.BuildConfig
 import app.acervatim.R
 import app.acervatim.domain.model.CollectionType
 import app.acervatim.domain.model.sync.SyncStatus
@@ -45,6 +47,7 @@ internal fun CollectionDrawerContent(
     onOpenSettings: () -> Unit,
     onOpenAccount: () -> Unit,
     onOpenSharing: () -> Unit,
+    onOpenReceivedShares: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     ModalDrawerSheet(modifier = modifier) {
@@ -78,9 +81,16 @@ internal fun CollectionDrawerContent(
         Spacer(Modifier.height(8.dp))
 
         Column {
-            // Réservé aux comptes premium : le partage suppose une collection synchronisée. Un
-            // compte non premium ne voit pas l'entrée plutôt que d'y buter sur un 402.
-            if (accountHeader.isPremium == true) {
+            // Réservé aux comptes premium : **émettre** un partage suppose une collection
+            // synchronisée. L'entrée ne nomme plus une collection : un partage en réunit
+            // plusieurs (S5).
+            //
+            // Masquée seulement quand le serveur a **dit** que le compte n'est pas premium
+            // (`isPremium == false`). Profil pas encore résolu (`null` alors qu'on est connecté) ⇒
+            // on montre l'entrée : le ViewModel laisse de toute façon tenter, et le 402 tranchera.
+            // La cacher là aussi rendait la fonctionnalité introuvable tant que `/v1/me` n'avait pas
+            // répondu — c'est-à-dire précisément quand le backend va mal.
+            if (accountHeader.signedIn && accountHeader.isPremium != false) {
                 NavigationDrawerItem(
                     icon = { Icon(imageVector = Icons.Outlined.Share, contentDescription = null) },
                     label = { Text(stringResource(R.string.sharing_open)) },
@@ -89,6 +99,18 @@ internal fun CollectionDrawerContent(
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
             }
+            // Ouverte à **tous**, y compris hors premium : rejoindre et consulter ne coûte rien au
+            // serveur, c'est le propriétaire qui paie le stockage. La cacher aux comptes gratuits
+            // viderait la fonctionnalité de son sens (le membre du foyer qui ne paie pas).
+            NavigationDrawerItem(
+                icon = {
+                    Icon(imageVector = Icons.Outlined.FolderShared, contentDescription = null)
+                },
+                label = { Text(stringResource(R.string.received_open)) },
+                selected = false,
+                onClick = onOpenReceivedShares,
+                modifier = Modifier.padding(horizontal = 12.dp)
+            )
             NavigationDrawerItem(
                 icon = { Icon(imageVector = Icons.Outlined.Settings, contentDescription = null) },
                 label = { Text(stringResource(R.string.collection_open_settings)) },
@@ -99,8 +121,40 @@ internal fun CollectionDrawerContent(
             // "Nouvelle collection" est intentionnellement absent : tant qu'il n'y a qu'un seul
             // nouveau type à proposer (déjà ajouté ici), cet item serait un piège visuel.
         }
-        Spacer(Modifier.height(12.dp))
+        // Pousse la version en bas de la feuille. `ModalDrawerSheet` occupe toute la hauteur, le
+        // poids a donc de la place à prendre ; si le contenu venait à la remplir, le poids tombe à
+        // zéro et la version reste simplement à la suite des items.
+        Spacer(Modifier.weight(1f))
+        AppVersionFooter()
     }
+}
+
+/**
+ * Version de l'app, en pied de drawer.
+ *
+ * Elle vit ici et pas dans les Réglages : c'est la première chose qu'on demande à quelqu'un qui
+ * signale un bug, et le drawer est à un geste de n'importe quel écran.
+ *
+ * En debug, le `versionCode` et la mention « debug » s'ajoutent — deux builds de développement
+ * partagent le même `versionName`, et les confondre fait perdre du temps sur un rapport d'anomalie.
+ * En release, le seul numéro que l'utilisateur voit sur le Play Store suffit.
+ */
+@Composable
+private fun AppVersionFooter() {
+    Text(
+        text = if (BuildConfig.DEBUG) {
+            stringResource(
+                R.string.drawer_version_debug,
+                BuildConfig.VERSION_NAME,
+                BuildConfig.VERSION_CODE
+            )
+        } else {
+            stringResource(R.string.drawer_version, BuildConfig.VERSION_NAME)
+        },
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 28.dp, end = 16.dp, top = 12.dp, bottom = 16.dp)
+    )
 }
 
 /**
@@ -187,7 +241,8 @@ private fun CollectionDrawerPreview() {
             onCollectionTypeSelected = {},
             onOpenSettings = {},
             onOpenAccount = {},
-            onOpenSharing = {}
+            onOpenSharing = {},
+            onOpenReceivedShares = {}
         )
     }
 }

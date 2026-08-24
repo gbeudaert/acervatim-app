@@ -24,7 +24,11 @@ import app.acervatim.data.remote.dto.PatchItemRequest
 import app.acervatim.data.remote.dto.PatchNodeRequest
 import app.acervatim.data.remote.dto.RedeemInvitationRequest
 import app.acervatim.data.remote.dto.RedeemInvitationResponse
+import app.acervatim.data.remote.dto.RedeemShareRequest
+import app.acervatim.data.remote.dto.RedeemedShareDto
+import app.acervatim.data.remote.dto.ReceivedShareDto
 import app.acervatim.data.remote.dto.ShareDto
+import app.acervatim.data.remote.dto.UpdateShareLabelRequest
 import app.acervatim.data.remote.dto.SourceWithRawDto
 import app.acervatim.data.remote.dto.SubscriptionDto
 import app.acervatim.data.remote.dto.UnifiedItemDto
@@ -232,20 +236,33 @@ interface AcervatimApi {
      * Émet un partage. Premium requis sur le **requérant** (402 sinon) : partager suppose la sync
      * cloud. La réponse porte le code en clair — **la seule fois** : le serveur n'en garde que le
      * HMAC. Ne jamais le journaliser ni le persister.
+     *
+     * Un partage porte N collections avec leurs statuts : il n'appartient donc plus à une collection,
+     * d'où l'ancrage sur `/v1/shares` (sprint backend S5).
      */
-    @POST("v1/collections/{id}/shares")
-    suspend fun createShare(
-        @Path("id") id: String,
-        @Body body: CreateShareRequest
-    ): CreatedShareDto
+    @POST("v1/shares")
+    suspend fun createShare(@Body body: CreateShareRequest): CreatedShareDto
 
     /**
-     * Partages non révoqués de la collection (liste nue, sans enveloppe de pagination), membres
-     * actifs inclus. Les partages **expirés** y figurent encore : le propriétaire doit pouvoir voir
-     * pourquoi son code ne prend plus.
+     * Partages non révoqués que j'ai émis (liste nue, sans enveloppe de pagination), membres actifs
+     * inclus. Les partages **expirés** y figurent encore : le propriétaire doit pouvoir voir pourquoi
+     * son code ne prend plus.
+     *
+     * [collectionId] restreint aux partages exposant cette collection — la collection n'est plus
+     * qu'un filtre. Hors gate premium : un premium expiré doit pouvoir constater et retirer.
      */
-    @GET("v1/collections/{id}/shares")
-    suspend fun listShares(@Path("id") id: String): List<ShareDto>
+    @GET("v1/shares")
+    suspend fun listShares(@Query("collectionId") collectionId: String? = null): List<ShareDto>
+
+    /**
+     * Renomme un partage que j'ai émis. **Seul champ modifiable** : re-scoper un partage vivant
+     * changerait sans le dire ce que ses membres voient déjà — cela passe par révocation + nouveau code.
+     */
+    @PATCH("v1/shares/{id}")
+    suspend fun updateShareLabel(
+        @Path("id") id: String,
+        @Body body: UpdateShareLabelRequest
+    ): ShareDto
 
     /** Révoque le partage entier (code + tous ses membres). `204` sans corps ; idempotent. */
     @DELETE("v1/shares/{id}")
@@ -257,4 +274,25 @@ interface AcervatimApi {
         @Path("id") id: String,
         @Path("memberUserId") memberUserId: String
     ): Response<Unit>
+
+    /**
+     * Consomme un code de partage. **Hors gate premium** : c'est le propriétaire qui paie le
+     * stockage, pas le membre. Idempotent (ré-appeler ne consomme pas de place).
+     *
+     * Rate-limité serré côté serveur (5/min) — un `429` n'est pas une panne, c'est la défense
+     * anti-balayage. Tout refus lié au code sort en `404`, sans dire lequel : pas d'oracle.
+     */
+    @POST("v1/shares/redeem")
+    suspend fun redeemShare(@Body body: RedeemShareRequest): RedeemedShareDto
+
+    /** Partages que j'ai rejoints et qui vivent encore, avec **mon** libellé (jamais celui de l'autre). */
+    @GET("v1/shares/received")
+    suspend fun receivedShares(): List<ReceivedShareDto>
+
+    /** Renomme, côté membre, un partage rejoint. Le propriétaire ne voit pas ce libellé. */
+    @PATCH("v1/shares/received/{shareId}")
+    suspend fun updateReceivedShareLabel(
+        @Path("shareId") shareId: String,
+        @Body body: UpdateShareLabelRequest
+    ): ReceivedShareDto
 }

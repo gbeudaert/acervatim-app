@@ -47,30 +47,36 @@ fun ZoomableCover(
     contentDescription: String?,
     cornerRadius: Dp,
     modifier: Modifier = Modifier,
+    coverUrl: String? = null,
     cacheKey: String? = null,
     placeholderIconSize: Dp = 24.dp
 ) {
     val file = coverPath?.let(::File)?.takeIf { it.exists() }
+    // Ce qu'il y a à agrandir : le fichier local d'abord, sinon l'URL du provider. Même ordre que
+    // dans [RecordCover] — une image choisie par l'utilisateur prime sur celle du catalogue.
+    val source: Any? = file ?: coverUrl?.takeIf { it.isNotBlank() }
     var zoomed by remember { mutableStateOf(false) }
     val zoomLabel = stringResource(R.string.cover_zoom_open)
 
     RecordCover(
         coverPath = coverPath,
+        coverUrl = coverUrl,
         contentDescription = contentDescription,
         cornerRadius = cornerRadius,
         cacheKey = cacheKey,
         placeholderIconSize = placeholderIconSize,
-        modifier = if (file != null) {
+        modifier = if (source != null) {
             modifier.clickable(onClickLabel = zoomLabel) { zoomed = true }
         } else {
             modifier
         }
     )
 
-    if (zoomed && file != null) {
+    if (zoomed && source != null) {
         FullScreenCoverDialog(
-            file = file,
-            cacheKey = cacheKey,
+            source = source,
+            // Clé mémoire réservée au fichier local : une même URL peut servir plusieurs items.
+            cacheKey = cacheKey.takeIf { file != null },
             contentDescription = contentDescription,
             onDismiss = { zoomed = false }
         )
@@ -79,7 +85,7 @@ fun ZoomableCover(
 
 @Composable
 private fun FullScreenCoverDialog(
-    file: File,
+    source: Any,
     cacheKey: String?,
     contentDescription: String?,
     onDismiss: () -> Unit
@@ -110,7 +116,7 @@ private fun FullScreenCoverDialog(
         ) {
             val context = LocalContext.current
             val request = ImageRequest.Builder(context)
-                .data(file)
+                .data(source)
                 .crossfade(true)
                 .apply { if (cacheKey != null) memoryCacheKey(cacheKey) }
                 .build()

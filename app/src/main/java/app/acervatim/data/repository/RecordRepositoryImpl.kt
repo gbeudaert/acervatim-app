@@ -11,7 +11,11 @@ import app.acervatim.domain.model.CollectionType
 import app.acervatim.domain.model.ItemStatus
 import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.RecordArtistEntry
+import app.acervatim.domain.model.RECORD_BY_PRIMARY_ARTIST
+import app.acervatim.domain.model.RECORD_BY_VOLUME
 import app.acervatim.domain.model.RecordFilter
+import app.acervatim.domain.model.toEntriesByPrimaryArtist
+import app.acervatim.domain.model.toEntriesFlattenedByArtist
 import app.acervatim.domain.model.normalizeArtistName
 import app.acervatim.domain.model.sync.SyncState
 import app.acervatim.domain.repository.RecordRepository
@@ -51,34 +55,11 @@ class RecordRepositoryImpl @Inject constructor(
         }
 
     override fun observeFlattenedByArtist(filter: RecordFilter): Flow<List<RecordArtistEntry>> =
-        rawFlow(filter).map { rows ->
-            val records = rows.groupToRecords()
-            records
-                .flatMap { record ->
-                    record.artists.map { artist ->
-                        RecordArtistEntry(
-                            record = record,
-                            displayedArtist = artist,
-                            featuringArtists = emptyList()
-                        )
-                    }
-                }
-                .sortedWith(ENTRY_BY_DISPLAYED_ARTIST)
+        rawFlow(filter).map { rows -> rows.groupToRecords().toEntriesFlattenedByArtist()
         }
 
     override fun observeByPrimaryArtist(filter: RecordFilter): Flow<List<RecordArtistEntry>> =
-        rawFlow(filter).map { rows ->
-            rows.groupToRecords()
-                .mapNotNull { record ->
-                    val primary = record.primaryArtist ?: return@mapNotNull null
-                    RecordArtistEntry(
-                        record = record,
-                        displayedArtist = primary,
-                        featuringArtists = record.featuringArtists
-                    )
-                }
-                .sortedWith(ENTRY_BY_DISPLAYED_ARTIST)
-        }
+        rawFlow(filter).map { rows -> rows.groupToRecords().toEntriesByPrimaryArtist() }
 
     override fun observeById(id: String): Flow<Record?> =
         recordDao.observeByIdJoinRows(id).map { rows ->
@@ -191,20 +172,5 @@ class RecordRepositoryImpl @Inject constructor(
 
     private companion object {
         const val SIX_MONTHS_DAYS: Long = 183L
-
-        val RECORD_BY_PRIMARY_ARTIST: Comparator<Record> = compareBy(
-            { it.primaryArtist?.name?.lowercase().orEmpty() },
-            { it.title.lowercase() }
-        )
-
-        val ENTRY_BY_DISPLAYED_ARTIST: Comparator<RecordArtistEntry> = compareBy(
-            { it.displayedArtist.name.lowercase() },
-            { it.record.title.lowercase() }
-        )
-
-        val RECORD_BY_VOLUME: Comparator<Record> = compareBy(
-            { it.volumeNumber ?: Int.MAX_VALUE },
-            { it.title.lowercase() }
-        )
     }
 }
