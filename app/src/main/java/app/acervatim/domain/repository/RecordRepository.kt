@@ -53,7 +53,14 @@ interface RecordRepository {
     /** Supprime tous les disques + cross-refs artistes + artistes orphelins. Utilisé par l'import backup. */
     suspend fun deleteAll()
 
-    suspend fun updateLastPlayed(id: String, ts: Instant?)
+    /**
+     * Enregistre une écoute : `lastPlayedAt` = [at] **et** `playCount` incrémenté d'un.
+     * Les deux décrivent le même geste, d'où une seule opération.
+     */
+    suspend fun markPlayed(id: String, at: Instant)
+
+    /** Annule l'historique d'écoute d'un item : date effacée et compteur remis à zéro. */
+    suspend fun resetPlayback(id: String)
 
     suspend fun updateStatus(id: String, status: ItemStatus, ts: Instant)
 

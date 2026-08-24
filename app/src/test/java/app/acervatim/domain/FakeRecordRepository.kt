@@ -151,10 +151,22 @@ class FakeRecordRepository : RecordRepository {
         state.value = emptyList()
     }
 
-    override suspend fun updateLastPlayed(id: String, ts: Instant?) {
+    override suspend fun markPlayed(id: String, at: Instant) {
         state.update { current ->
             current.map {
-                if (it.id == id) it.copy(lastPlayedAt = ts, updatedAt = Instant.now()) else it
+                if (it.id == id) {
+                    it.copy(lastPlayedAt = at, playCount = it.playCount + 1, updatedAt = Instant.now())
+                } else {
+                    it
+                }
+            }
+        }
+    }
+
+    override suspend fun resetPlayback(id: String) {
+        state.update { current ->
+            current.map {
+                if (it.id == id) it.copy(lastPlayedAt = null, playCount = 0, updatedAt = Instant.now()) else it
             }
         }
     }

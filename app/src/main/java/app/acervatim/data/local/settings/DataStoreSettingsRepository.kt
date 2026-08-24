@@ -7,6 +7,8 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import app.acervatim.domain.model.CollectionType
+import app.acervatim.domain.model.DisplayMode
+import app.acervatim.domain.model.defaultDisplayMode
 import app.acervatim.domain.model.ListMode
 import app.acervatim.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
@@ -51,6 +53,20 @@ class DataStoreSettingsRepository @Inject constructor(
     override suspend fun setListMode(type: CollectionType, mode: ListMode) {
         dataStore.edit { prefs ->
             prefs[listModeKey(type)] = mode.name
+        }
+    }
+
+    override fun observeDisplayMode(type: CollectionType): Flow<DisplayMode> {
+        val key = displayModeKey(type)
+        return dataStore.data.map { prefs ->
+            val raw = prefs[key]
+            raw?.let { runCatching { DisplayMode.valueOf(it) }.getOrNull() } ?: type.defaultDisplayMode
+        }
+    }
+
+    override suspend fun setDisplayMode(type: CollectionType, mode: DisplayMode) {
+        dataStore.edit { prefs ->
+            prefs[displayModeKey(type)] = mode.name
         }
     }
 
@@ -110,6 +126,9 @@ class DataStoreSettingsRepository @Inject constructor(
 
     private fun listModeKey(type: CollectionType) =
         stringPreferencesKey("list_mode_${type.name}")
+
+    private fun displayModeKey(type: CollectionType) =
+        stringPreferencesKey("display_mode_${type.name}")
 
     private companion object {
         val KEY_DUPLICATE_ALBUMS_PER_ARTIST = booleanPreferencesKey("duplicate_albums_per_artist")

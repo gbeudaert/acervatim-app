@@ -75,6 +75,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.acervatim.R
 import app.acervatim.domain.model.CollectionType
+import app.acervatim.domain.model.DisplayMode
 import app.acervatim.domain.model.ListMode
 import app.acervatim.domain.model.RecordFilter
 import app.acervatim.domain.model.StatusFilter
@@ -116,6 +117,7 @@ fun CollectionScreen(
     val bulkEditResult by viewModel.bulkEditResult.collectAsStateWithLifecycle()
     val bulkDeleteResult by viewModel.bulkDeleteResult.collectAsStateWithLifecycle()
     val refreshResult by viewModel.refreshResult.collectAsStateWithLifecycle()
+    val displayMode by viewModel.displayMode.collectAsStateWithLifecycle()
 
     CollectionScreenContent(
         state = state,
@@ -125,6 +127,8 @@ fun CollectionScreen(
         visibleCollectionTypes = visibleTypes,
         collectionTypeStats = typeStats,
         accountHeader = accountHeader,
+        displayMode = displayMode,
+        onDisplayModeSelected = viewModel::onDisplayModeSelected,
         selectionMode = selectionMode,
         selectedIds = selectedIds,
         onQueryChange = viewModel::onQueryChange,
@@ -187,6 +191,8 @@ internal fun CollectionScreenContent(
     visibleCollectionTypes: List<CollectionType>,
     collectionTypeStats: List<CollectionTypeStats>,
     accountHeader: AccountHeaderUiState,
+    displayMode: DisplayMode,
+    onDisplayModeSelected: (DisplayMode) -> Unit,
     onQueryChange: (String) -> Unit,
     onClearQuery: () -> Unit,
     onOpenFilters: () -> Unit,
@@ -337,6 +343,8 @@ internal fun CollectionScreenContent(
                         onOpenSettings = onOpenSettings,
                         onOpenDrawer = { scope.launch { drawerState.open() } },
                         activeFilterCount = activeFilterCount,
+                        displayMode = displayMode,
+                        onDisplayModeSelected = onDisplayModeSelected,
                         onRecordClick = onRecordClick,
                         state = state
                     )
@@ -359,6 +367,10 @@ internal fun CollectionScreenContent(
                         selectedIds = selectedIds,
                         onEnterSelection = onEnterSelection,
                         onToggleSelection = onToggleSelection
+                    )
+                    is CollectionUiState.TileContent -> TileContentBody(
+                        state = state,
+                        onTileClick = if (state.serial) onSeriesClick else onRecordClick
                     )
                 }
             }
@@ -645,6 +657,8 @@ private fun CollectionSearchBar(
     onOpenSettings: () -> Unit,
     onOpenDrawer: () -> Unit,
     activeFilterCount: Int,
+    displayMode: DisplayMode,
+    onDisplayModeSelected: (DisplayMode) -> Unit,
     onRecordClick: (String) -> Unit,
     state: CollectionUiState
 ) {
@@ -685,6 +699,8 @@ private fun CollectionSearchBar(
                     SearchBarTrailing(
                         showClear = query.isNotEmpty(),
                         activeFilterCount = activeFilterCount,
+                        displayMode = displayMode,
+                        onDisplayModeSelected = onDisplayModeSelected,
                         onClear = onClearQuery,
                         onOpenFilters = onOpenFilters,
                         onOpenSettings = onOpenSettings
@@ -723,6 +739,8 @@ private fun CollectionSearchBar(
 private fun SearchBarTrailing(
     showClear: Boolean,
     activeFilterCount: Int,
+    displayMode: DisplayMode,
+    onDisplayModeSelected: (DisplayMode) -> Unit,
     onClear: () -> Unit,
     onOpenFilters: () -> Unit,
     onOpenSettings: () -> Unit
@@ -735,6 +753,7 @@ private fun SearchBarTrailing(
             )
         }
     }
+    DisplayModeAction(displayMode = displayMode, onDisplayModeSelected = onDisplayModeSelected)
     BadgedBox(
         badge = {
             if (activeFilterCount > 0) {
@@ -876,7 +895,9 @@ private fun CollectionScreenEmptyPreview() {
             onAddManga = {},
             onAddSeries = {},
             onRecordClick = {},
-            onSeriesClick = {}
+            onSeriesClick = {},
+            displayMode = DisplayMode.LIST,
+            onDisplayModeSelected = {}
         )
     }
 }

@@ -6,10 +6,13 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import app.acervatim.domain.model.AcervatimFormat
 import app.acervatim.domain.model.CollectionType
+import app.acervatim.domain.model.DisplayMode
+import app.acervatim.domain.model.defaultDisplayMode
 import app.acervatim.domain.model.account.AccountInfo
 import app.acervatim.domain.model.auth.AuthState
 import app.acervatim.domain.model.sync.SyncStatus
 import app.acervatim.domain.model.ListMode
+import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.RecordArtistEntry
 import app.acervatim.domain.model.RecordFilter
 import app.acervatim.domain.model.SeriesWithCounts
@@ -21,6 +24,8 @@ import app.acervatim.domain.usecase.ObserveCollectionEntriesUseCase
 import app.acervatim.domain.usecase.ObserveCollectionStatsUseCase
 import app.acervatim.domain.usecase.ObserveCollectionTypeStatsUseCase
 import app.acervatim.domain.usecase.ObserveDistinctGenresUseCase
+import app.acervatim.domain.usecase.ObserveDisplayModeForCollectionTypeUseCase
+import app.acervatim.domain.usecase.ObserveFilteredRecordsUseCase
 import app.acervatim.domain.usecase.ObserveListModeForCollectionTypeUseCase
 import app.acervatim.domain.usecase.ObserveSeriesWithCountsUseCase
 import app.acervatim.domain.usecase.ObserveVisibleCollectionTypesUseCase
@@ -35,6 +40,7 @@ import app.acervatim.domain.usecase.RefreshMetadataUseCase
 import app.acervatim.domain.usecase.RefreshOptions
 import app.acervatim.domain.usecase.RefreshResult
 import app.acervatim.domain.usecase.SetActiveCollectionTypeUseCase
+import app.acervatim.domain.usecase.SetDisplayModeForCollectionTypeUseCase
 import app.acervatim.domain.usecase.SetListModeForCollectionTypeUseCase
 import app.acervatim.domain.usecase.UpdateRecordsUseCase
 import app.acervatim.ui.util.sectionLetterOf
@@ -54,24 +60,31 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Clock
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
 class CollectionViewModel @Inject constructor(
     observeCollectionEntries: ObserveCollectionEntriesUseCase,
+    observeFilteredRecords: ObserveFilteredRecordsUseCase,
     observeSeriesWithCounts: ObserveSeriesWithCountsUseCase,
     observeActiveCollectionType: ObserveActiveCollectionTypeUseCase,
     observeVisibleCollectionTypes: ObserveVisibleCollectionTypesUseCase,
     observeListMode: ObserveListModeForCollectionTypeUseCase,
+    observeDisplayMode: ObserveDisplayModeForCollectionTypeUseCase,
     observeGenres: ObserveDistinctGenresUseCase,
     observeStats: ObserveCollectionStatsUseCase,
     observeCollectionTypeStats: ObserveCollectionTypeStatsUseCase,
     private val setActiveCollectionType: SetActiveCollectionTypeUseCase,
     private val setListMode: SetListModeForCollectionTypeUseCase,
+    private val setDisplayMode: SetDisplayModeForCollectionTypeUseCase,
     private val updateRecords: UpdateRecordsUseCase,
     private val deleteRecords: DeleteRecordsUseCase,
     private val refreshMetadata: RefreshMetadataUseCase,
+    private val clock: Clock,
     authRepository: AuthRepository,
     syncRepository: SyncRepository,
     accountRepository: AccountRepository
@@ -141,6 +154,18 @@ class CollectionViewModel @Inject constructor(
         )
 
     /**
+     * Densité d'affichage du type actif — axe **orthogonal** au [ListMode] : les deux se
+     * combinent, chacun persisté par [CollectionType].
+     */
+    val displayMode: StateFlow<DisplayMode> = activeCollectionType
+        .flatMapLatest { type -> observeDisplayMode(type) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = CollectionType.VINYL.defaultDisplayMode
+        )
+
+    /**
      * Filtre exposé à l'UI (FilterSheet) — `listMode` provient du DataStore persisté par
      * [CollectionType], `collectionType` du type actif, le reste de [_advancedFilter].
      */
@@ -168,10 +193,27 @@ class CollectionViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RecordFilter())
 
     private val flatContentFlow: Flow<List<RecordArtistEntry>> =
-        effectiveFilter.flatMapLatest { filter ->
-            if (filter.listMode == ListMode.FLAT) observeCollectionEntries(filter)
-            else flowOf(emptyList())
-        }
+        combine(effectiveFilter, displayMode) { filter, display -> filter to display }
+            .flatMapLatest { (filter, display) ->
+                // La liste plate est la seule vue à dupliquer un disque par artiste : grille et
+                // galerie affichent une tuile par disque, elles lisent [tileRecordsFlow].
+                if (filter.listMode == ListMode.FLAT && display == DisplayMode.LIST) {
+                    observeCollectionEntries(filter)
+                } else {
+                    flowOf(emptyList())
+                }
+            }
+
+    /** Disques bruts (un par item, sans duplication par artiste) — grille et galerie. */
+    private val tileRecordsFlow: Flow<List<Record>> =
+        combine(effectiveFilter, displayMode) { filter, display -> filter to display }
+            .flatMapLatest { (filter, display) ->
+                if (filter.listMode == ListMode.FLAT && display != DisplayMode.LIST) {
+                    observeFilteredRecords(filter)
+                } else {
+                    flowOf(emptyList())
+                }
+            }
 
     private val serialContentFlow: Flow<List<SeriesWithCounts>> =
         effectiveFilter.flatMapLatest { filter ->
@@ -182,17 +224,34 @@ class CollectionViewModel @Inject constructor(
     private val statsFlow: Flow<CollectionStats> =
         activeCollectionType.flatMapLatest { type -> observeStats(type) }
 
-    val uiState: StateFlow<CollectionUiState> = combine(
+    /** Entrées combinées en deux temps : `combine` typé s'arrête à cinq flux. */
+    private data class ContentInputs(
+        val filter: RecordFilter,
+        val entries: List<RecordArtistEntry>,
+        val series: List<SeriesWithCounts>,
+        val stats: CollectionStats
+    )
+
+    private val contentInputs: Flow<ContentInputs> = combine(
         effectiveFilter,
         flatContentFlow,
         serialContentFlow,
         statsFlow
-    ) { filter, entries, series, stats ->
+    ) { filter, entries, series, stats -> ContentInputs(filter, entries, series, stats) }
+
+    val uiState: StateFlow<CollectionUiState> = combine(
+        contentInputs,
+        tileRecordsFlow,
+        displayMode
+    ) { inputs, records, display ->
         CollectionUiState.from(
-            filter = filter,
-            entries = entries,
-            series = series,
-            stats = stats
+            filter = inputs.filter,
+            entries = inputs.entries,
+            series = inputs.series,
+            records = records,
+            stats = inputs.stats,
+            displayMode = display,
+            now = clock.instant()
         )
     }.stateIn(
         scope = viewModelScope,
@@ -382,6 +441,16 @@ class CollectionViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Bascule la densité d'affichage du type actif (liste → grille → galerie). Persistée par
+     * type : revenir sur une collection retrouve la vue qu'on y avait laissée.
+     */
+    fun onDisplayModeSelected(mode: DisplayMode) {
+        viewModelScope.launch {
+            setDisplayMode(activeCollectionType.value, mode)
+        }
+    }
+
     fun applyFilter(
         listMode: ListMode,
         status: StatusFilter,
@@ -429,6 +498,40 @@ data class AccountHeaderUiState(
 @Immutable
 data class CollectionSection(val letter: String, val entries: List<RecordArtistEntry>)
 
+/**
+ * Tuile de jaquette — la maille commune de la grille et de la galerie. Un disque, un tome ou une
+ * série s'y projettent de la même façon : c'est ce qui permet aux deux vues (plate et séries) de
+ * partager les mêmes composants au lieu de dupliquer un écran par type de collection.
+ */
+@Immutable
+data class CollectionTile(
+    val id: String,
+    val title: String,
+    val subtitle: String?,
+    val coverPath: String?,
+    val coverUrl: String?,
+    /** Clé de cache mémoire de la jaquette locale (préfixée pour ne pas confondre série et disque). */
+    val cacheKey: String,
+    val playCount: Int
+)
+
+/**
+ * Rubrique d'une vue en tuiles. Seule la **nature** de la rubrique remonte ici : le libellé est
+ * posé par l'UI (`stringResource`), aucun texte visible ne sort du ViewModel.
+ */
+enum class TileSectionKind {
+    /** Toute la collection, sans en-tête : c'est la grille. */
+    ALL,
+    RECENTLY_PLAYED,
+    MOST_PLAYED,
+
+    /** Jamais écouté, ou plus depuis six mois. */
+    FORGOTTEN
+}
+
+@Immutable
+data class TileSection(val kind: TileSectionKind, val tiles: List<CollectionTile>)
+
 @Immutable
 sealed interface CollectionUiState {
     data object Loading : CollectionUiState
@@ -457,55 +560,109 @@ sealed interface CollectionUiState {
         val seriesList: List<SeriesWithCounts>,
         val ownedCount: Int,
         val wishlistCount: Int,
+        val hasActiveFilters: Boolean,
+        /**
+         * [DisplayMode.GRID] (défaut historique de la vue séries) ou [DisplayMode.LIST]. La
+         * galerie, elle, passe par [TileContent] : ses rubriques ne sont pas une liste de séries.
+         */
+        val displayMode: DisplayMode = DisplayMode.GRID
+    ) : CollectionUiState
+
+    /**
+     * Vue en tuiles : grille (une seule rubrique [TileSectionKind.ALL], sans en-tête) ou galerie
+     * (rubriques d'écoute). Même état pour la collection plate et pour les séries — [serial] ne
+     * sert qu'à router le clic vers le bon écran.
+     */
+    @Immutable
+    data class TileContent(
+        val activeCollectionType: CollectionType,
+        val displayMode: DisplayMode,
+        val serial: Boolean,
+        val sections: List<TileSection>,
+        val ownedCount: Int,
+        val wishlistCount: Int,
         val hasActiveFilters: Boolean
     ) : CollectionUiState
 
     companion object {
+
+        /** Taille d'une rubrique de galerie : une mise en avant, pas un catalogue. */
+        const val GALLERY_SECTION_SIZE = 12
+
+        /** Au-delà, un item est « oublié » — même seuil que le filtre `notPlayedSinceSixMonths`. */
+        private const val FORGOTTEN_AFTER_DAYS = 182L
+
         fun from(
             filter: RecordFilter,
             entries: List<RecordArtistEntry>,
             series: List<SeriesWithCounts>,
-            stats: CollectionStats
+            records: List<Record>,
+            stats: CollectionStats,
+            displayMode: DisplayMode,
+            now: Instant
         ): CollectionUiState {
             val hasFilters = filter.isAnyAdvancedFilterActive || filter.query.isNotBlank()
             val type = filter.collectionType ?: CollectionType.VINYL
-            return when (filter.listMode) {
-                ListMode.FLAT -> {
+            val serial = filter.listMode == ListMode.SERIAL
+            val playable =
+                if (serial) series.map { it.toPlayable() } else records.map { it.toPlayable() }
+
+            fun empty() = Empty(
+                activeCollectionType = type,
+                listMode = filter.listMode,
+                ownedCount = stats.ownedCount,
+                wishlistCount = stats.wishlistCount,
+                hasActiveFilters = hasFilters
+            )
+
+            return when {
+                // Liste plate : la seule vue qui duplique un disque par artiste (sections par lettre).
+                !serial && displayMode == DisplayMode.LIST -> {
                     if (entries.isEmpty()) {
-                        Empty(
-                            activeCollectionType = type,
-                            listMode = ListMode.FLAT,
-                            ownedCount = stats.ownedCount,
-                            wishlistCount = stats.wishlistCount,
-                            hasActiveFilters = hasFilters
-                        )
+                        empty()
                     } else {
-                        val sections = entries
-                            .groupBy { sectionLetterOf(it.displayedArtist.name) }
-                            .toSortedMap()
-                            .map { (letter, list) -> CollectionSection(letter = letter, entries = list) }
                         FlatContent(
                             activeCollectionType = type,
-                            sections = sections,
+                            sections = entries
+                                .groupBy { sectionLetterOf(it.displayedArtist.name) }
+                                .toSortedMap()
+                                .map { (letter, list) ->
+                                    CollectionSection(letter = letter, entries = list)
+                                },
                             ownedCount = stats.ownedCount,
                             wishlistCount = stats.wishlistCount,
                             hasActiveFilters = hasFilters
                         )
                     }
                 }
-                ListMode.SERIAL -> {
+                // Séries en liste ou en grille : la maille reste la série, pas la tuile générique.
+                serial && displayMode != DisplayMode.GALLERY -> {
                     if (series.isEmpty()) {
-                        Empty(
-                            activeCollectionType = type,
-                            listMode = ListMode.SERIAL,
-                            ownedCount = stats.ownedCount,
-                            wishlistCount = stats.wishlistCount,
-                            hasActiveFilters = hasFilters
-                        )
+                        empty()
                     } else {
                         SerialContent(
                             activeCollectionType = type,
                             seriesList = series,
+                            ownedCount = stats.ownedCount,
+                            wishlistCount = stats.wishlistCount,
+                            hasActiveFilters = hasFilters,
+                            displayMode = displayMode
+                        )
+                    }
+                }
+                else -> {
+                    if (playable.isEmpty()) {
+                        empty()
+                    } else {
+                        TileContent(
+                            activeCollectionType = type,
+                            displayMode = displayMode,
+                            serial = serial,
+                            sections = if (displayMode == DisplayMode.GALLERY) {
+                                gallerySections(playable, now)
+                            } else {
+                                listOf(TileSection(TileSectionKind.ALL, playable.map { it.tile }))
+                            },
                             ownedCount = stats.ownedCount,
                             wishlistCount = stats.wishlistCount,
                             hasActiveFilters = hasFilters
@@ -514,5 +671,72 @@ sealed interface CollectionUiState {
                 }
             }
         }
+
+        /**
+         * Rubriques de la galerie. Une rubrique vide est **absente** de la liste : une collection
+         * neuve n'a aucune écoute, et un bandeau vide sous un titre ne dit rien à personne.
+         *
+         * Les trois rubriques d'écoute sont des mises en avant bornées à [GALLERY_SECTION_SIZE] ;
+         * [TileSectionKind.ALL] ferme la galerie avec la collection entière, sans quoi la vue
+         * cacherait la majorité des items.
+         */
+        private fun gallerySections(playable: List<Playable>, now: Instant): List<TileSection> {
+            val forgottenBefore = now.minus(FORGOTTEN_AFTER_DAYS, ChronoUnit.DAYS)
+            val recent = playable
+                .filter { it.lastPlayedAt != null }
+                .sortedByDescending { it.lastPlayedAt }
+                .take(GALLERY_SECTION_SIZE)
+            val most = playable
+                .filter { it.playCount > 0 }
+                .sortedWith(
+                    compareByDescending<Playable> { it.playCount }
+                        .thenByDescending { it.lastPlayedAt ?: Instant.EPOCH }
+                )
+                .take(GALLERY_SECTION_SIZE)
+            val forgotten = playable
+                .filter { it.lastPlayedAt == null || it.lastPlayedAt.isBefore(forgottenBefore) }
+                .take(GALLERY_SECTION_SIZE)
+            return listOf(
+                TileSection(TileSectionKind.RECENTLY_PLAYED, recent.map { it.tile }),
+                TileSection(TileSectionKind.MOST_PLAYED, most.map { it.tile }),
+                TileSection(TileSectionKind.FORGOTTEN, forgotten.map { it.tile }),
+                TileSection(TileSectionKind.ALL, playable.map { it.tile })
+            ).filter { it.tiles.isNotEmpty() }
+        }
+
+        /** Tuile + les deux données d'écoute qui décident des rubriques. */
+        private data class Playable(
+            val tile: CollectionTile,
+            val lastPlayedAt: Instant?,
+            val playCount: Int
+        )
+
+        private fun Record.toPlayable(): Playable = Playable(
+            tile = CollectionTile(
+                id = id,
+                title = title,
+                subtitle = primaryArtist?.name,
+                coverPath = coverPath,
+                coverUrl = coverRemoteUrl,
+                cacheKey = id,
+                playCount = playCount
+            ),
+            lastPlayedAt = lastPlayedAt,
+            playCount = playCount
+        )
+
+        private fun SeriesWithCounts.toPlayable(): Playable = Playable(
+            tile = CollectionTile(
+                id = series.id,
+                title = series.title,
+                subtitle = series.originalAuthor,
+                coverPath = series.coverPath,
+                coverUrl = series.coverRemoteUrl,
+                cacheKey = "series-${series.id}",
+                playCount = playCount
+            ),
+            lastPlayedAt = lastPlayedAt,
+            playCount = playCount
+        )
     }
 }

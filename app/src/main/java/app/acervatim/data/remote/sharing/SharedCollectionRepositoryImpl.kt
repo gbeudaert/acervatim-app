@@ -200,6 +200,7 @@ class SharedCollectionRepositoryImpl @Inject constructor(
             // alors rien. Ne pas confondre avec « présent mais vide ».
             rating = userData.int("rating"),
             lastPlayedAt = userData.string("lastPlayedAt"),
+            playCount = userData.int("playCount"),
             facts = facts
         )
     }

@@ -61,6 +61,13 @@ data class RecordEntity(
     val status: ItemStatus,
     val lastPlayedAt: Instant?,
     /**
+     * Compteur d'écoutes cumulées (jamais négatif, 0 = jamais écouté). Incrémenté par
+     * `RecordDao.markPlayed` dans la même écriture que `lastPlayedAt` : les deux décrivent
+     * le même geste. Poussé en valeur absolue dans `userData.playCount` (le PATCH serveur
+     * merge des valeurs, il n'incrémente pas).
+     */
+    val playCount: Int = 0,
+    /**
      * Champs spécifiques à un type de collection (ex. manga : publisherFr, demographic, pageCount, …).
      * Sérialisés en JSON via [Converters]. L'ISBN, autrefois ici, est désormais en colonne
      * first-class pour l'indice unique.

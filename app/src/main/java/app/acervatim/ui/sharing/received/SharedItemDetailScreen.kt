@@ -157,9 +157,10 @@ private fun SharedItemBody(item: SharedItemDetail) {
         item.facts.forEach { FactRow(it) }
     }
 
-    // `rating` et `lastPlayedAt` sont les seules données perso qui descendent jusqu'au membre.
+    // `rating`, `lastPlayedAt` et `playCount` sont les seules données perso qui descendent
+    // jusqu'au membre.
     // Absents ⇒ rien affiché : la ligne ne doit pas exister plutôt qu'exister vide.
-    if (item.rating != null || item.lastPlayedAt != null) {
+    if (item.rating != null || item.lastPlayedAt != null || item.playCount != null) {
         HorizontalDivider()
         item.rating?.let {
             LabelledValue(
@@ -169,6 +170,9 @@ private fun SharedItemBody(item: SharedItemDetail) {
         }
         item.lastPlayedAt?.let {
             LabelledValue(label = stringResource(R.string.shared_fact_last_played), value = it)
+        }
+        item.playCount?.let {
+            LabelledValue(label = stringResource(R.string.shared_fact_play_count), value = it.toString())
         }
     }
 }
@@ -213,6 +217,7 @@ private fun SharedItemDetailPreview() {
                     status = ItemStatus.OWNED,
                     rating = 9,
                     lastPlayedAt = null,
+                    playCount = null,
                     facts = listOf(
                         SharedFact(SharedFactKey.CREATORS, "Miles Davis"),
                         SharedFact(SharedFactKey.GENRE, "Jazz"),

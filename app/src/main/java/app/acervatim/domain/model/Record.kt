@@ -31,6 +31,12 @@ data class Record(
     val discogsId: Long? = null,
     val status: ItemStatus = ItemStatus.OWNED,
     val lastPlayedAt: Instant? = null,
+    /**
+     * Nombre d'écoutes cumulées, incrémenté par `MarkAsPlayedUseCase` en même temps que
+     * [lastPlayedAt] — les deux décrivent le même geste et ne doivent pas diverger.
+     * Jamais négatif ; 0 signifie « jamais écouté ».
+     */
+    val playCount: Int = 0,
     /** Champs spécifiques au type de collection (cf. [MangaExtras] pour les clés manga). */
     val extras: Map<String, String> = emptyMap(),
     val createdAt: Instant,

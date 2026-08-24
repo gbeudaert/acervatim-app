@@ -32,7 +32,9 @@ interface SeriesDao {
                COALESCE(SUM(CASE WHEN r.status = 'OWNED' THEN 1 ELSE 0 END), 0) AS ownedVolumes,
                COALESCE(SUM(CASE WHEN r.status = 'WISHLIST' THEN 1 ELSE 0 END), 0) AS wishlistVolumes,
                COALESCE(SUM(CASE WHEN r.status = 'IGNORED' THEN 1 ELSE 0 END), 0) AS ignoredVolumes,
-               COALESCE(COUNT(r.id), 0) AS totalVolumesInLibrary
+               COALESCE(COUNT(r.id), 0) AS totalVolumesInLibrary,
+               MAX(r.lastPlayedAt) AS lastPlayedAt,
+               COALESCE(SUM(r.playCount), 0) AS playCount
         FROM series s
         LEFT JOIN records r ON r.seriesId = s.id
         WHERE s.collectionType = :collectionType

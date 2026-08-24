@@ -109,6 +109,7 @@ object FacadeMapper {
         put(KEY_RATING, rating?.takeIf { it in 1..5 })
         put(KEY_PURCHASE_PRICE, purchasePrice)
         put(KEY_LAST_PLAYED_AT, lastPlayedAt?.toString())
+        put(KEY_PLAY_COUNT, playCount)
     }
 
     /** `barcode`/`isbn`/`discogsId` → `sources[]` (providers sans/avec adapter). */
@@ -140,6 +141,7 @@ object FacadeMapper {
         // ce champ n'a donc aucune destination serveur et reste local par construction.
         coverPath?.let { put("coverPath", it) }
         lastPlayedAt?.let { put(KEY_LAST_PLAYED_AT, it.toString()) }
+        playCount.takeIf { it > 0 }?.let { put(KEY_PLAY_COUNT, it) }
         put(KEY_STATUS, status.name)
         extras.forEach { (k, v) -> put("extra_$k", v) }
     }
@@ -180,6 +182,7 @@ object FacadeMapper {
             status = resolveStatus(item.userData, localExtras),
             lastPlayedAt = (userData.string(KEY_LAST_PLAYED_AT) ?: localExtras.string(KEY_LAST_PLAYED_AT))
                 ?.let { RemoteDtoMapper.parseInstantOrNull(it) },
+            playCount = resolvePlayCount(item.userData, localExtras),
             extras = mergedExtras(unified, localExtras),
             createdAt = createdAt,
             updatedAt = item.updatedAt
@@ -198,6 +201,18 @@ object FacadeMapper {
 
     private fun JsonObject.itemStatus(): ItemStatus? =
         string(KEY_STATUS)?.let { runCatching { ItemStatus.valueOf(it) }.getOrNull() }
+
+    /**
+     * Compteur d'écoutes effectif : `userData` (serveur) d'abord, repli sur le cliché local,
+     * défaut 0 — même défaut que le backend (`DEFAULT_PLAY_COUNT`), donc pas de migration de
+     * données. Une valeur aberrante (négative) est ramenée à 0 plutôt que propagée.
+     *
+     * Limite assumée du modèle : le PATCH `userData` merge des **valeurs**, il n'incrémente pas.
+     * Deux appareils qui écoutent hors ligne puis synchronisent s'écrasent mutuellement
+     * (dernier écrivain gagne) au lieu de s'additionner. Cf. sprint SD3.
+     */
+    private fun resolvePlayCount(userData: JsonObject, localExtras: JsonObject): Int =
+        (userData.int(KEY_PLAY_COUNT) ?: localExtras.int(KEY_PLAY_COUNT) ?: 0).coerceAtLeast(0)
 
     /**
      * Extras manga : ce que le serveur modélise (`publisherFr`, `pageCount`, `sourceVolumeRange`)
@@ -304,6 +319,7 @@ object FacadeMapper {
     const val KEY_RATING = "rating"
     const val KEY_PURCHASE_PRICE = "purchasePrice"
     const val KEY_LAST_PLAYED_AT = "lastPlayedAt"
+    const val KEY_PLAY_COUNT = "playCount"
     const val KEY_RECORDING_SPEED = "recordingSpeed"
     const val KEY_COUNTRY = "country"
     const val PROVIDER_ISBN = "isbn"

@@ -112,7 +112,7 @@ class SyncManagerPushTest {
         assertTrue(syncManager.syncNow().isSuccess)
 
         assertEquals(
-            setOf("status", "rating", "purchasePrice", "lastPlayedAt"),
+            setOf("status", "rating", "purchasePrice", "lastPlayedAt", "playCount"),
             api.createdItems.first().userData?.keys
         )
     }

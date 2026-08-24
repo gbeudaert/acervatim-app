@@ -172,8 +172,29 @@ interface RecordDao {
 
     // Les écritures partielles marquent la ligne DIRTY pour que la prochaine synchro la pousse.
 
-    @Query("UPDATE records SET lastPlayedAt = :lastPlayedAt, updatedAt = :updatedAt, syncState = 'DIRTY' WHERE id = :id")
-    suspend fun updateLastPlayed(id: String, lastPlayedAt: Instant?, updatedAt: Instant)
+    /**
+     * Une écoute : horodate et incrémente dans la **même** écriture. Séparer les deux
+     * laisserait passer un état où `lastPlayedAt` avance sans que le compteur suive.
+     */
+    @Query(
+        """
+        UPDATE records
+        SET lastPlayedAt = :playedAt, playCount = playCount + 1, updatedAt = :updatedAt,
+            syncState = 'DIRTY'
+        WHERE id = :id
+        """
+    )
+    suspend fun markPlayed(id: String, playedAt: Instant, updatedAt: Instant)
+
+    /** Remise à zéro du geste d'écoute : ni date, ni compteur (ils vont par paire). */
+    @Query(
+        """
+        UPDATE records
+        SET lastPlayedAt = NULL, playCount = 0, updatedAt = :updatedAt, syncState = 'DIRTY'
+        WHERE id = :id
+        """
+    )
+    suspend fun resetPlayback(id: String, updatedAt: Instant)
 
     @Query("UPDATE records SET status = :status, updatedAt = :ts, syncState = 'DIRTY' WHERE id = :id")
     suspend fun updateStatus(id: String, status: ItemStatus, ts: Instant)

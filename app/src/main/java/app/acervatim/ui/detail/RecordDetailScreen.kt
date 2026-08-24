@@ -47,6 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -276,6 +277,7 @@ private fun LoadedBody(
         HorizontalDivider()
         LastPlayedSection(
             lastPlayedAt = record.lastPlayedAt,
+            playCount = record.playCount,
             now = now,
             onMarkAsPlayed = onMarkAsPlayed,
             onResetLastPlayed = onResetLastPlayed
@@ -369,6 +371,7 @@ private fun InfoChips(record: Record) {
 @Composable
 private fun LastPlayedSection(
     lastPlayedAt: Instant?,
+    playCount: Int,
     now: Instant,
     onMarkAsPlayed: () -> Unit,
     onResetLastPlayed: () -> Unit
@@ -389,6 +392,13 @@ private fun LastPlayedSection(
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = if (lastPlayedAt == null) FontWeight.Normal else FontWeight.Medium
         )
+        if (playCount > 0) {
+            Text(
+                text = pluralStringResource(R.plurals.detail_play_count, playCount, playCount),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = onMarkAsPlayed) {
                 Text(stringResource(R.string.detail_action_played_now))
@@ -474,6 +484,7 @@ private fun RecordDetailLoadedPreview() {
                     rating = 5,
                     status = ItemStatus.OWNED,
                     lastPlayedAt = played,
+                    playCount = 12,
                     createdAt = played,
                     updatedAt = now
                 )

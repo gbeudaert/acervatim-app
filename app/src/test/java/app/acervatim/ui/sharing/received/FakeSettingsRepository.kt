@@ -1,7 +1,9 @@
 package app.acervatim.ui.sharing.received
 
 import app.acervatim.domain.model.CollectionType
+import app.acervatim.domain.model.DisplayMode
 import app.acervatim.domain.model.ListMode
+import app.acervatim.domain.model.defaultDisplayMode
 import app.acervatim.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +34,11 @@ internal class FakeSettingsRepository(
     override fun observeListMode(type: CollectionType): Flow<ListMode> = flowOf(type.defaultListMode)
 
     override suspend fun setListMode(type: CollectionType, mode: ListMode) = Unit
+
+    override fun observeDisplayMode(type: CollectionType): Flow<DisplayMode> =
+        flowOf(type.defaultDisplayMode)
+
+    override suspend fun setDisplayMode(type: CollectionType, mode: DisplayMode) = Unit
 
     override fun observeVisibleCollectionTypes(): Flow<Set<CollectionType>> =
         flowOf(CollectionType.entries.toSet())

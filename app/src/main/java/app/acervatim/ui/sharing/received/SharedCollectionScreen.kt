@@ -46,6 +46,7 @@ import app.acervatim.ui.list.ContentList
 import app.acervatim.ui.list.EmptyState
 import app.acervatim.ui.list.LoadingState
 import app.acervatim.ui.list.SerialContentList
+import app.acervatim.ui.list.TileContentBody
 import app.acervatim.ui.sharing.FailedContent
 import app.acervatim.ui.sharing.NoticeCard
 import app.acervatim.ui.sharing.messageRes
@@ -193,6 +194,10 @@ internal fun SharedCollectionScreenContent(
                     is CollectionUiState.SerialContent -> SerialContentList(
                         state = c,
                         onSeriesClick = onOpenSeries
+                    )
+                    is CollectionUiState.TileContent -> TileContentBody(
+                        state = c,
+                        onTileClick = if (c.serial) onOpenSeries else onOpenItem
                     )
                 }
             }

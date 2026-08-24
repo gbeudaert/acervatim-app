@@ -128,3 +128,17 @@ val MIGRATION_1_2: Migration = object : Migration(1, 2) {
         db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_records_barcode ON records(barcode)")
     }
 }
+
+/**
+ * v6 → v7 : compteur d'écoutes (sprint AD3).
+ *
+ * Ajoute `records.playCount`, entier non nul par défaut 0. Les disques existants repartent
+ * donc de 0 : l'app n'a jamais compté jusqu'ici, il n'y a rien à backfiller (`lastPlayedAt`
+ * ne dit pas *combien de fois*). C'est assumé et documenté côté sprint.
+ */
+val MIGRATION_6_7: Migration = object : Migration(6, 7) {
+
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE records ADD COLUMN playCount INTEGER NOT NULL DEFAULT 0")
+    }
+}

@@ -1,6 +1,7 @@
 package app.acervatim.domain.repository
 
 import app.acervatim.domain.model.CollectionType
+import app.acervatim.domain.model.DisplayMode
 import app.acervatim.domain.model.ListMode
 import kotlinx.coroutines.flow.Flow
 
@@ -33,6 +34,15 @@ interface SettingsRepository {
     fun observeListMode(type: CollectionType): Flow<ListMode>
 
     suspend fun setListMode(type: CollectionType, mode: ListMode)
+
+    /**
+     * Densité d'affichage (liste / grille / galerie) choisie pour un [CollectionType] donné.
+     * Axe **orthogonal** au mode de référencement : les deux se combinent, et chacun est persisté
+     * par type. Renvoie [defaultDisplayMode] du type si aucun choix n'a été persisté.
+     */
+    fun observeDisplayMode(type: CollectionType): Flow<DisplayMode>
+
+    suspend fun setDisplayMode(type: CollectionType, mode: DisplayMode)
 
     /**
      * Types de collection que l'utilisateur a choisi d'afficher (drawer + bascule de collection).

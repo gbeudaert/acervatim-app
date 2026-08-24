@@ -12,7 +12,7 @@ import androidx.room.TypeConverters
         SeriesEntity::class,
         CollectionEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 @TypeConverters(Converters::class)

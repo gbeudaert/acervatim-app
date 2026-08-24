@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.acervatim.domain.model.CollectionType
+import app.acervatim.domain.model.DisplayMode
 import app.acervatim.domain.model.ItemStatus
 import app.acervatim.domain.model.ListMode
 import app.acervatim.domain.model.Record
@@ -206,7 +207,16 @@ class SharedCollectionViewModel @Inject constructor(
                         visible.toEntriesByPrimaryArtist()
                     },
                     series = seriesWithCounts(state.query),
-                    stats = stats()
+                    stats = stats(),
+                    // Une collection reçue n'a pas de préférence d'affichage : on reprend la
+                    // densité historique de chaque vue — liste à plat, grille pour les séries.
+                    records = emptyList(),
+                    displayMode = if (state.listMode == ListMode.SERIAL) {
+                        DisplayMode.GRID
+                    } else {
+                        DisplayMode.LIST
+                    },
+                    now = now
                 )
             )
         }

@@ -192,7 +192,7 @@ class FacadeMapperTest {
     fun `userData never carries the server-side note field`() {
         // L'app ne modélise pas `note` : le merge PATCH ne doit jamais l'écraser.
         val userData = FacadeMapper.recordToRemote(vinylRecord(), "col-1", null).item.userData
-        assertEquals(setOf("status", "rating", "purchasePrice", "lastPlayedAt"), userData.keys)
+        assertEquals(setOf("status", "rating", "purchasePrice", "lastPlayedAt", "playCount"), userData.keys)
     }
 
     @Test
@@ -315,6 +315,100 @@ class FacadeMapperTest {
         assertEquals("seinen", restored.extras[MangaExtras.KEY_DEMOGRAPHIC])
         assertEquals("Éd. colossale", restored.extras[MangaExtras.KEY_EDITION])
     }
+
+    // ---- AD3 : compteur d'écoutes -----------------------------------------------------------
+
+    @Test
+    fun `userData carries playCount as an absolute value`() {
+        // Le PATCH serveur merge des valeurs : l'app envoie le total, jamais un delta.
+        val userData = FacadeMapper.recordToRemote(vinylRecord().copy(playCount = 7), "col-1", null)
+            .item.userData
+        assertEquals(7, userData["playCount"]!!.jsonPrimitive.int)
+    }
+
+    @Test
+    fun `a playCount of zero is pushed rather than omitted`() {
+        // Omettre la clé laisserait l'ancien compteur distant en place après une remise à zéro.
+        val userData = FacadeMapper.recordToRemote(vinylRecord().copy(playCount = 0), "col-1", null)
+            .item.userData
+        assertEquals(0, userData["playCount"]!!.jsonPrimitive.int)
+    }
+
+    @Test
+    fun `playCount stays in localExtras as the local snapshot for pulls`() {
+        val facade = FacadeMapper.recordToRemote(vinylRecord().copy(playCount = 3), "col-1", null)
+        assertEquals(3, facade.localExtras.string("playCount")?.toInt())
+    }
+
+    @Test
+    fun `remote playCount wins over the local snapshot`() {
+        val restored = FacadeMapper.remoteToRecord(
+            item = remoteItemWithPlayCount(9),
+            type = CollectionType.VINYL,
+            seriesId = null,
+            localExtras = buildJsonObject { put("playCount", 2) },
+            createdAt = now
+        )
+        assertEquals(9, restored.playCount)
+    }
+
+    @Test
+    fun `playCount falls back to the local snapshot when the server has none`() {
+        val restored = FacadeMapper.remoteToRecord(
+            item = remoteItemWithPlayCount(null),
+            type = CollectionType.VINYL,
+            seriesId = null,
+            localExtras = buildJsonObject { put("playCount", 4) },
+            createdAt = now
+        )
+        assertEquals(4, restored.playCount)
+    }
+
+    @Test
+    fun `playCount defaults to zero when neither side has one`() {
+        val restored = FacadeMapper.remoteToRecord(
+            item = remoteItemWithPlayCount(null),
+            type = CollectionType.VINYL,
+            seriesId = null,
+            localExtras = JsonObject(emptyMap()),
+            createdAt = now
+        )
+        assertEquals(0, restored.playCount)
+    }
+
+    @Test
+    fun `an aberrant negative playCount is clamped instead of propagated`() {
+        val restored = FacadeMapper.remoteToRecord(
+            item = remoteItemWithPlayCount(-3),
+            type = CollectionType.VINYL,
+            seriesId = null,
+            localExtras = JsonObject(emptyMap()),
+            createdAt = now
+        )
+        assertEquals(0, restored.playCount)
+    }
+
+    @Test
+    fun `playCount round-trips through the server`() {
+        val original = vinylRecord().copy(playCount = 12)
+        val facade = FacadeMapper.recordToRemote(original, "col-1", null)
+        val restored = FacadeMapper.remoteToRecord(
+            item = facade.item,
+            type = CollectionType.VINYL,
+            seriesId = null,
+            localExtras = JsonObject(emptyMap()),
+            createdAt = original.createdAt
+        )
+        assertEquals(12, restored.playCount)
+    }
+
+    private fun remoteItemWithPlayCount(playCount: Int?): RemoteItem = RemoteItem(
+        localId = "rec-1",
+        collectionLocalId = "col-1",
+        unifiedData = buildJsonObject { put("title", "Kind of Blue") },
+        userData = buildJsonObject { playCount?.let { put("playCount", it) } },
+        updatedAt = now
+    )
 
     private fun mangaRecord(): Record = Record(
         id = "rec-m1",

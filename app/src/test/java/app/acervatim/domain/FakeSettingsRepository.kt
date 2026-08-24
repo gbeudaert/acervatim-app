@@ -1,7 +1,9 @@
 package app.acervatim.domain
 
 import app.acervatim.domain.model.CollectionType
+import app.acervatim.domain.model.DisplayMode
 import app.acervatim.domain.model.ListMode
+import app.acervatim.domain.model.defaultDisplayMode
 import app.acervatim.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,6 +14,7 @@ class FakeSettingsRepository(
     initialDuplicate: Boolean = true,
     initialActiveCollectionType: CollectionType = CollectionType.VINYL,
     initialListModes: Map<CollectionType, ListMode> = emptyMap(),
+    initialDisplayModes: Map<CollectionType, DisplayMode> = emptyMap(),
     initialVisibleTypes: Set<CollectionType> = CollectionType.entries.toSet(),
     initialSyncedTypes: Set<CollectionType> = CollectionType.entries.toSet()
 ) : SettingsRepository {
@@ -19,6 +22,7 @@ class FakeSettingsRepository(
     private val duplicateFlag = MutableStateFlow(initialDuplicate)
     private val activeType = MutableStateFlow(initialActiveCollectionType)
     private val listModes = MutableStateFlow(initialListModes)
+    private val displayModes = MutableStateFlow(initialDisplayModes)
     private val visibleTypes = MutableStateFlow(initialVisibleTypes)
     private val syncedTypes = MutableStateFlow(initialSyncedTypes)
 
@@ -39,6 +43,13 @@ class FakeSettingsRepository(
 
     override suspend fun setListMode(type: CollectionType, mode: ListMode) {
         listModes.value = listModes.value + (type to mode)
+    }
+
+    override fun observeDisplayMode(type: CollectionType): Flow<DisplayMode> =
+        displayModes.map { it[type] ?: type.defaultDisplayMode }
+
+    override suspend fun setDisplayMode(type: CollectionType, mode: DisplayMode) {
+        displayModes.value = displayModes.value + (type to mode)
     }
 
     override fun observeVisibleCollectionTypes(): Flow<Set<CollectionType>> = visibleTypes.asStateFlow()

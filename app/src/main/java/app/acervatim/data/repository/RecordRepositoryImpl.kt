@@ -153,8 +153,12 @@ class RecordRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updateLastPlayed(id: String, ts: Instant?) {
-        recordDao.updateLastPlayed(id, lastPlayedAt = ts, updatedAt = clock.instant())
+    override suspend fun markPlayed(id: String, at: Instant) {
+        recordDao.markPlayed(id, playedAt = at, updatedAt = clock.instant())
+    }
+
+    override suspend fun resetPlayback(id: String) {
+        recordDao.resetPlayback(id, updatedAt = clock.instant())
     }
 
     override suspend fun updateStatus(id: String, status: ItemStatus, ts: Instant) {

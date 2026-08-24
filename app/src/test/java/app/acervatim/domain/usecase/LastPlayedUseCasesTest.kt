@@ -46,11 +46,47 @@ class LastPlayedUseCasesTest {
         }
     }
 
-    private fun seedRecord(lastPlayedAt: Instant? = null): Record = Record(
+    @Test
+    fun `mark as played increments the counter alongside the timestamp`() = runTest {
+        val repo = FakeRecordRepository()
+        repo.upsert(seedRecord())
+        val useCase = MarkAsPlayedUseCase(repo, clock)
+
+        useCase("1")
+        useCase("1")
+        useCase("1")
+
+        repo.observeById("1").test {
+            val record = awaitItem()!!
+            assertEquals(3, record.playCount)
+            assertEquals(now, record.lastPlayedAt)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `reset clears the counter as well as the date`() = runTest {
+        // Garder un compteur derrière une dernière écoute effacée laisserait un état incohérent.
+        val repo = FakeRecordRepository()
+        repo.upsert(seedRecord(lastPlayedAt = now, playCount = 5))
+        val resetUseCase = ResetLastPlayedUseCase(repo)
+
+        resetUseCase("1")
+
+        repo.observeById("1").test {
+            val record = awaitItem()!!
+            assertNull(record.lastPlayedAt)
+            assertEquals(0, record.playCount)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private fun seedRecord(lastPlayedAt: Instant? = null, playCount: Int = 0): Record = Record(
         id = "1",
         artists = listOf(Artist("a", "Artist")),
         title = "Title",
         lastPlayedAt = lastPlayedAt,
+        playCount = playCount,
         createdAt = now,
         updatedAt = now
     )

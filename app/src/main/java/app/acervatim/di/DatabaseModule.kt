@@ -11,6 +11,7 @@ import app.acervatim.data.local.db.AcervatimDatabase
 import app.acervatim.data.local.db.ArtistDao
 import app.acervatim.data.local.db.CollectionDao
 import app.acervatim.data.local.db.MIGRATION_1_2
+import app.acervatim.data.local.db.MIGRATION_6_7
 import app.acervatim.data.local.db.RecordDao
 import app.acervatim.data.local.db.SeriesDao
 import java.time.Clock
@@ -24,7 +25,7 @@ object DatabaseModule {
     @Singleton
     fun provideAcervatimDatabase(@ApplicationContext context: Context): AcervatimDatabase =
         Room.databaseBuilder(context, AcervatimDatabase::class.java, AcervatimDatabase.NAME)
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_6_7)
             // Pré-v1 : pas de migration historique (cf. politique migrations). La montée du
             // schéma miroir (v6) repart d'une base propre en dev ; à retirer avant la v1 publiée.
             .fallbackToDestructiveMigration()

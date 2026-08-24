@@ -9,6 +9,14 @@
     <string name="collection_search_clear">Effacer la recherche</string>
     <string name="collection_search_no_results">Aucun résultat</string>
     <string name="collection_open_filters">Filtres</string>
+    <string name="collection_display_mode">Affichage</string>
+    <string name="display_mode_list">Liste</string>
+    <string name="display_mode_grid">Grille</string>
+    <string name="display_mode_gallery">Galerie</string>
+    <string name="gallery_section_recently_played">Derniers écoutés</string>
+    <string name="gallery_section_most_played">Les plus écoutés</string>
+    <string name="gallery_section_forgotten">Jamais écoutés ou oubliés</string>
+    <string name="gallery_section_all">Toute la collection</string>
     <string name="collection_empty_title">Aucun disque pour le moment</string>
     <string name="collection_empty_subtitle">Touchez « Ajouter » pour enregistrer votre premier vinyle.</string>
     <string name="collection_empty_filtered_title">Aucun résultat</string>
@@ -194,6 +202,10 @@
     <string name="detail_last_played_never">Jamais</string>
     <string name="detail_action_played_now">Je viens de l\'écouter</string>
     <string name="detail_action_reset_played">Réinitialiser</string>
+    <plurals name="detail_play_count">
+        <item quantity="one">%d écoute</item>
+        <item quantity="other">%d écoutes</item>
+    </plurals>
     <string name="detail_status_title">Statut</string>
     <string name="detail_featuring">feat. %1$s</string>
 
@@ -507,4 +519,5 @@
     <string name="shared_fact_volume">Tome</string>
     <string name="shared_fact_rating">Note du propriétaire</string>
     <string name="shared_fact_last_played">Dernière écoute</string>
+    <string name="shared_fact_play_count">Écoutes</string>
 </resources>

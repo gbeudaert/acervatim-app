@@ -58,5 +58,7 @@ internal fun SeriesWithCountsRow.toDomain(): SeriesWithCounts = SeriesWithCounts
     ownedVolumes = ownedVolumes,
     wishlistVolumes = wishlistVolumes,
     ignoredVolumes = ignoredVolumes,
-    totalVolumesInLibrary = totalVolumesInLibrary
+    totalVolumesInLibrary = totalVolumesInLibrary,
+    lastPlayedAt = lastPlayedAt,
+    playCount = playCount
 )

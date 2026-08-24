@@ -6,6 +6,7 @@ import app.cash.turbine.test
 import app.acervatim.domain.model.AcervatimFormat
 import app.acervatim.domain.model.CollectionType
 import app.acervatim.domain.model.ItemStatus
+import app.acervatim.domain.model.sync.SyncState
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -138,6 +139,34 @@ class RecordDaoTest {
             assertEquals(listOf("C"), rows.map { it.artistName })
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun `markPlayed horodate et incremente dans la meme ecriture`() = runTest {
+        val now = Instant.parse("2026-08-24T10:00:00Z")
+        insertRecord("rec-1", "T", listOf("A"), now)
+
+        recordDao.markPlayed("rec-1", playedAt = now, updatedAt = now)
+        recordDao.markPlayed("rec-1", playedAt = now.plusSeconds(60), updatedAt = now)
+
+        val entity = recordDao.getEntityById("rec-1")!!
+        assertEquals(2, entity.playCount)
+        assertEquals(now.plusSeconds(60), entity.lastPlayedAt)
+        // Toute écriture partielle repasse la ligne en DIRTY pour la prochaine synchro.
+        assertEquals(SyncState.DIRTY, entity.syncState)
+    }
+
+    @Test
+    fun `resetPlayback efface la date et le compteur ensemble`() = runTest {
+        val now = Instant.parse("2026-08-24T10:00:00Z")
+        insertRecord("rec-1", "T", listOf("A"), now)
+        recordDao.markPlayed("rec-1", playedAt = now, updatedAt = now)
+
+        recordDao.resetPlayback("rec-1", updatedAt = now)
+
+        val entity = recordDao.getEntityById("rec-1")!!
+        assertEquals(0, entity.playCount)
+        assertNull(entity.lastPlayedAt)
     }
 
     private suspend fun insertArtist(name: String): String {

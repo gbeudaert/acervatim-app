@@ -55,6 +55,8 @@ data class BackupRecordV1(
     val status: String,
     @Serializable(with = InstantIsoSerializer::class)
     val lastPlayedAt: Instant? = null,
+    /** Compteur d'écoutes ; absent des backups antérieurs à AD3, d'où le défaut 0. */
+    val playCount: Int = 0,
     val extras: Map<String, String> = emptyMap(),
     @Serializable(with = InstantIsoSerializer::class)
     val createdAt: Instant,

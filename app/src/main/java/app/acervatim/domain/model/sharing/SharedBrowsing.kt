@@ -22,10 +22,12 @@ data class SharedFact(val key: SharedFactKey, val value: String)
 /**
  * Détail d'un élément partagé.
  *
- * [rating] et [lastPlayedAt] sont les seules données perso qui descendent jusqu'au membre : S4 réduit
- * le `userData` d'un membre à `status`, `rating` et `lastPlayedAt`. `purchasePrice`, la note libre et
- * le commentaire de série sont **absents du JSON**, pas vides — l'écran doit donc les traiter comme
- * inexistants et ne rien afficher, plutôt que d'afficher un champ vide qui suggérerait une lacune.
+ * [rating], [lastPlayedAt] et [playCount] sont les seules données perso qui descendent jusqu'au
+ * membre : S4 réduit le `userData` d'un membre à `status`, `rating`, `lastPlayedAt` et — depuis
+ * SD3 — `playCount` (un compteur en dit moins qu'un horodatage, déjà partagé).
+ * `purchasePrice`, la note libre et le commentaire de série sont **absents du JSON**, pas
+ * vides — l'écran doit donc les traiter comme inexistants et ne rien afficher, plutôt que
+ * d'afficher un champ vide qui suggérerait une lacune.
  */
 data class SharedItemDetail(
     val id: String,
@@ -36,5 +38,7 @@ data class SharedItemDetail(
     val rating: Int?,
     /** Date ISO telle que reçue ; l'écran la met en forme. */
     val lastPlayedAt: String?,
+    /** Compteur d'écoutes du propriétaire ; absent du JSON ⇒ `null`, pas 0. */
+    val playCount: Int?,
     val facts: List<SharedFact>
 )

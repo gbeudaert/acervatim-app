@@ -31,6 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.acervatim.R
 import app.acervatim.domain.model.CollectionType
+import app.acervatim.domain.model.DisplayMode
 import app.acervatim.domain.model.ListMode
 import app.acervatim.ui.components.RecordRow
 
@@ -203,14 +204,25 @@ internal fun SerialContentList(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
-        SeriesGrid(
-            items = state.seriesList,
-            onOpenSeries = onSeriesClick,
-            selectionMode = selectionMode,
-            selectedIds = selectedIds,
-            onEnterSelection = onEnterSelection,
-            onToggleSelection = onToggleSelection
-        )
+        if (state.displayMode == DisplayMode.LIST) {
+            SeriesList(
+                items = state.seriesList,
+                onOpenSeries = onSeriesClick,
+                selectionMode = selectionMode,
+                selectedIds = selectedIds,
+                onEnterSelection = onEnterSelection,
+                onToggleSelection = onToggleSelection
+            )
+        } else {
+            SeriesGrid(
+                items = state.seriesList,
+                onOpenSeries = onSeriesClick,
+                selectionMode = selectionMode,
+                selectedIds = selectedIds,
+                onEnterSelection = onEnterSelection,
+                onToggleSelection = onToggleSelection
+            )
+        }
     }
 }
 
