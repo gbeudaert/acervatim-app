@@ -36,3 +36,7 @@ contexte-ia-vinylcollection.md
 
 # Rapports de code review générés localement (multi-agents) — non versionnés.
 /docs/review/
+# BMad Method — installation partagee dans C:\Appsmad, branchee par jonctions
+# Windows (voir C:\Appsmad\link-project.ps1). Non portable : on relie, on ne versionne pas.
+/_bmad/
+/_bmad-output/
