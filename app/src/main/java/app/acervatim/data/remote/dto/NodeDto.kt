@@ -35,12 +35,19 @@ data class NodeUserDataDto(
 
 /**
  * Corps de `POST /v1/collections/:collectionId/nodes`.
- * `source` pré-remplit le nœud (enrichi via adapter). Idempotent côté back.
+ *
+ * Deux façons de remplir le nœud, combinables, dont **au moins une** est requise (backend 0.8.1) :
+ * - [source] — référence provider ; si un adapter existe (MAL), son snapshot pré-remplit la vérité
+ *   curée. Idempotent côté serveur.
+ * - [unifiedData] — vérité curée fournie par le client. C'est le chemin de la **saisie manuelle** :
+ *   une série créée par l'utilisateur n'a aucune référence provider et, sans ce champ, ne serait
+ *   tout simplement pas synchronisable.
  */
 @Serializable
 data class CreateNodeRequest(
     val level: String,
-    val source: SourceRefDto,
+    val source: SourceRefDto? = null,
+    val unifiedData: JsonObject? = null,
     val isWishlist: Boolean? = null
 )
 

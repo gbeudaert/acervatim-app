@@ -9,6 +9,8 @@ import app.acervatim.data.remote.dto.ItemDto
 import app.acervatim.data.remote.dto.NodeDto
 import app.acervatim.data.remote.dto.PatchCollectionRequest
 import app.acervatim.data.remote.dto.PatchItemRequest
+import app.acervatim.data.remote.dto.nodeRef
+import app.acervatim.data.remote.dto.volumeRef
 import app.acervatim.data.remote.dto.PatchNodeRequest
 import app.acervatim.data.remote.dto.SourceDto
 import app.acervatim.data.remote.dto.SourceRefDto
@@ -101,28 +103,68 @@ object RemoteDtoMapper {
     fun RemoteCollection.toPatchRequest(): PatchCollectionRequest =
         PatchCollectionRequest(name = name, description = description)
 
-    fun RemoteItem.toCreateRequest(nodeRef: SourceRefDto?): CreateItemRequest = CreateItemRequest(
+    /**
+     * [nodeRemoteId] et [nodeRef] sont **exclusifs** — le serveur refuse les deux ensemble.
+     * L'id serveur est le chemin de la synchronisation (la série a déjà été poussée) ; la référence
+     * provider celui des imports enrichis, qui ne connaissent pas encore cet id.
+     */
+    fun RemoteItem.toCreateRequest(
+        nodeRef: SourceRefDto? = null,
+        nodeRemoteId: String? = null
+    ): CreateItemRequest = CreateItemRequest(
         unifiedData = unifiedData,
-        node = nodeRef,
+        node = nodeRef.takeIf { nodeRemoteId == null },
+        nodeId = nodeRemoteId,
         volume = volume,
         sources = sources.map { SourceRefDto(it.provider, it.externalId) }.ifEmpty { null },
         userData = userData.takeIf { it.isNotEmpty() }
     )
 
-    fun RemoteItem.toPatchRequest(): PatchItemRequest = PatchItemRequest(
+    /**
+     * [nodeRemoteId] et [volume] ne sont envoyés que pour un type **hiérarchique** ([serial]).
+     *
+     * Sur un type plat, les omettre n'est pas une optimisation mais une nécessité : le serveur
+     * refuserait un `nodeId` sur une collection sans hiérarchie, et un `volume: null` explicite
+     * n'aurait aucun sens à répéter à chaque PATCH de vinyle.
+     */
+    fun RemoteItem.toPatchRequest(serial: Boolean = false): PatchItemRequest = PatchItemRequest(
         unifiedData = unifiedData,
         // Merge partiel côté serveur : on n'envoie que les clés que l'app modélise.
-        userData = userData.takeIf { it.isNotEmpty() }
+        userData = userData.takeIf { it.isNotEmpty() },
+        nodeId = if (serial) nodeRef(nodeRemoteId) else null,
+        volume = if (serial) volumeRef(volume) else null
     )
 
-    fun RemoteNode.toCreateRequest(source: SourceRefDto): CreateNodeRequest =
-        CreateNodeRequest(level = level, source = source, isWishlist = isWishlist)
+    /**
+     * Au moins l'un de [source] / `unifiedData` doit être présent (backend 0.8.1).
+     *
+     * La synchronisation passe par `unifiedData` : une série locale peut n'avoir aucune référence
+     * provider — l'utilisateur l'a saisie à la main — et serait sinon impossible à pousser.
+     */
+    fun RemoteNode.toCreateRequest(source: SourceRefDto? = null): CreateNodeRequest =
+        CreateNodeRequest(
+            level = level,
+            source = source,
+            unifiedData = unifiedData.takeIf { it.isNotEmpty() }
+            // `isWishlist` volontairement absent — cf. [toPatchRequest].
+        )
 
+    /**
+     * **`isWishlist` n'est jamais envoyé**, et ce n'est pas un oubli.
+     *
+     * Le serveur *supprime* le nœud quand il reçoit `isWishlist: false` sur un nœud sans tome
+     * (`nodes.service.ts`). Or l'app ne modélise pas ce drapeau : `RemoteNode.isWishlist` vaut
+     * `false` par défaut, et le transmettre aurait purgé toute série dont les tomes ne sont pas
+     * encore poussés — pour la recréer à la sync suivante, en boucle.
+     *
+     * Omettre la clé laisse `undefined` côté serveur, qui ne purge alors rien. Le jour où l'app
+     * modélisera les séries désirées sans tome, ce champ redeviendra légitime — mais il faudra
+     * alors qu'il porte une vraie intention, pas un défaut de structure.
+     */
     fun RemoteNode.toPatchRequest(): PatchNodeRequest = PatchNodeRequest(
         unifiedData = unifiedData,
         note = note,
-        comment = comment,
-        isWishlist = isWishlist
+        comment = comment
     )
 
     fun RemoteSource.toAttachRequest(): AttachSourceRequest =

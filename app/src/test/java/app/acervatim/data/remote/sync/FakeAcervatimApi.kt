@@ -26,7 +26,11 @@ import app.acervatim.data.remote.dto.PatchItemRequest
 import app.acervatim.data.remote.dto.PatchNodeRequest
 import app.acervatim.data.remote.dto.RedeemInvitationRequest
 import app.acervatim.data.remote.dto.RedeemInvitationResponse
+import app.acervatim.data.remote.dto.ReceivedShareDto
+import app.acervatim.data.remote.dto.RedeemShareRequest
+import app.acervatim.data.remote.dto.RedeemedShareDto
 import app.acervatim.data.remote.dto.ShareDto
+import app.acervatim.data.remote.dto.UpdateShareLabelRequest
 import app.acervatim.data.remote.dto.SourceWithRawDto
 import app.acervatim.data.remote.dto.SubscriptionDto
 import app.acervatim.data.remote.dto.UnifiedItemDto
@@ -164,10 +168,17 @@ class FakeAcervatimApi : AcervatimApi {
     override suspend fun connectedProviders(): PageDto<ConnectedProviderDto> = notImpl()
     override suspend fun revokeOAuth(provider: String): Response<Unit> = notImpl()
     override suspend fun verifySubscription(body: VerifySubscriptionRequest): SubscriptionDto = notImpl()
-    override suspend fun createShare(id: String, body: CreateShareRequest): CreatedShareDto = notImpl()
-    override suspend fun listShares(id: String): List<ShareDto> = notImpl()
+    override suspend fun createShare(body: CreateShareRequest): CreatedShareDto = notImpl()
+    override suspend fun listShares(collectionId: String?): List<ShareDto> = notImpl()
+    override suspend fun updateShareLabel(id: String, body: UpdateShareLabelRequest): ShareDto = notImpl()
     override suspend fun revokeShare(id: String): Response<Unit> = notImpl()
     override suspend fun revokeShareMember(id: String, memberUserId: String): Response<Unit> = notImpl()
+    override suspend fun redeemShare(body: RedeemShareRequest): RedeemedShareDto = notImpl()
+    override suspend fun receivedShares(): List<ReceivedShareDto> = notImpl()
+    override suspend fun updateReceivedShareLabel(
+        shareId: String,
+        body: UpdateShareLabelRequest
+    ): ReceivedShareDto = notImpl()
 
     private fun notImpl(): Nothing = throw NotImplementedError("not needed in tests")
 }

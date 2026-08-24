@@ -58,6 +58,11 @@ data class RemoteItem(
     val remoteId: String? = null,
     val collectionLocalId: String,
     val nodeLocalId: String? = null,
+    /**
+     * Id **serveur** du nœud parent, résolu au moment du push (le miroir local ne connaît que
+     * [nodeLocalId]). `null` = tome sans série, ou série pas encore poussée.
+     */
+    val nodeRemoteId: String? = null,
     val volume: Int? = null,
     val unifiedData: JsonObject = JsonObject(emptyMap()),
     /**
