@@ -113,6 +113,25 @@ android {
     }
 }
 
+/**
+ * JVM des tests unitaires épinglée sur le JDK 21, indépendamment de celle du daemon Gradle.
+ *
+ * Robolectric réécrit le bytecode avec ASM ; celui embarqué dans la 4.13 s'arrête à Java 22
+ * (`Unsupported class file major version 70` dès qu'il croise une classe du JDK 26). L'échec ne
+ * tombe pas sur l'assertion mais au *teardown* — « Some resetters failed » —, ce qui le fait passer
+ * pour une régression du code alors que c'est la JVM d'exécution. Le daemon reste libre de tourner
+ * sous un JDK récent : seul le fork de test redescend.
+ *
+ * À retirer le jour où Robolectric saura instrumenter sous le JDK du daemon.
+ */
+val unitTestLauncher = extensions.getByType<JavaToolchainService>().launcherFor {
+    languageVersion.set(JavaLanguageVersion.of(21))
+}
+
+tasks.withType<Test>().configureEach {
+    javaLauncher.set(unitTestLauncher)
+}
+
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
     arg("room.incremental", "true")

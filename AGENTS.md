@@ -37,8 +37,10 @@ Gradle KTS avec version catalog. La carte du code et toute la doc lisible vivent
 
 ## Known pitfalls
 
-- Tests Robolectric qui échouent sur « Some resetters failed » : c'est le daemon Gradle
-  tournant sous un JDK trop récent, pas une régression du code. Rejouer avec un daemon
-  forcé en JDK 21 avant de chercher la cause ailleurs.
+- Tests Robolectric qui échouent sur « Some resetters failed » : jamais une régression du
+  code, toujours la JVM d'exécution — l'ASM de Robolectric 4.13 ne lit pas les classes d'un
+  JDK trop récent. Le fork de test est épinglé au JDK 21 (`javaLauncher` dans
+  `app/build.gradle.kts`) ; si l'erreur revient, vérifier que l'épinglage tient et qu'un
+  JDK 21 est bien détecté (`./gradlew javaToolchains`) avant de chercher ailleurs.
 
 <!-- /bmad:context -->
