@@ -60,7 +60,7 @@ import app.acervatim.ui.components.RecordCover
 @Composable
 fun ExternalSearchScreen(
     onBack: () -> Unit,
-    onOpenAccount: () -> Unit,
+    onConnectSource: () -> Unit,
     onPressingSelected: (prefillKey: String) -> Unit,
     viewModel: ExternalSearchViewModel = hiltViewModel()
 ) {
@@ -140,7 +140,7 @@ fun ExternalSearchScreen(
                 is SearchStep.Failed -> FailureBlock(
                     failure = step.failure,
                     onRetry = viewModel::onRetry,
-                    onOpenAccount = onOpenAccount
+                    onConnectSource = onConnectSource
                 )
                 is SearchStep.Results -> ResultsList(
                     groups = step.groups,
@@ -320,14 +320,14 @@ private fun MessageBlock(
 private fun FailureBlock(
     failure: ExternalSearchFailure,
     onRetry: () -> Unit,
-    onOpenAccount: () -> Unit
+    onConnectSource: () -> Unit
 ) {
     when (failure) {
         ExternalSearchFailure.SOURCE_TOKEN_REQUIRED -> MessageBlock(
             title = stringResource(R.string.external_search_token_title),
             body = stringResource(R.string.external_search_token_body),
             action = {
-                Button(onClick = onOpenAccount) {
+                Button(onClick = onConnectSource) {
                     Text(stringResource(R.string.external_search_token_action))
                 }
             }

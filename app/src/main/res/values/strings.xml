@@ -543,8 +543,8 @@
     <string name="external_search_not_connected_title">Connectez-vous pour chercher</string>
     <string name="external_search_not_connected_body">La recherche interroge les bases externes via le serveur Acervatim : elle demande un compte. Votre collection locale, elle, reste accessible hors ligne.</string>
     <string name="external_search_token_title">Accès à la base externe requis</string>
-    <string name="external_search_token_body">Cette recherche passe par une base externe qui exige un accès. Un compte premium utilise l\'accès partagé d\'Acervatim ; vous pouvez sinon ajouter le disque à la main.</string>
-    <string name="external_search_token_action">Voir mon compte</string>
+    <string name="external_search_token_body">Cette recherche passe par une base externe qui exige un accès. Reliez votre compte à cette source dans Réglages → Gérer les collections, ou passez premium pour utiliser l\'accès partagé d\'Acervatim.</string>
+    <string name="external_search_token_action">Connecter une source</string>
     <string name="external_search_network_title">Recherche impossible</string>
     <string name="external_search_network_body">Le serveur ou la base externe est injoignable. Réessayez dans un instant.</string>
     <string name="external_search_rate_limited_title">Trop de recherches d\'affilée</string>

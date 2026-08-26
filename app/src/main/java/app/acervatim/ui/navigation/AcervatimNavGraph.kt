@@ -312,7 +312,11 @@ fun AcervatimNavGraph(
         ) {
             ExternalSearchScreen(
                 onBack = { navController.popBackStack() },
-                onOpenAccount = { navController.navigate(AcervatimDestinations.ACCOUNT_ROUTE) },
+                // Le refus de jeton se lève en reliant la source à son type de collection —
+                // c'est là que vit ce parcours, pas sur l'écran de compte.
+                onConnectSource = {
+                    navController.navigate(AcervatimDestinations.MANAGE_COLLECTION_TYPES_ROUTE)
+                },
                 // Le pressage retenu rejoint le formulaire par le chemin du scan : même passe-plat,
                 // même écran d'arrivée. Deux parcours d'ajout parallèles divergeraient.
                 onPressingSelected = { prefillKey ->
