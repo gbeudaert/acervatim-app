@@ -37,6 +37,8 @@ import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -49,6 +51,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -65,6 +68,7 @@ import app.acervatim.domain.model.RecordingSpeed
 import app.acervatim.domain.model.normalizeArtistName
 import app.acervatim.ui.components.CoverPicker
 import app.acervatim.ui.theme.AcervatimTheme
+import kotlinx.coroutines.launch
 
 @Composable
 fun AddEditRecordScreen(
@@ -76,11 +80,21 @@ fun AddEditRecordScreen(
     val suggestions by viewModel.artistSuggestions.collectAsStateWithLifecycle()
     val event by viewModel.events.collectAsStateWithLifecycle()
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val duplicateMessage = stringResource(R.string.duplicate_barcode_message)
+
     LaunchedEffect(event) {
         when (event) {
             AddRecordEvent.Saved, AddRecordEvent.NotFound -> {
                 viewModel.onEventConsumed()
                 onSaved()
+            }
+            // Le formulaire reste ouvert : l'utilisateur peut vider le code-barres et réessayer,
+            // ce qui est le geste attendu quand deux pressages d'un album partagent le même EAN.
+            is AddRecordEvent.DuplicateBarcode -> {
+                viewModel.onEventConsumed()
+                scope.launch { snackbarHostState.showSnackbar(duplicateMessage) }
             }
             null -> Unit
         }
@@ -88,6 +102,7 @@ fun AddEditRecordScreen(
 
     AddEditRecordContent(
         state = state,
+        snackbarHostState = snackbarHostState,
         artistSuggestions = suggestions,
         onArtistInputChange = viewModel::onArtistInputChange,
         onArtistCommit = viewModel::onArtistCommit,
@@ -133,12 +148,14 @@ internal fun AddEditRecordContent(
     onCoverRemoved: () -> Unit,
     onSave: () -> Unit,
     onCancel: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
 ) {
     val titleRes = if (state.isEditing) R.string.edit_record_title else R.string.add_record_title
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(titleRes)) },

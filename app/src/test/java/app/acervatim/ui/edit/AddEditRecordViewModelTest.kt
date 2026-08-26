@@ -6,6 +6,7 @@ import app.acervatim.domain.repository.CoverStorage
 import app.acervatim.domain.FakeRecordRepository
 import app.acervatim.domain.model.AcervatimFormat
 import app.acervatim.domain.model.Artist
+import app.acervatim.domain.model.ExternalMatch
 import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.ItemStatus
 import app.acervatim.domain.usecase.AddRecordUseCase
@@ -69,11 +70,13 @@ class AddEditRecordViewModelTest {
 
     private fun viewModel(
         recordId: String? = null,
-        barcode: String? = null
+        barcode: String? = null,
+        prefillKey: String? = null
     ): AddEditRecordViewModel {
         val handle = SavedStateHandle().apply {
             if (recordId != null) set(AcervatimNavArgs.RECORD_ID, recordId)
             if (barcode != null) set(AcervatimNavArgs.BARCODE, barcode)
+            if (prefillKey != null) set(AcervatimNavArgs.PREFILL_KEY, prefillKey)
         }
         return AddEditRecordViewModel(
             savedStateHandle = handle,
@@ -82,7 +85,31 @@ class AddEditRecordViewModelTest {
             addRecord = addRecord,
             updateRecord = updateRecord,
             coverStorage = coverStorage,
-            prefillHandoff = prefillHandoff
+            prefillHandoff = prefillHandoff,
+            recordRepository = repository
+        )
+    }
+
+    private fun pressing(sourceId: String, barcodes: List<String>) = ExternalMatch(
+        source = "discogs",
+        sourceId = sourceId,
+        title = "Endless Smile",
+        creators = listOf("Degiheugi"),
+        year = 2017,
+        barcodes = barcodes
+    )
+
+    private suspend fun givenRecordWithBarcode(id: String, barcode: String) {
+        repository.upsert(
+            Record(
+                id = id,
+                artists = listOf(Artist("a", "Degiheugi")),
+                title = "Endless Smile",
+                barcode = barcode,
+                status = ItemStatus.OWNED,
+                createdAt = now,
+                updatedAt = now
+            )
         )
     }
 
@@ -299,6 +326,52 @@ class AddEditRecordViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
         assertTrue(items.isEmpty())
+    }
+
+    @Test
+    fun `un code-barres deja pris ne fait plus tomber l'application`() = runTest {
+        // Le crash : DuplicateRecordException traversait le launch de save() et tuait l'app.
+        givenRecordWithBarcode("existant", "3521381542899")
+
+        val vm = viewModel()
+        vm.onArtistCommit("Degiheugi")
+        vm.onTitleChange("Endless Smile")
+        vm.onBarcodeChange("3521381542899")
+        vm.save()
+        advanceUntilIdle()
+
+        val event = vm.events.value
+        assertTrue(event is AddRecordEvent.DuplicateBarcode)
+        assertEquals("existant", (event as AddRecordEvent.DuplicateBarcode).existingRecordId)
+    }
+
+    @Test
+    fun `un pressage dont l'EAN est deja pris arrive sans code-barres, donc ajoutable`() = runTest {
+        // Discogs annonce souvent le même EAN sur deux pressages d'un même album : reprendre le
+        // code aveuglément rendait le second impossible à ajouter.
+        givenRecordWithBarcode("premier-pressage", "3521381542899")
+        val match = pressing("r2", listOf("3521381542899"))
+        prefillHandoff.put("discogs:r2", match)
+
+        val vm = viewModel(prefillKey = "discogs:r2")
+        advanceUntilIdle()
+
+        assertEquals("Endless Smile", vm.formState.value.title)
+        assertEquals("", vm.formState.value.barcode)
+
+        vm.save()
+        advanceUntilIdle()
+        assertTrue(vm.events.value is AddRecordEvent.Saved)
+    }
+
+    @Test
+    fun `un pressage dont l'EAN est libre le reprend`() = runTest {
+        prefillHandoff.put("discogs:r1", pressing("r1", listOf("3521381542899")))
+
+        val vm = viewModel(prefillKey = "discogs:r1")
+        advanceUntilIdle()
+
+        assertEquals("3521381542899", vm.formState.value.barcode)
     }
 }
 

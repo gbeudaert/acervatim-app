@@ -278,6 +278,7 @@
 
     <!-- Duplicates detection (Sprint 9) -->
     <string name="duplicate_isbn_message">Un tome avec cet ISBN existe déjà dans votre collection.</string>
+    <string name="duplicate_barcode_message">Un disque avec ce code-barres existe déjà dans votre collection. Effacez le champ code-barres pour ajouter ce pressage à part.</string>
     <string name="duplicate_series_message">Une série du même titre et auteur existe déjà.</string>
     <string name="duplicate_open_existing">Ouvrir</string>
 

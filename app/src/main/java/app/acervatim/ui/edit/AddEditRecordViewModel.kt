@@ -12,6 +12,8 @@ import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.ItemStatus
 import app.acervatim.domain.model.RecordingSpeed
 import app.acervatim.domain.model.normalizeArtistName
+import app.acervatim.domain.repository.RecordRepository
+import app.acervatim.domain.usecase.DuplicateRecordException
 import app.acervatim.ui.scan.ScanPrefillHandoff
 import app.acervatim.domain.usecase.AddRecordUseCase
 import app.acervatim.domain.usecase.ObserveArtistSuggestionsUseCase
@@ -38,7 +40,8 @@ class AddEditRecordViewModel @Inject constructor(
     private val addRecord: AddRecordUseCase,
     private val updateRecord: UpdateRecordUseCase,
     private val coverStorage: CoverStorage,
-    private val prefillHandoff: ScanPrefillHandoff
+    private val prefillHandoff: ScanPrefillHandoff,
+    private val recordRepository: RecordRepository
 ) : ViewModel() {
 
     private val navRecordId: String? = savedStateHandle.get<String>(AcervatimNavArgs.RECORD_ID)
@@ -78,6 +81,28 @@ class AddEditRecordViewModel @Inject constructor(
             ?: return
         val match = prefillHandoff.take(key) ?: return
         _formState.update { it.applyMatch(match) }
+        adoptMatchBarcode(match)
+    }
+
+    /**
+     * Reprend le code-barres porté par le résultat de recherche — **uniquement s'il est libre**.
+     *
+     * `records.barcode` est un index **unique** : c'est la clé de déduplication du scan. Or Discogs
+     * annonce souvent le même EAN sur plusieurs pressages d'un même album (la pochette ne change
+     * pas d'une réédition à l'autre). Le reprendre aveuglément rendait le second pressage
+     * **impossible à ajouter** — exactement le cas que la recherche par titre existe pour servir.
+     *
+     * Le champ reste donc vide plutôt que de porter un code qui appartient déjà à un autre disque :
+     * il est facultatif, et l'app ne peut pas deviner lequel des deux pressages le porte vraiment.
+     * Le chemin du scan n'est pas concerné — son code-barres vient de la pochette, pas du catalogue.
+     */
+    private fun adoptMatchBarcode(match: ExternalMatch) {
+        if (!navBarcode.isNullOrBlank()) return
+        val candidate = match.barcodes.firstOrNull()?.takeIf { it.isNotBlank() } ?: return
+        viewModelScope.launch {
+            if (recordRepository.findByBarcode(candidate) != null) return@launch
+            _formState.update { if (it.barcode.isBlank()) it.copy(barcode = candidate) else it }
+        }
     }
 
     private fun loadExistingRecord(id: String) {
@@ -161,12 +186,18 @@ class AddEditRecordViewModel @Inject constructor(
             val coverPath = resolveCoverPath(current)
             val input = current.toInput(coverPath)
             val existing = originalRecord
-            if (existing == null) {
-                addRecord(input, id = current.recordId)
-            } else {
-                updateRecord(existing, input)
+            try {
+                if (existing == null) {
+                    addRecord(input, id = current.recordId)
+                } else {
+                    updateRecord(existing, input)
+                }
+                _events.value = AddRecordEvent.Saved
+            } catch (duplicate: DuplicateRecordException) {
+                // `records.barcode` est un index unique : sans ce rattrapage l'exception remonte
+                // hors du `launch` et tue l'application sur un simple appui sur « Ajouter ».
+                _events.value = AddRecordEvent.DuplicateBarcode(duplicate.existingRecordId)
             }
-            _events.value = AddRecordEvent.Saved
         }
     }
 
@@ -266,9 +297,8 @@ internal fun AddRecordFormState.applyMatch(match: ExternalMatch): AddRecordFormS
     country = match.country?.takeIf { it.isNotBlank() } ?: country,
     format = match.format ?: format,
     recordingSpeed = match.recordingSpeed ?: recordingSpeed,
-    // Venu de la recherche par titre, le champ est vide : le pressage porte parfois son code-barres
-    // même quand la pochette ne l'affiche pas. Venu du scan, il est déjà rempli — on n'y touche pas.
-    barcode = barcode.ifBlank { match.barcodes.firstOrNull().orEmpty() },
+    // Le code-barres n'est pas repris ici : il porte une contrainte d'unicité et se décide en
+    // connaissant la collection — cf. `adoptMatchBarcode`.
     coverRemoteUrl = match.coverUrl ?: coverRemoteUrl
 )
 
@@ -302,4 +332,7 @@ internal fun AddRecordFormState.fromRecord(record: Record): AddRecordFormState =
 sealed interface AddRecordEvent {
     data object Saved : AddRecordEvent
     data object NotFound : AddRecordEvent
+
+    /** Un autre disque porte déjà ce code-barres. `existingRecordId` permet d'offrir « Ouvrir ». */
+    data class DuplicateBarcode(val existingRecordId: String) : AddRecordEvent
 }
