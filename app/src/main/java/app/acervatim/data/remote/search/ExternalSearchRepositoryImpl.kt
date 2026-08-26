@@ -11,6 +11,8 @@ import app.acervatim.domain.model.AcervatimFormat
 import app.acervatim.domain.model.EditionMapping
 import app.acervatim.domain.model.EditionTome
 import app.acervatim.domain.model.ExternalMatch
+import app.acervatim.domain.model.ExternalSearchException
+import app.acervatim.domain.model.ExternalSearchFailure
 import app.acervatim.domain.model.ImportJob
 import app.acervatim.domain.model.ImportJobProgress
 import app.acervatim.domain.model.ImportJobState
@@ -22,6 +24,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -42,6 +45,16 @@ class ExternalSearchRepositoryImpl @Inject constructor(
                 .data
                 .map { it.toExternalMatch() }
         }
+
+    override suspend fun searchByText(query: String, type: String): Result<List<ExternalMatch>> =
+        runCatching {
+            // Recherche texte : on envoie `q` (XOR avec `barcode`), jamais les deux.
+            // Limite plus haute qu'au scan : l'utilisateur choisit ici parmi les pressages, il lui
+            // en faut assez pour que le bon soit dans la liste.
+            api.search(type = type, query = query, limit = TEXT_SEARCH_LIMIT)
+                .data
+                .map { it.toExternalMatch() }
+        }.recoverCatching { throw it.toExternalSearchException() }
 
     override suspend fun editionMapping(titleFr: String, edition: String?): Result<EditionMapping> =
         runCatching {
@@ -86,6 +99,7 @@ class ExternalSearchRepositoryImpl @Inject constructor(
 
     private companion object {
         const val SEARCH_LIMIT = 10
+        const val TEXT_SEARCH_LIMIT = 25
     }
 }
 
@@ -122,6 +136,15 @@ internal fun UnifiedItemDto.toExternalMatch(): ExternalMatch {
         format = metadata?.stringListField("format")?.let(::deriveVinylFormat),
         recordingSpeed = metadata?.stringField("recordingSpeed")
             ?.let { code -> runCatching { RecordingSpeed.valueOf(code) }.getOrNull() },
+        // Discriminants d'un pressage (SD1) : sans eux, deux résultats d'une recherche texte
+        // s'affichent en lignes identiques alors qu'ils désignent deux disques différents.
+        label = metadata?.stringListField("label")?.firstOrNull(),
+        country = metadata?.stringField("country"),
+        catalogNumber = metadata?.stringField("catno"),
+        barcodes = metadata?.stringListField("barcodes") ?: emptyList(),
+        // `master_id` est un nombre chez Discogs : `stringField` en rend le littéral tel quel, ce
+        // qui suffit — l'app ne s'en sert que comme clé de regroupement.
+        masterId = metadata?.stringField("masterId"),
         // Titre de la série (461$t BnF) pour l'énumération des tomes ; repli sur le
         // titre du tome si absent (ancien comportement / éditeurs sans lien d'ensemble).
         seriesTitleFr = scannedTome?.stringField("seriesTitleFr")
@@ -177,3 +200,34 @@ private fun deriveVinylFormat(tokens: List<String>): AcervatimFormat? {
         else -> null
     }
 }
+
+/**
+ * Traduit une erreur de transport en [ExternalSearchException] : au-delà de cette frontière, plus
+ * personne ne connaît les statuts HTTP. Le cas qui compte est le `403 source-token-required` — le
+ * confondre avec une liste vide ferait croire à l'utilisateur que son disque n'existe pas.
+ *
+ * L'ordre des branches n'est pas indifférent : [ApiException] hérite d'[IOException], les cas
+ * spécialisés doivent donc passer avant le repli réseau.
+ */
+private fun Throwable.toExternalSearchException(): ExternalSearchException = when (this) {
+    is ExternalSearchException -> this
+    is ApiException.Forbidden ->
+        if (problem?.typeSlug == SOURCE_TOKEN_REQUIRED_SLUG) {
+            ExternalSearchException(
+                failure = ExternalSearchFailure.SOURCE_TOKEN_REQUIRED,
+                provider = problem?.provider,
+                cause = this
+            )
+        } else {
+            ExternalSearchException(ExternalSearchFailure.UNKNOWN, cause = this)
+        }
+    is ApiException.TooManyRequests -> ExternalSearchException(ExternalSearchFailure.RATE_LIMITED, cause = this)
+    // 502/503 : la source externe (ou l'attente en file) a lâché — c'est passager, comme le réseau.
+    is ApiException.Upstream -> ExternalSearchException(ExternalSearchFailure.NETWORK, cause = this)
+    is ApiException -> ExternalSearchException(ExternalSearchFailure.UNKNOWN, cause = this)
+    is IOException -> ExternalSearchException(ExternalSearchFailure.NETWORK, cause = this)
+    else -> ExternalSearchException(ExternalSearchFailure.UNKNOWN, cause = this)
+}
+
+/** Slug RFC 9457 du refus de jeton de source (cf. `agent/backend/recherche-textuelle-discogs.md`). */
+private const val SOURCE_TOKEN_REQUIRED_SLUG = "source-token-required"

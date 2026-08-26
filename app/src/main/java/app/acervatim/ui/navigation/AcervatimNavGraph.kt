@@ -15,6 +15,7 @@ import app.acervatim.ui.manga.AddEditMangaScreen
 import app.acervatim.ui.manga.MangaDetailScreen
 import app.acervatim.ui.account.AccountScreen
 import app.acervatim.ui.scan.BarcodeScanScreen
+import app.acervatim.ui.search.ExternalSearchScreen
 import app.acervatim.ui.series.AddEditSeriesScreen
 import app.acervatim.ui.series.SeriesDetailScreen
 import app.acervatim.ui.series.SeriesImportScreen
@@ -38,6 +39,9 @@ fun AcervatimNavGraph(
             CollectionScreen(
                 onAddRecord = { navController.navigate(AcervatimDestinations.addRecord()) },
                 onScanRecord = { type -> navController.navigate(AcervatimDestinations.scan(type.name)) },
+                onSearchExternal = { type ->
+                    navController.navigate(AcervatimDestinations.externalSearch(type.name))
+                },
                 onScanSeries = { type ->
                     navController.navigate(AcervatimDestinations.scan(type.name, seriesImport = true))
                 },
@@ -121,6 +125,11 @@ fun AcervatimNavGraph(
             route = AcervatimDestinations.ADD_RECORD_ROUTE,
             arguments = listOf(
                 navArgument(AcervatimNavArgs.BARCODE) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument(AcervatimNavArgs.PREFILL_KEY) {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
@@ -289,6 +298,28 @@ fun AcervatimNavGraph(
         composable(AcervatimDestinations.ACCOUNT_ROUTE) {
             AccountScreen(
                 onBack = { navController.popBackStack() }
+            )
+        }
+        composable(
+            route = AcervatimDestinations.EXTERNAL_SEARCH_ROUTE,
+            arguments = listOf(
+                navArgument(AcervatimNavArgs.COLLECTION_TYPE) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) {
+            ExternalSearchScreen(
+                onBack = { navController.popBackStack() },
+                onOpenAccount = { navController.navigate(AcervatimDestinations.ACCOUNT_ROUTE) },
+                // Le pressage retenu rejoint le formulaire par le chemin du scan : même passe-plat,
+                // même écran d'arrivée. Deux parcours d'ajout parallèles divergeraient.
+                onPressingSelected = { prefillKey ->
+                    navController.navigate(AcervatimDestinations.addRecord(prefillKey = prefillKey)) {
+                        popUpTo(AcervatimDestinations.EXTERNAL_SEARCH_ROUTE) { inclusive = true }
+                    }
+                }
             )
         }
         composable(

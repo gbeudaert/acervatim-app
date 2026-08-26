@@ -38,6 +38,8 @@
     <string name="collection_add_manual_subtitle">Remplir le formulaire à la main</string>
     <string name="collection_add_scan">Scanner un code-barres</string>
     <string name="collection_add_scan_subtitle">EAN/UPC au dos de la pochette</string>
+    <string name="collection_add_search">Rechercher par titre</string>
+    <string name="collection_add_search_subtitle">Pour un disque sans code-barres</string>
 
     <!-- Filters bottom sheet -->
     <string name="filters_title">Filtres</string>
@@ -529,4 +531,33 @@
     <string name="shared_fact_rating">Note du propriétaire</string>
     <string name="shared_fact_last_played">Dernière écoute</string>
     <string name="shared_fact_play_count">Écoutes</string>
+
+    <!-- Recherche par titre dans les bases externes (AD1) -->
+    <string name="external_search_title">Rechercher un disque</string>
+    <string name="external_search_field_label">Titre ou artiste</string>
+    <string name="external_search_clear">Effacer la recherche</string>
+    <string name="external_search_hint_title">Un disque sans code-barres ?</string>
+    <string name="external_search_hint_body">Tapez au moins 3 caractères : titre de l\'album, nom de l\'artiste, ou les deux.</string>
+    <string name="external_search_no_match_title">Aucun disque trouvé</string>
+    <string name="external_search_no_match_body">Rien ne correspond à « %1$s ». Essayez une autre orthographe, ou ajoutez le disque à la main.</string>
+    <string name="external_search_not_connected_title">Connectez-vous pour chercher</string>
+    <string name="external_search_not_connected_body">La recherche interroge les bases externes via le serveur Acervatim : elle demande un compte. Votre collection locale, elle, reste accessible hors ligne.</string>
+    <string name="external_search_token_title">Accès à la base externe requis</string>
+    <string name="external_search_token_body">Cette recherche passe par une base externe qui exige un accès. Un compte premium utilise l\'accès partagé d\'Acervatim ; vous pouvez sinon ajouter le disque à la main.</string>
+    <string name="external_search_token_action">Voir mon compte</string>
+    <string name="external_search_network_title">Recherche impossible</string>
+    <string name="external_search_network_body">Le serveur ou la base externe est injoignable. Réessayez dans un instant.</string>
+    <string name="external_search_rate_limited_title">Trop de recherches d\'affilée</string>
+    <string name="external_search_rate_limited_body">La base externe limite le rythme des requêtes. Patientez quelques secondes avant de réessayer.</string>
+    <string name="external_search_unknown_title">Recherche impossible</string>
+    <string name="external_search_unknown_body">Le serveur a renvoyé une erreur inattendue.</string>
+    <string name="external_search_retry">Réessayer</string>
+    <string name="external_search_choose_pressing">Choisir ce pressage</string>
+    <string name="external_search_unknown_artist">Artiste inconnu</string>
+    <string name="external_search_pressing_unknown_year">Année inconnue</string>
+    <string name="external_search_catalog_number">Réf. %1$s</string>
+    <plurals name="external_search_pressings">
+        <item quantity="one">%d pressage</item>
+        <item quantity="other">%d pressages</item>
+    </plurals>
 </resources>

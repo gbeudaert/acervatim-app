@@ -25,6 +25,26 @@ data class ExternalMatch(
     val format: AcervatimFormat? = null,
     /** Vitesse de gravure (vinyle : `metadata.recordingSpeed` normalisé serveur) ; `null` sinon. */
     val recordingSpeed: RecordingSpeed? = null,
+    /** Label ou sous-label du pressage (vinyle : 1re valeur de `metadata.label`) ; `null` sinon. */
+    val label: String? = null,
+    /** Pays de pressage (vinyle : `metadata.country`, code ou nom tel que Discogs le rend). */
+    val country: String? = null,
+    /**
+     * Numéro de catalogue du pressage (`metadata.catno`) — le discriminant décisif quand deux
+     * pressages partagent année, label et pays.
+     */
+    val catalogNumber: String? = null,
+    /**
+     * Codes-barres connus du pressage (`metadata.barcodes`, déjà réduits aux chiffres et dédupliqués
+     * côté serveur). Sert à pré-remplir le champ code-barres d'un disque trouvé par titre.
+     */
+    val barcodes: List<String> = emptyList(),
+    /**
+     * Id de l'album « master » Discogs (`metadata.masterId`), commun à **tous** ses pressages : c'est
+     * lui qui permet de regrouper une liste de résultats au lieu d'aligner vingt lignes identiques
+     * (cf. [PressingGroup]). `null` pour un pressage sans master déclaré.
+     */
+    val masterId: String? = null,
     /** Titre FR de la série (notice BnF `scannedTome.titleFr`) — clé de `edition-mapping`. */
     val seriesTitleFr: String? = null,
     /** N° de tome scanné (notice BnF `scannedTome.volume`). */

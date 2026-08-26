@@ -5,7 +5,8 @@ import android.net.Uri
 internal object AcervatimDestinations {
     const val COLLECTION_ROUTE: String = "collection"
     const val ADD_RECORD_ROUTE: String =
-        "record/add?${AcervatimNavArgs.BARCODE}={${AcervatimNavArgs.BARCODE}}"
+        "record/add?${AcervatimNavArgs.BARCODE}={${AcervatimNavArgs.BARCODE}}" +
+            "&${AcervatimNavArgs.PREFILL_KEY}={${AcervatimNavArgs.PREFILL_KEY}}"
     const val RECORD_DETAIL_ROUTE: String = "record/{${AcervatimNavArgs.RECORD_ID}}"
     const val EDIT_RECORD_ROUTE: String = "record/{${AcervatimNavArgs.RECORD_ID}}/edit"
     const val SETTINGS_ROUTE: String = "settings"
@@ -19,6 +20,9 @@ internal object AcervatimDestinations {
     const val SHARED_ITEM_ROUTE: String = "shared/item/{${AcervatimNavArgs.ITEM_ID}}"
     const val SHARED_SERIES_ROUTE: String =
         "shared/series/{${AcervatimNavArgs.COLLECTION_ID}}/{${AcervatimNavArgs.SERIES_ID}}"
+    /** Recherche d'un disque par titre/artiste dans les bases externes (sans code-barres). */
+    const val EXTERNAL_SEARCH_ROUTE: String =
+        "search/external?${AcervatimNavArgs.COLLECTION_TYPE}={${AcervatimNavArgs.COLLECTION_TYPE}}"
     const val SCAN_ROUTE: String =
         "scan?${AcervatimNavArgs.COLLECTION_TYPE}={${AcervatimNavArgs.COLLECTION_TYPE}}" +
             "&${AcervatimNavArgs.SERIES_IMPORT}={${AcervatimNavArgs.SERIES_IMPORT}}" +
@@ -37,9 +41,25 @@ internal object AcervatimDestinations {
     const val EDIT_MANGA_ROUTE: String = "manga/{${AcervatimNavArgs.RECORD_ID}}/edit"
     const val MANGA_DETAIL_ROUTE: String = "manga/{${AcervatimNavArgs.RECORD_ID}}"
 
-    fun addRecord(barcode: String? = null): String {
-        val encoded = barcode?.takeIf { it.isNotBlank() }?.let(Uri::encode)
-        return if (encoded != null) "record/add?${AcervatimNavArgs.BARCODE}=$encoded" else "record/add"
+    /**
+     * Formulaire d'ajout d'un disque. [barcode] pré-remplit le champ code-barres (chemin du scan) ;
+     * [prefillKey] désigne un match déposé au passe-plat sans code-barres associé (chemin de la
+     * recherche par titre). Le scan n'a besoin que du premier : la clé y **est** le code-barres.
+     */
+    fun addRecord(barcode: String? = null, prefillKey: String? = null): String {
+        val params = buildList {
+            barcode?.takeIf { it.isNotBlank() }
+                ?.let { add("${AcervatimNavArgs.BARCODE}=${Uri.encode(it)}") }
+            prefillKey?.takeIf { it.isNotBlank() }
+                ?.let { add("${AcervatimNavArgs.PREFILL_KEY}=${Uri.encode(it)}") }
+        }
+        return if (params.isEmpty()) "record/add" else "record/add?" + params.joinToString("&")
+    }
+
+    fun externalSearch(collectionType: String? = null): String {
+        val encoded = collectionType?.takeIf { it.isNotBlank() }?.let(Uri::encode)
+        return if (encoded != null) "search/external?${AcervatimNavArgs.COLLECTION_TYPE}=$encoded"
+        else "search/external"
     }
 
     fun scan(
@@ -106,6 +126,8 @@ internal object AcervatimNavArgs {
     const val SERIES_ID: String = "seriesId"
     const val COLLECTION_TYPE: String = "collectionType"
     const val VOLUME_NUMBER: String = "volumeNumber"
+    /** Clé d'un match déposé dans `ScanPrefillHandoff` quand elle n'est pas un code-barres. */
+    const val PREFILL_KEY: String = "prefillKey"
     const val SERIES_IMPORT: String = "seriesImport"
     const val COLLECTION_ID: String = "collectionId"
     const val ITEM_ID: String = "itemId"

@@ -22,6 +22,26 @@ interface ExternalSearchRepository {
     suspend fun searchByBarcode(barcode: String, type: String): Result<List<ExternalMatch>>
 
     /**
+     * Recherche en texte libre (titre, artiste) — le chemin de secours des disques **sans
+     * code-barres** (pressages indépendants, autoproductions), introuvables par le scan.
+     *
+     * Symétrique de [searchByBarcode] : l'implémentation envoie `q` **XOR** `barcode`, jamais les
+     * deux — le backend rejette une requête qui porte les deux.
+     *
+     * Contrairement au code-barres, un texte renvoie couramment vingt à trente pressages du même
+     * album : les résultats portent de quoi les départager (année, label, pays, format, numéro de
+     * catalogue) et se regroupent par `masterId` — cf. `groupPressings()`.
+     *
+     * L'échec est rendu en `failure(ExternalSearchException)` : la cause transport est traduite en
+     * [app.acervatim.domain.model.ExternalSearchFailure] dès la couche `data`, pour que l'appelant
+     * distingue « aucun résultat » (succès, liste vide) d'un refus de jeton, qui demande une action.
+     *
+     * @param query texte saisi, non vide.
+     * @param type code de collection aligné sur le contrat (`"vinyl"`, …).
+     */
+    suspend fun searchByText(query: String, type: String): Result<List<ExternalMatch>>
+
+    /**
      * Énumère une édition manga complète via le backend (`GET /v1/search/edition-mapping`), pour
      * importer « toute la série d'un coup ». Appel optionnel et explicite (quota) : réservé au bouton
      * « Importer tous les tomes connus ».

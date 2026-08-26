@@ -43,6 +43,7 @@ class AddEditRecordViewModel @Inject constructor(
 
     private val navRecordId: String? = savedStateHandle.get<String>(AcervatimNavArgs.RECORD_ID)
     private val navBarcode: String? = savedStateHandle.get<String>(AcervatimNavArgs.BARCODE)
+    private val navPrefillKey: String? = savedStateHandle.get<String>(AcervatimNavArgs.PREFILL_KEY)
     private val isEditing: Boolean = navRecordId != null
     private var originalRecord: Record? = null
 
@@ -66,10 +67,16 @@ class AddEditRecordViewModel @Inject constructor(
         if (isEditing) loadExistingRecord(navRecordId!!) else applyScanPrefill()
     }
 
-    /** Pré-remplit le formulaire si le scan a déposé un résultat enrichi pour ce code-barres. */
+    /**
+     * Pré-remplit le formulaire si un écran amont a déposé un résultat enrichi pour cette clé : le
+     * code-barres au scan, l'identité du pressage retenu depuis la recherche par titre — laquelle
+     * sert justement aux disques qui n'ont pas de code-barres.
+     */
     private fun applyScanPrefill() {
-        val barcode = navBarcode?.takeIf { it.isNotBlank() } ?: return
-        val match = prefillHandoff.take(barcode) ?: return
+        val key = navPrefillKey?.takeIf { it.isNotBlank() }
+            ?: navBarcode?.takeIf { it.isNotBlank() }
+            ?: return
+        val match = prefillHandoff.take(key) ?: return
         _formState.update { it.applyMatch(match) }
     }
 
@@ -255,8 +262,13 @@ internal fun AddRecordFormState.applyMatch(match: ExternalMatch): AddRecordFormS
     artists = match.creators.ifEmpty { artists },
     year = match.year?.toString() ?: year,
     genre = match.genre?.takeIf { it.isNotBlank() } ?: genre,
+    label = match.label?.takeIf { it.isNotBlank() } ?: label,
+    country = match.country?.takeIf { it.isNotBlank() } ?: country,
     format = match.format ?: format,
     recordingSpeed = match.recordingSpeed ?: recordingSpeed,
+    // Venu de la recherche par titre, le champ est vide : le pressage porte parfois son code-barres
+    // même quand la pochette ne l'affiche pas. Venu du scan, il est déjà rempli — on n'y touche pas.
+    barcode = barcode.ifBlank { match.barcodes.firstOrNull().orEmpty() },
     coverRemoteUrl = match.coverUrl ?: coverRemoteUrl
 )
 

@@ -159,7 +159,26 @@ class FakeAcervatimApi : AcervatimApi {
     override suspend fun getNodeSources(id: String): List<SourceWithRawDto> = notImpl()
     override suspend fun patchNode(id: String, body: PatchNodeRequest): Response<NodeDto> = notImpl()
     override suspend fun attachNodeSource(id: String, body: AttachSourceRequest): NodeDto = notImpl()
-    override suspend fun search(type: String, query: String?, barcode: String?, cursor: String?, limit: Int?): PageDto<UnifiedItemDto> = notImpl()
+    /** Dernier appel reçu par `search` : sert à vérifier le XOR `q` / `barcode`. */
+    data class SearchCall(
+        val type: String,
+        val query: String?,
+        val barcode: String?,
+        val cursor: String?,
+        val limit: Int?
+    )
+
+    val searchCalls = mutableListOf<SearchCall>()
+
+    /** Résultats renvoyés par `search` ; `searchError` (s'il est posé) prime et est levé. */
+    var searchResults: List<UnifiedItemDto> = emptyList()
+    var searchError: Throwable? = null
+
+    override suspend fun search(type: String, query: String?, barcode: String?, cursor: String?, limit: Int?): PageDto<UnifiedItemDto> {
+        searchCalls += SearchCall(type, query, barcode, cursor, limit)
+        searchError?.let { throw it }
+        return PageDto(data = searchResults)
+    }
     override suspend fun editionMapping(title: String, edition: String?): EditionMappingDto = notImpl()
     override suspend fun cover(isbn: String, title: String?, volume: Int?, edition: String?): CoverResponseDto = notImpl()
     override suspend fun startImportJob(body: CreateImportJobRequest): ImportJobDto = notImpl()

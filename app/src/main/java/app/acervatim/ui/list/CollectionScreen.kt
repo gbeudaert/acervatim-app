@@ -93,6 +93,7 @@ import kotlinx.coroutines.launch
 fun CollectionScreen(
     onAddRecord: () -> Unit,
     onScanRecord: (CollectionType) -> Unit,
+    onSearchExternal: (CollectionType) -> Unit,
     onScanSeries: (CollectionType) -> Unit,
     onAddManga: () -> Unit,
     onAddSeries: (CollectionType) -> Unit,
@@ -147,6 +148,7 @@ fun CollectionScreen(
         onCollectionTypeSelected = viewModel::onCollectionTypeSelected,
         onAddRecord = onAddRecord,
         onScanRecord = { onScanRecord(activeType) },
+        onSearchExternal = { onSearchExternal(activeType) },
         onScanSeries = { onScanSeries(activeType) },
         onAddManga = onAddManga,
         onAddSeries = { onAddSeries(activeType) },
@@ -212,6 +214,7 @@ internal fun CollectionScreenContent(
     onCollectionTypeSelected: (CollectionType) -> Unit,
     onAddRecord: () -> Unit,
     onScanRecord: () -> Unit,
+    onSearchExternal: () -> Unit,
     onScanSeries: () -> Unit,
     onAddManga: () -> Unit,
     onAddSeries: () -> Unit,
@@ -409,6 +412,12 @@ internal fun CollectionScreenContent(
                     addSheetVisible = false
                     onScanRecord()
                 }
+            },
+            onSearch = {
+                scope.launch { addSheetState.hide() }.invokeOnCompletion {
+                    addSheetVisible = false
+                    onSearchExternal()
+                }
             }
         )
     }
@@ -568,7 +577,8 @@ private fun AddSourceBottomSheet(
     signedIn: Boolean,
     onDismiss: () -> Unit,
     onManual: () -> Unit,
-    onScan: () -> Unit
+    onScan: () -> Unit,
+    onSearch: () -> Unit
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -610,6 +620,25 @@ private fun AddSourceBottomSheet(
                         .fillMaxWidth()
                         .clickable(onClick = onScan)
                 )
+                // Le chemin de secours du scan, à côté de lui et non dans un sous-menu : c'est ici
+                // qu'on le cherche quand la pochette n'a pas de code-barres. Vinyle seulement — le
+                // manga a son propre parcours par titre (edition-mapping).
+                if (activeCollectionType == CollectionType.VINYL) {
+                    ListItem(
+                        leadingContent = {
+                            Icon(Icons.Filled.Search, contentDescription = null)
+                        },
+                        headlineContent = {
+                            Text(stringResource(R.string.collection_add_search))
+                        },
+                        supportingContent = {
+                            Text(stringResource(R.string.collection_add_search_subtitle))
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onSearch)
+                    )
+                }
             }
         }
     }
@@ -917,6 +946,7 @@ private fun CollectionScreenEmptyPreview() {
             onCollectionTypeSelected = {},
             onAddRecord = {},
             onScanRecord = {},
+            onSearchExternal = {},
             onScanSeries = {},
             onAddManga = {},
             onAddSeries = {},

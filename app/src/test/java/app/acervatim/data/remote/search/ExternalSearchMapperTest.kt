@@ -72,5 +72,41 @@ class ExternalSearchMapperTest {
         assertNull(match.genre)
         assertNull(match.format)
         assertNull(match.recordingSpeed)
+        assertNull(match.label)
+        assertNull(match.country)
+        assertNull(match.catalogNumber)
+        assertNull(match.masterId)
+        assertEquals(emptyList<String>(), match.barcodes)
+    }
+
+    @Test
+    fun `extrait les discriminants d'un pressage (SD1)`() {
+        // Sans ces champs, deux pressages d'un même album s'affichent en lignes identiques : c'est
+        // exactement ce que la recherche par titre doit permettre de départager.
+        val dto = decode(
+            """
+            {
+              "source":"discogs","sourceId":"10432","mediaType":"vinyl",
+              "title":"Degiheugi - Endless Smile","creators":["Degiheugi"],
+              "releaseDate":"2017-01-01",
+              "metadata":{
+                "label":["Jarring Effects","JarringFX"],
+                "country":"France",
+                "catno":"ENLP07",
+                "barcodes":["3521381542899"],
+                "masterId":1234567
+              }
+            }
+            """.trimIndent()
+        )
+
+        val match = dto.toExternalMatch()
+
+        assertEquals("Jarring Effects", match.label)
+        assertEquals("France", match.country)
+        assertEquals("ENLP07", match.catalogNumber)
+        assertEquals(listOf("3521381542899"), match.barcodes)
+        // `master_id` est un nombre chez Discogs : l'app n'en fait qu'une clé de regroupement.
+        assertEquals("1234567", match.masterId)
     }
 }

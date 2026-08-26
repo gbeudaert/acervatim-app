@@ -17,6 +17,12 @@ class FakeExternalSearchRepository : ExternalSearchRepository {
     var lastType: String? = null
     var callCount: Int = 0
 
+    /** Recherche texte : programmable séparément du code-barres (les deux chemins sont distincts). */
+    var textResult: Result<List<ExternalMatch>> = Result.success(emptyList())
+    val textQueries: MutableList<String> = mutableListOf()
+    var lastTextType: String? = null
+    val textCallCount: Int get() = textQueries.size
+
     /** Programmable pour les tests d'import de série ; échec par défaut (aucun mapping). */
     var editionMappingResult: Result<EditionMapping> =
         Result.failure(IllegalStateException("no mapping configured"))
@@ -37,6 +43,12 @@ class FakeExternalSearchRepository : ExternalSearchRepository {
         lastBarcode = barcode
         lastType = type
         return result
+    }
+
+    override suspend fun searchByText(query: String, type: String): Result<List<ExternalMatch>> {
+        textQueries += query
+        lastTextType = type
+        return textResult
     }
 
     override suspend fun editionMapping(titleFr: String, edition: String?): Result<EditionMapping> {

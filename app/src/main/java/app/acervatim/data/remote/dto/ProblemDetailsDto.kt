@@ -27,7 +27,12 @@ data class ProblemDetailsDto(
     val detail: String? = null,
     val instance: String? = null,
     val requestId: String? = null,
-    val errors: List<ProblemFieldErrorDto>? = null
+    val errors: List<ProblemFieldErrorDto>? = null,
+    /**
+     * Extension RFC 9457 propre à `source-token-required` : la source externe qui réclame un jeton
+     * (`"discogs"`, …). C'est elle qui décide vers quel parcours router l'utilisateur.
+     */
+    val provider: String? = null
 ) {
     /**
      * Suffixe après `…/probs/` (ex. `validation-error`, `quota-exceeded`), seul élément stable
