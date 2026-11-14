@@ -55,7 +55,44 @@ class AccountViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun vm() = AccountViewModel(auth, sync, account)
+    private val catchUpStore = app.acervatim.domain.FakeSeriesCatchUpStore()
+
+    private fun vm() = AccountViewModel(
+        auth,
+        sync,
+        account,
+        app.acervatim.domain.usecase.ClearSeriesCatchUpUseCase(
+            catchUpStore,
+            app.acervatim.domain.usecase.SeriesUpdatesCache(
+                app.acervatim.domain.FakeExternalSearchRepository(),
+                java.time.Clock.systemUTC()
+            )
+        )
+    )
+
+    @Test
+    fun `la deconnexion vide l'etat de rattrapage des series`() = runTest {
+        catchUpStore.currentOwner = "u1"
+        catchUpStore.states["s-1"] = app.acervatim.domain.model.SeriesCatchUpState()
+        val v = vm()
+
+        v.signOut()
+        advanceUntilIdle()
+
+        assertTrue(catchUpStore.states.isEmpty())
+        assertEquals(null, catchUpStore.currentOwner)
+    }
+
+    @Test
+    fun `la suppression du compte vide l'etat de rattrapage des series`() = runTest {
+        catchUpStore.states["s-1"] = app.acervatim.domain.model.SeriesCatchUpState()
+        val v = vm()
+
+        v.deleteAccount()
+        advanceUntilIdle()
+
+        assertTrue(catchUpStore.states.isEmpty())
+    }
 
     @Test
     fun `init refreshes account info`() = runTest {

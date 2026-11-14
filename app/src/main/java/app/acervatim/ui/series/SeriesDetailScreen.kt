@@ -65,10 +65,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.acervatim.R
+import app.acervatim.domain.model.EditionTome
 import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.Series
 import app.acervatim.domain.usecase.BulkEditResult
 import app.acervatim.domain.usecase.DeleteResult
+import app.acervatim.domain.usecase.ImportResult
 import app.acervatim.domain.usecase.RefreshResult
 import app.acervatim.ui.components.ZoomableCover
 import app.acervatim.ui.list.BulkEditSheet
@@ -91,6 +93,10 @@ fun SeriesDetailScreen(
     val bulkEditResult by viewModel.bulkEditResult.collectAsStateWithLifecycle()
     val bulkDeleteResult by viewModel.bulkDeleteResult.collectAsStateWithLifecycle()
     val refreshResult by viewModel.refreshResult.collectAsStateWithLifecycle()
+    val newVolumes by viewModel.newVolumes.collectAsStateWithLifecycle()
+    val addingNewVolumes by viewModel.addingNewVolumes.collectAsStateWithLifecycle()
+    val newVolumesResult by viewModel.newVolumesResult.collectAsStateWithLifecycle()
+    val newVolumesFailed by viewModel.newVolumesFailed.collectAsStateWithLifecycle()
 
     LaunchedEffect(event) {
         if (event is SeriesDetailEvent.Deleted) {
@@ -121,7 +127,15 @@ fun SeriesDetailScreen(
         onBulkDeleteResultShown = viewModel::consumeBulkDeleteResult,
         onRefresh = viewModel::applyRefresh,
         refreshResult = refreshResult,
-        onRefreshResultShown = viewModel::consumeRefreshResult
+        onRefreshResultShown = viewModel::consumeRefreshResult,
+        newVolumes = newVolumes,
+        addingNewVolumes = addingNewVolumes,
+        onAddNewVolumes = viewModel::onAddNewVolumes,
+        onDismissNewVolumes = viewModel::onDismissNewVolumes,
+        newVolumesResult = newVolumesResult,
+        onNewVolumesResultShown = viewModel::consumeNewVolumesResult,
+        newVolumesFailed = newVolumesFailed,
+        onNewVolumesFailedShown = viewModel::consumeNewVolumesFailed
     )
 
     if (bulkEditSheetOpen && state is SeriesDetailUiState.Loaded) {
@@ -157,7 +171,15 @@ internal fun SeriesDetailContent(
     onBulkDeleteResultShown: () -> Unit = {},
     onRefresh: (overwrite: Boolean) -> Unit = {},
     refreshResult: RefreshResult? = null,
-    onRefreshResultShown: () -> Unit = {}
+    onRefreshResultShown: () -> Unit = {},
+    newVolumes: List<EditionTome> = emptyList(),
+    addingNewVolumes: Boolean = false,
+    onAddNewVolumes: () -> Unit = {},
+    onDismissNewVolumes: () -> Unit = {},
+    newVolumesResult: ImportResult? = null,
+    onNewVolumesResultShown: () -> Unit = {},
+    newVolumesFailed: Boolean = false,
+    onNewVolumesFailedShown: () -> Unit = {}
 ) {
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
@@ -196,6 +218,20 @@ internal fun SeriesDetailContent(
         }
         snackbarHostState.showSnackbar(message)
         onRefreshResultShown()
+    }
+    LaunchedEffect(newVolumesResult) {
+        val result = newVolumesResult ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(
+            context.resources.getQuantityString(
+                R.plurals.series_catch_up_result, result.createdVolumes, result.createdVolumes
+            )
+        )
+        onNewVolumesResultShown()
+    }
+    LaunchedEffect(newVolumesFailed) {
+        if (!newVolumesFailed) return@LaunchedEffect
+        snackbarHostState.showSnackbar(context.getString(R.string.series_catch_up_failed))
+        onNewVolumesFailedShown()
     }
 
     Scaffold(
@@ -300,7 +336,20 @@ internal fun SeriesDetailContent(
                     selectionMode = selectionMode,
                     selectedIds = selectedIds,
                     onEnterSelection = onEnterSelection,
-                    onToggleSelection = onToggleSelection
+                    onToggleSelection = onToggleSelection,
+                    // Masquée en mode sélection : la barre d'actions occupe alors l'attention.
+                    banner = if (newVolumes.isNotEmpty() && !selectionMode) {
+                        {
+                            NewVolumesBanner(
+                                tomes = newVolumes,
+                                adding = addingNewVolumes,
+                                onAdd = onAddNewVolumes,
+                                onLater = onDismissNewVolumes
+                            )
+                        }
+                    } else {
+                        null
+                    }
                 )
             }
         }

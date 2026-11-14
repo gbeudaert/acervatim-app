@@ -1,5 +1,6 @@
 package app.acervatim.domain.usecase
 
+import app.acervatim.domain.FakeSeriesCatchUpStore
 import app.acervatim.domain.FakeRecordRepository
 import app.acervatim.domain.FakeSeriesRepository
 import app.acervatim.domain.model.Artist
@@ -21,7 +22,7 @@ class DeleteRecordsUseCaseTest {
     private val series = FakeSeriesRepository(records)
     private val useCase = DeleteRecordsUseCase(
         deleteRecord = DeleteRecordUseCase(records),
-        deleteSeries = DeleteSeriesUseCase(series, records),
+        deleteSeries = DeleteSeriesUseCase(series, records, FakeSeriesCatchUpStore()),
         recordRepository = records
     )
 

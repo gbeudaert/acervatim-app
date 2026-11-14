@@ -1,6 +1,7 @@
 package app.acervatim.domain.usecase
 
 import app.acervatim.domain.repository.RecordRepository
+import app.acervatim.domain.repository.SeriesCatchUpStore
 import app.acervatim.domain.repository.SeriesRepository
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -17,7 +18,8 @@ import javax.inject.Inject
  */
 class DeleteSeriesUseCase @Inject constructor(
     private val seriesRepository: SeriesRepository,
-    private val recordRepository: RecordRepository
+    private val recordRepository: RecordRepository,
+    private val catchUpStore: SeriesCatchUpStore
 ) {
     suspend operator fun invoke(seriesId: String, cascade: Boolean) {
         if (cascade) {
@@ -25,5 +27,8 @@ class DeleteSeriesUseCase @Inject constructor(
                 .forEach { recordRepository.deleteById(it.id) }
         }
         seriesRepository.deleteById(seriesId)
+        // L'état de rattrapage (AD3) est indexé par série : sans ce ménage, il survivrait à la
+        // série dans le DataStore, pour rien.
+        catchUpStore.clear(seriesId)
     }
 }

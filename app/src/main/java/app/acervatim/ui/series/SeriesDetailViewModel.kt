@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import app.acervatim.domain.model.EditionTome
 import app.acervatim.domain.model.ItemStatus
 import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.Series
@@ -13,7 +14,10 @@ import app.acervatim.domain.usecase.BulkEditResult
 import app.acervatim.domain.usecase.DeleteRecordsUseCase
 import app.acervatim.domain.usecase.DeleteResult
 import app.acervatim.domain.usecase.DeleteSeriesUseCase
+import app.acervatim.domain.usecase.ImportResult
 import app.acervatim.domain.usecase.RefreshMetadataUseCase
+import app.acervatim.domain.usecase.SeriesCatchUpUseCase
+import kotlinx.coroutines.CancellationException
 import app.acervatim.domain.usecase.RefreshOptions
 import app.acervatim.domain.usecase.RefreshResult
 import app.acervatim.domain.usecase.ObserveSeriesByIdUseCase
@@ -41,13 +45,82 @@ class SeriesDetailViewModel @Inject constructor(
     private val deleteSeries: DeleteSeriesUseCase,
     private val updateRecords: UpdateRecordsUseCase,
     private val deleteRecords: DeleteRecordsUseCase,
-    private val refreshMetadata: RefreshMetadataUseCase
+    private val refreshMetadata: RefreshMetadataUseCase,
+    private val catchUp: SeriesCatchUpUseCase
 ) : ViewModel() {
 
     private val seriesId: String =
         checkNotNull(savedStateHandle.get<String>(AcervatimNavArgs.SERIES_ID)) {
             "Missing nav argument: ${AcervatimNavArgs.SERIES_ID}"
         }
+
+    // ---- Rattrapage des nouveaux tomes (AD3) ---------------------------------------------------
+
+    private val _newVolumes = MutableStateFlow<List<EditionTome>>(emptyList())
+
+    /** Nouveaux tomes de l'édition à proposer (bannière) ; vide = rien à montrer. */
+    val newVolumes: StateFlow<List<EditionTome>> = _newVolumes.asStateFlow()
+
+    private val _addingNewVolumes = MutableStateFlow(false)
+    val addingNewVolumes: StateFlow<Boolean> = _addingNewVolumes.asStateFlow()
+
+    private val _newVolumesResult = MutableStateFlow<ImportResult?>(null)
+    val newVolumesResult: StateFlow<ImportResult?> = _newVolumesResult.asStateFlow()
+
+    /** L'ajout des nouveaux tomes a échoué : message à afficher une fois (la bannière reste). */
+    private val _newVolumesFailed = MutableStateFlow(false)
+    val newVolumesFailed: StateFlow<Boolean> = _newVolumesFailed.asStateFlow()
+
+    init {
+        // Vérification d'arrière-plan à l'ouverture : le use case décide seul s'il faut appeler le
+        // réseau (session, série suivie, dernière vérification ≥ 7 jours). Un échec ne doit jamais
+        // gêner l'écran : au pire, pas de bannière.
+        viewModelScope.launch {
+            _newVolumes.value = try {
+                catchUp.check(seriesId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                emptyList()
+            }
+        }
+    }
+
+    /** « Ajouter à la wishlist » : crée les tomes proposés, puis retire la bannière. */
+    fun onAddNewVolumes() {
+        if (_addingNewVolumes.value || _newVolumes.value.isEmpty()) return
+        // Posé avant le launch : garde de ré-entrance synchrone contre un double tap.
+        _addingNewVolumes.value = true
+        viewModelScope.launch {
+            try {
+                val result = catchUp.addToWishlist(seriesId)
+                _newVolumes.value = emptyList()
+                _newVolumesResult.value = result
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Sans ce filet, le bouton restait « en cours » pour toujours. La bannière reste
+                // affichée : l'utilisateur peut réessayer (les tomes déjà créés sont dédupliqués).
+                _newVolumesFailed.value = true
+            } finally {
+                _addingNewVolumes.value = false
+            }
+        }
+    }
+
+    fun consumeNewVolumesFailed() {
+        _newVolumesFailed.value = false
+    }
+
+    /** « Plus tard » : masque la bannière jusqu'à la prochaine vérification. */
+    fun onDismissNewVolumes() {
+        _newVolumes.value = emptyList()
+        viewModelScope.launch { catchUp.dismiss(seriesId) }
+    }
+
+    fun consumeNewVolumesResult() {
+        _newVolumesResult.value = null
+    }
 
     val uiState: StateFlow<SeriesDetailUiState> = combine(
         observeSeries(seriesId),

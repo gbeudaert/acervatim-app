@@ -1,8 +1,10 @@
 package app.acervatim.ui.series
 
 import androidx.lifecycle.SavedStateHandle
+import app.acervatim.domain.FakeAuthRepository
 import app.acervatim.domain.FakeExternalSearchRepository
 import app.acervatim.domain.FakeRecordRepository
+import app.acervatim.domain.FakeSeriesCatchUpStore
 import app.acervatim.domain.FakeSeriesRepository
 import app.acervatim.domain.model.Artist
 import app.acervatim.domain.model.CollectionType
@@ -14,14 +16,17 @@ import app.acervatim.domain.repository.CoverStorage
 import app.acervatim.domain.usecase.DeleteRecordUseCase
 import app.acervatim.domain.usecase.DeleteRecordsUseCase
 import app.acervatim.domain.usecase.DeleteSeriesUseCase
+import app.acervatim.domain.usecase.ImportScannedSeriesUseCase
 import app.acervatim.domain.usecase.FieldEdit
 import app.acervatim.domain.usecase.BulkEditDelta
 import app.acervatim.domain.usecase.ObserveSeriesByIdUseCase
 import app.acervatim.domain.usecase.ObserveSeriesItemsUseCase
 import app.acervatim.domain.usecase.RefreshMetadataUseCase
+import app.acervatim.domain.usecase.SeriesCatchUpUseCase
 import app.acervatim.domain.usecase.UpdateItemStatusUseCase
 import app.acervatim.domain.usecase.UpdateRecordUseCase
 import app.acervatim.domain.usecase.UpdateRecordsUseCase
+import app.acervatim.ui.sharing.FakeAccountRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -66,11 +71,11 @@ class SeriesDetailSelectionViewModelTest {
         observeSeries = ObserveSeriesByIdUseCase(series),
         observeItems = ObserveSeriesItemsUseCase(records),
         updateItemStatus = UpdateItemStatusUseCase(records, clock),
-        deleteSeries = DeleteSeriesUseCase(series, records),
+        deleteSeries = DeleteSeriesUseCase(series, records, FakeSeriesCatchUpStore()),
         updateRecords = UpdateRecordsUseCase(records, UpdateRecordUseCase(records, clock)),
         deleteRecords = DeleteRecordsUseCase(
             deleteRecord = DeleteRecordUseCase(records),
-            deleteSeries = DeleteSeriesUseCase(series, records),
+            deleteSeries = DeleteSeriesUseCase(series, records, FakeSeriesCatchUpStore()),
             recordRepository = records
         ),
         refreshMetadata = RefreshMetadataUseCase(
@@ -78,6 +83,18 @@ class SeriesDetailSelectionViewModelTest {
             seriesRepository = series,
             externalSearch = externalSearch,
             coverStorage = NoopCoverStorage,
+            clock = clock
+        ),
+        // Session absente : le rattrapage (AD3) ne fait aucun appel réseau, l'écran reste celui testé ici.
+        catchUp = SeriesCatchUpUseCase(
+            seriesRepository = series,
+            recordRepository = records,
+            externalSearch = externalSearch,
+            store = FakeSeriesCatchUpStore(),
+            authRepository = FakeAuthRepository(),
+            accountRepository = FakeAccountRepository(),
+            importSeries = ImportScannedSeriesUseCase(series, records, externalSearch, NoopCoverStorage, clock),
+            updatesCache = app.acervatim.domain.usecase.SeriesUpdatesCache(externalSearch, clock),
             clock = clock
         )
     )

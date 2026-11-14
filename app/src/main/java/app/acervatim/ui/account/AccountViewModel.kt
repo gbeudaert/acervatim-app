@@ -11,6 +11,7 @@ import app.acervatim.domain.model.sync.SyncStatus
 import app.acervatim.domain.repository.AccountRepository
 import app.acervatim.domain.repository.AuthRepository
 import app.acervatim.domain.repository.SyncRepository
+import app.acervatim.domain.usecase.ClearSeriesCatchUpUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -42,7 +43,8 @@ sealed interface RedeemUiState {
 class AccountViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val syncRepository: SyncRepository,
-    private val accountRepository: AccountRepository
+    private val accountRepository: AccountRepository,
+    private val clearSeriesCatchUp: ClearSeriesCatchUpUseCase
 ) : ViewModel() {
 
     private val signInErrorFlow = MutableStateFlow<SignInError?>(null)
@@ -88,10 +90,16 @@ class AccountViewModel @Inject constructor(
         }
     }
 
-    fun signOut() = authRepository.signOut()
+    fun signOut() {
+        authRepository.signOut()
+        // L'état de rattrapage des séries a été calculé pour ce compte : il part avec la session.
+        viewModelScope.launch { clearSeriesCatchUp() }
+    }
 
     fun deleteAccount() {
-        viewModelScope.launch { authRepository.deleteAccount() }
+        viewModelScope.launch {
+            authRepository.deleteAccount().onSuccess { clearSeriesCatchUp() }
+        }
     }
 
     fun redeemInvitation(code: String) {

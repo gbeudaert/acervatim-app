@@ -60,7 +60,12 @@ internal fun SeriesDetailBody(
     selectionMode: Boolean = false,
     selectedIds: Set<String> = emptySet(),
     onEnterSelection: (String) -> Unit = {},
-    onToggleSelection: (String) -> Unit = {}
+    onToggleSelection: (String) -> Unit = {},
+    /**
+     * Encart placé sous l'en-tête — la bannière des nouveaux tomes (AD3) pour ses propres séries.
+     * `null` pour une série reçue en partage : un lecteur n'a rien à ajouter à la wishlist d'autrui.
+     */
+    banner: (@Composable () -> Unit)? = null
 ) {
     var headerExpanded by rememberSaveable { mutableStateOf(true) }
 
@@ -77,6 +82,9 @@ internal fun SeriesDetailBody(
                 expanded = headerExpanded,
                 onToggle = { headerExpanded = !headerExpanded }
             )
+        }
+        if (banner != null) {
+            item(span = { GridItemSpan(maxLineSpan) }) { banner() }
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
             Text(
