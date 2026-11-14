@@ -40,3 +40,6 @@ contexte-ia-vinylcollection.md
 # Windows (voir C:\Appsmad\link-project.ps1). Non portable : on relie, on ne versionne pas.
 /_bmad/
 /_bmad-output/
+
+# Captures logcat exportees depuis Android Studio : traces de debogage locales.
+*.logcat
