@@ -19,6 +19,7 @@ import app.acervatim.ui.search.ExternalSearchScreen
 import app.acervatim.ui.series.AddEditSeriesScreen
 import app.acervatim.ui.series.SeriesDetailScreen
 import app.acervatim.ui.series.SeriesImportScreen
+import app.acervatim.ui.series.SeriesSearchScreen
 import app.acervatim.ui.sharing.SharingScreen
 import app.acervatim.ui.sharing.received.ReceivedSharesScreen
 import app.acervatim.ui.sharing.received.SharedCollectionScreen
@@ -48,6 +49,9 @@ fun AcervatimNavGraph(
                 onAddManga = { navController.navigate(AcervatimDestinations.addManga()) },
                 onAddSeries = { type ->
                     navController.navigate(AcervatimDestinations.addSeries(type.name))
+                },
+                onSearchSeries = {
+                    navController.navigate(AcervatimDestinations.SERIES_SEARCH_ROUTE)
                 },
                 onOpenRecord = { id ->
                     navController.navigate(AcervatimDestinations.recordDetail(id))
@@ -206,6 +210,16 @@ fun AcervatimNavGraph(
             route = AcervatimDestinations.ADD_SERIES_ROUTE,
             arguments = listOf(
                 navArgument(AcervatimNavArgs.COLLECTION_TYPE) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument(AcervatimNavArgs.PREFILL_TITLE) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument(AcervatimNavArgs.PREFILL_AUTHOR) {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
@@ -378,6 +392,28 @@ fun AcervatimNavGraph(
                     }
                     navController.navigate(route) {
                         popUpTo(AcervatimDestinations.SCAN_ROUTE) { inclusive = true }
+                    }
+                }
+            )
+        }
+        composable(AcervatimDestinations.SERIES_SEARCH_ROUTE) {
+            SeriesSearchScreen(
+                onBack = { navController.popBackStack() },
+                // Le refus de jeton (repli MAL quand MangaDex est en panne) se lève comme pour les
+                // disques : en reliant la source à son type de collection.
+                onConnectSource = {
+                    navController.navigate(AcervatimDestinations.MANAGE_COLLECTION_TYPES_ROUTE)
+                },
+                onOpenSeries = { seriesId ->
+                    navController.navigate(AcervatimDestinations.seriesDetail(seriesId)) {
+                        popUpTo(AcervatimDestinations.SERIES_SEARCH_ROUTE) { inclusive = true }
+                    }
+                },
+                onCreateManually = { title, author ->
+                    navController.navigate(
+                        AcervatimDestinations.addSeries(CollectionType.MANGA.name, title, author)
+                    ) {
+                        popUpTo(AcervatimDestinations.SERIES_SEARCH_ROUTE) { inclusive = true }
                     }
                 }
             )

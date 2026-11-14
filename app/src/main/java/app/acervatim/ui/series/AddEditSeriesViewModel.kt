@@ -43,7 +43,12 @@ class AddEditSeriesViewModel @Inject constructor(
             seriesId = navSeriesId ?: UUID.randomUUID().toString(),
             collectionType = navCollectionType,
             isEditing = isEditing,
-            isLoading = isEditing
+            isLoading = isEditing,
+            // Création seulement : la recherche par titre sans édition française trouvée renvoie ici
+            // avec ce qu'elle a appris (titre, auteur) — à corriger au besoin, pas à retaper. En
+            // édition, la série chargée fait foi.
+            title = if (isEditing) "" else savedStateHandle.prefill(AcervatimNavArgs.PREFILL_TITLE),
+            originalAuthor = if (isEditing) "" else savedStateHandle.prefill(AcervatimNavArgs.PREFILL_AUTHOR)
         )
     )
     val formState: StateFlow<AddSeriesFormState> = _formState.asStateFlow()
@@ -113,6 +118,9 @@ class AddEditSeriesViewModel @Inject constructor(
             }
         }
     }
+
+    private fun SavedStateHandle.prefill(key: String): String =
+        get<String>(key)?.trim().orEmpty()
 
     private suspend fun resolveCoverPath(state: AddSeriesFormState): String? {
         val pending = state.pendingCoverUri

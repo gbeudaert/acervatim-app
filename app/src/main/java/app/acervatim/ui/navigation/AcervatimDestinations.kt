@@ -31,7 +31,11 @@ internal object AcervatimDestinations {
         "series/import?${AcervatimNavArgs.BARCODE}={${AcervatimNavArgs.BARCODE}}"
     const val SERIES_DETAIL_ROUTE: String = "series/{${AcervatimNavArgs.SERIES_ID}}"
     const val ADD_SERIES_ROUTE: String =
-        "series/add?${AcervatimNavArgs.COLLECTION_TYPE}={${AcervatimNavArgs.COLLECTION_TYPE}}"
+        "series/add?${AcervatimNavArgs.COLLECTION_TYPE}={${AcervatimNavArgs.COLLECTION_TYPE}}" +
+            "&${AcervatimNavArgs.PREFILL_TITLE}={${AcervatimNavArgs.PREFILL_TITLE}}" +
+            "&${AcervatimNavArgs.PREFILL_AUTHOR}={${AcervatimNavArgs.PREFILL_AUTHOR}}"
+    /** Recherche d'une série manga par titre, pour l'ajouter sans tome possédé (wishlist). */
+    const val SERIES_SEARCH_ROUTE: String = "series/search"
     const val EDIT_SERIES_ROUTE: String =
         "series/{${AcervatimNavArgs.SERIES_ID}}/edit"
     const val ADD_MANGA_ROUTE: String =
@@ -94,10 +98,25 @@ internal object AcervatimDestinations {
     fun editRecord(id: String): String = "record/$id/edit"
     fun seriesDetail(id: String): String = "series/$id"
 
-    fun addSeries(collectionType: String? = null): String {
-        val encoded = collectionType?.takeIf { it.isNotBlank() }?.let(Uri::encode)
-        return if (encoded != null) "series/add?${AcervatimNavArgs.COLLECTION_TYPE}=$encoded"
-        else "series/add"
+    /**
+     * Création manuelle d'une série. [title] / [author] la pré-remplissent quand on y arrive depuis la
+     * recherche par titre sans édition française trouvée : ce que la recherche a appris n'est pas à
+     * retaper.
+     */
+    fun addSeries(
+        collectionType: String? = null,
+        title: String? = null,
+        author: String? = null
+    ): String {
+        val params = buildList {
+            collectionType?.takeIf { it.isNotBlank() }
+                ?.let { add("${AcervatimNavArgs.COLLECTION_TYPE}=${Uri.encode(it)}") }
+            title?.takeIf { it.isNotBlank() }
+                ?.let { add("${AcervatimNavArgs.PREFILL_TITLE}=${Uri.encode(it)}") }
+            author?.takeIf { it.isNotBlank() }
+                ?.let { add("${AcervatimNavArgs.PREFILL_AUTHOR}=${Uri.encode(it)}") }
+        }
+        return if (params.isEmpty()) "series/add" else "series/add?" + params.joinToString("&")
     }
 
     fun editSeries(id: String): String = "series/$id/edit"
@@ -128,6 +147,9 @@ internal object AcervatimNavArgs {
     const val VOLUME_NUMBER: String = "volumeNumber"
     /** Clé d'un match déposé dans `ScanPrefillHandoff` quand elle n'est pas un code-barres. */
     const val PREFILL_KEY: String = "prefillKey"
+    /** Titre / auteur pré-remplis d'une nouvelle série (repli « création manuelle » de la recherche). */
+    const val PREFILL_TITLE: String = "prefillTitle"
+    const val PREFILL_AUTHOR: String = "prefillAuthor"
     const val SERIES_IMPORT: String = "seriesImport"
     const val COLLECTION_ID: String = "collectionId"
     const val ITEM_ID: String = "itemId"

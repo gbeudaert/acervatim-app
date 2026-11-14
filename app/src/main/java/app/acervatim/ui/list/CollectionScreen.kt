@@ -98,6 +98,7 @@ fun CollectionScreen(
     onAddManga: () -> Unit,
     onAddSeries: (CollectionType) -> Unit,
     onOpenRecord: (String) -> Unit,
+    onSearchSeries: () -> Unit = {},
     onOpenSeries: (String) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAccount: () -> Unit,
@@ -152,6 +153,7 @@ fun CollectionScreen(
         onScanSeries = { onScanSeries(activeType) },
         onAddManga = onAddManga,
         onAddSeries = { onAddSeries(activeType) },
+        onSearchSeries = onSearchSeries,
         onRecordClick = onOpenRecord,
         onSeriesClick = onOpenSeries,
         onEnterSelection = viewModel::enterSelection,
@@ -221,6 +223,7 @@ internal fun CollectionScreenContent(
     onRecordClick: (String) -> Unit,
     onSeriesClick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    onSearchSeries: () -> Unit = {},
     selectionMode: Boolean = false,
     selectedIds: Set<String> = emptySet(),
     onEnterSelection: (String) -> Unit = {},
@@ -437,6 +440,12 @@ internal fun CollectionScreenContent(
                     serialSheetVisible = false
                     onScanSeries()
                 }
+            },
+            onSearch = {
+                scope.launch { serialSheetState.hide() }.invokeOnCompletion {
+                    serialSheetVisible = false
+                    onSearchSeries()
+                }
             }
         )
     }
@@ -622,7 +631,8 @@ private fun AddSourceBottomSheet(
                 )
                 // Le chemin de secours du scan, à côté de lui et non dans un sous-menu : c'est ici
                 // qu'on le cherche quand la pochette n'a pas de code-barres. Vinyle seulement — le
-                // manga a son propre parcours par titre (edition-mapping).
+                // manga se cherche par titre au niveau de la SÉRIE (feuille de la vue séries), pas du
+                // tome : c'est une série qu'on ajoute à sa wishlist, avec tous ses tomes.
                 if (activeCollectionType == CollectionType.VINYL) {
                     ListItem(
                         leadingContent = {
@@ -645,9 +655,10 @@ private fun AddSourceBottomSheet(
 }
 
 /**
- * Feuille d'ajout en **vue séries** (manga connecté) : créer une série vide à la main, ou scanner un
- * tome pour importer la série (cf. [SeriesImportScreen]). N'apparaît que connecté : le scan transite
- * par l'API.
+ * Feuille d'ajout en **vue séries** (manga connecté) : scanner un tome pour importer la série (cf.
+ * [SeriesImportScreen]), chercher une série par titre sans en posséder de tome (cf.
+ * [app.acervatim.ui.series.SeriesSearchScreen] — la porte d'entrée de la wishlist), ou créer une série
+ * vide à la main. N'apparaît que connecté : scan et recherche transitent par l'API.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -655,7 +666,8 @@ private fun SerialAddBottomSheet(
     sheetState: androidx.compose.material3.SheetState,
     onDismiss: () -> Unit,
     onNewSeries: () -> Unit,
-    onScan: () -> Unit
+    onScan: () -> Unit,
+    onSearch: () -> Unit
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -675,6 +687,14 @@ private fun SerialAddBottomSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onScan)
+            )
+            ListItem(
+                leadingContent = { Icon(Icons.Filled.Search, contentDescription = null) },
+                headlineContent = { Text(stringResource(R.string.collection_serial_search)) },
+                supportingContent = { Text(stringResource(R.string.collection_serial_search_subtitle)) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onSearch)
             )
             ListItem(
                 leadingContent = { Icon(Icons.Filled.Edit, contentDescription = null) },
