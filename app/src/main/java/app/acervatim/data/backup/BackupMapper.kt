@@ -47,7 +47,10 @@ internal fun Series.toBackupDto(coverInZip: String?): BackupSeriesV1 = BackupSer
     synopsis = synopsis,
     coverInZip = coverInZip,
     createdAt = createdAt,
-    updatedAt = updatedAt
+    updatedAt = updatedAt,
+    edition = edition,
+    publisherFr = publisherFr,
+    mangaId = mangaId
 )
 
 /**
@@ -95,6 +98,9 @@ internal fun BackupSeriesV1.toSeries(resolvedCoverPath: String?): Series = Serie
     totalVolumes = totalVolumes,
     synopsis = synopsis,
     coverPath = resolvedCoverPath,
+    edition = edition,
+    publisherFr = publisherFr,
+    mangaId = mangaId,
     createdAt = createdAt,
     updatedAt = updatedAt
 )

@@ -561,4 +561,65 @@
         <item quantity="one">%d pressage</item>
         <item quantity="other">%d pressages</item>
     </plurals>
+
+    <!-- Recherche d'une série manga par titre, pour la wishlist (AD1 manga) -->
+    <string name="collection_serial_search">Rechercher une série</string>
+    <string name="collection_serial_search_subtitle">Par son titre, sans posséder de tome : tous ses tomes vont en wishlist</string>
+    <string name="series_search_title">Rechercher une série</string>
+    <string name="series_search_field_label">Titre de la série</string>
+    <string name="series_search_hint_title">Une série que vous n\'avez pas encore ?</string>
+    <string name="series_search_hint_body">Tapez au moins 3 caractères du titre, en français ou dans sa langue d\'origine. Vous choisirez ensuite l\'édition française ; tous ses tomes rejoindront votre wishlist.</string>
+    <string name="series_search_no_match_title">Aucune série trouvée</string>
+    <string name="series_search_no_match_body">Rien ne correspond à « %1$s ». Essayez le titre original ou une autre orthographe.</string>
+    <string name="series_search_credit">Données : MangaDex, BnF</string>
+    <string name="series_search_unknown_author">Auteur inconnu</string>
+    <string name="series_search_unknown_publisher">Éditeur inconnu</string>
+    <string name="series_search_status_ongoing">En cours</string>
+    <string name="series_search_status_completed">Terminée</string>
+    <string name="series_search_status_hiatus">En pause</string>
+    <string name="series_search_status_cancelled">Arrêtée</string>
+    <plurals name="series_search_original_volumes">
+        <item quantity="one">%d tome en VO</item>
+        <item quantity="other">%d tomes en VO</item>
+    </plurals>
+    <string name="series_search_editions_title">Choisir l\'édition</string>
+    <string name="series_search_editions_loading">Recherche des éditions françaises…</string>
+    <string name="series_search_edition_standard">Édition standard</string>
+    <string name="series_search_edition_art">Édition d\'art</string>
+    <string name="series_search_edition_ongoing">En cours</string>
+    <string name="series_search_edition_years">%1$s – %2$s</string>
+    <string name="series_search_edition_compiles">Chaque tome regroupe plusieurs tomes de l\'édition standard</string>
+    <plurals name="series_search_edition_tomes">
+        <item quantity="one">%d tome</item>
+        <item quantity="other">%d tomes</item>
+    </plurals>
+    <string name="series_search_editions_empty_title">Aucune édition française trouvée</string>
+    <string name="series_search_editions_empty_body">La BnF ne référence pas d\'édition française de cette série — ou ses tomes sont trop récents pour être déjà catalogués. Vous pouvez créer la série à la main.</string>
+    <string name="series_search_create_manually">Créer la série à la main</string>
+    <plurals name="series_search_import_result">
+        <item quantity="one">%1$d tome ajouté à la wishlist · %2$d déjà présent(s)</item>
+        <item quantity="other">%1$d tomes ajoutés à la wishlist · %2$d déjà présent(s)</item>
+    </plurals>
+    <string name="series_search_import_ongoing">Série en cours : les tomes les plus récents peuvent manquer, la BnF les catalogue quelques semaines après leur sortie.</string>
+    <string name="series_search_import_failed_title">L\'import n\'a pas abouti</string>
+    <string name="series_search_import_failed_body">Une erreur a interrompu la création de la série. Les tomes déjà ajoutés sont conservés ; vous pouvez réessayer ou choisir une autre édition.</string>
+    <string name="series_search_import_back_to_editions">Revenir aux éditions</string>
+    <string name="series_search_import_degraded">La liste des tomes n\'a pas pu être récupérée : la série a été créée sans tome.</string>
+    <string name="source_mangadex">MangaDex</string>
+
+    <!-- Rattrapage des nouveaux tomes d'une série en cours (AD3, spec-macro-import-serie-manga). -->
+    <plurals name="series_catch_up_title">
+        <item quantity="one">%d nouveau tome disponible</item>
+        <item quantity="other">%d nouveaux tomes disponibles</item>
+    </plurals>
+    <string name="series_catch_up_volumes">Tomes %1$s</string>
+    <string name="series_catch_up_delay_note">Les nouveaux tomes apparaissent quelques semaines après leur sortie.</string>
+    <string name="series_catch_up_add">Ajouter à la wishlist</string>
+    <string name="series_catch_up_later">Plus tard</string>
+    <string name="series_catch_up_adding">Ajout des tomes en cours</string>
+    <string name="series_catch_up_failed">Les nouveaux tomes n\'ont pas pu être ajoutés. Réessayez.</string>
+    <plurals name="series_catch_up_result">
+        <item quantity="one">%d tome ajouté à la wishlist</item>
+        <item quantity="other">%d tomes ajoutés à la wishlist</item>
+    </plurals>
 </resources>

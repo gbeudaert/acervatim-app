@@ -316,6 +316,66 @@ class FacadeMapperTest {
         assertEquals("Éd. colossale", restored.extras[MangaExtras.KEY_EDITION])
     }
 
+    // ---- AD2 : l'édition dans le contrat (SD2) ---------------------------------------------
+
+    @Test
+    fun `manga item unifiedData carries the edition since SD2`() {
+        val unified = FacadeMapper.recordToRemote(mangaRecord(), "col-1", "node-1").item.unifiedData
+        assertEquals("Éd. colossale", unified.string("edition"))
+    }
+
+    @Test
+    fun `the item edition survives a pull without any local snapshot`() {
+        val facade = FacadeMapper.recordToRemote(mangaRecord(), "col-1", "node-1")
+        val restored = FacadeMapper.remoteToRecord(
+            item = facade.item,
+            type = CollectionType.MANGA,
+            seriesId = "series-1",
+            localExtras = JsonObject(emptyMap()),
+            createdAt = now
+        )
+        // Second appareil : plus de cliché local, l'édition revient du serveur.
+        assertEquals("Éd. colossale", restored.extras[MangaExtras.KEY_EDITION])
+    }
+
+    @Test
+    fun `series edition identity round-trips through the node`() {
+        val series = app.acervatim.domain.model.Series(
+            id = "s-1",
+            collectionType = CollectionType.MANGA,
+            title = "L'attaque des titans",
+            originalAuthor = "Hajime Isayama",
+            edition = "Éd. colossale",
+            publisherFr = "Pika",
+            mangaId = "md-snk",
+            createdAt = now,
+            updatedAt = now
+        )
+
+        val facade = FacadeMapper.seriesToRemote(series, "col-1")
+        assertEquals("Pika", facade.node.unifiedData.string("publisherFr"))
+        assertEquals("Éd. colossale", facade.node.unifiedData.string("edition"))
+        assertEquals("md-snk", facade.node.unifiedData.string("mangaId"))
+
+        val restored = FacadeMapper.remoteToSeries(facade.node, CollectionType.MANGA, JsonObject(emptyMap()), now)
+        assertEquals("Éd. colossale", restored.edition)
+        assertEquals("Pika", restored.publisherFr)
+        assertEquals("md-snk", restored.mangaId)
+    }
+
+    @Test
+    fun `a series without edition sends no edition keys`() {
+        val series = app.acervatim.domain.model.Series(
+            id = "s-2",
+            collectionType = CollectionType.MANGA,
+            title = "Ma série perso",
+            createdAt = now,
+            updatedAt = now
+        )
+        val unified = FacadeMapper.seriesToRemote(series, "col-1").node.unifiedData
+        assertTrue("edition" !in unified && "publisherFr" !in unified && "mangaId" !in unified)
+    }
+
     // ---- AD3 : compteur d'écoutes -----------------------------------------------------------
 
     @Test

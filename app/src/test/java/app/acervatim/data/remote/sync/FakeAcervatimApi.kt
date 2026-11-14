@@ -29,6 +29,8 @@ import app.acervatim.data.remote.dto.RedeemInvitationResponse
 import app.acervatim.data.remote.dto.ReceivedShareDto
 import app.acervatim.data.remote.dto.RedeemShareRequest
 import app.acervatim.data.remote.dto.RedeemedShareDto
+import app.acervatim.data.remote.dto.SeriesEditionsDto
+import app.acervatim.data.remote.dto.SeriesUpdatesDto
 import app.acervatim.data.remote.dto.ShareDto
 import app.acervatim.data.remote.dto.UpdateShareLabelRequest
 import app.acervatim.data.remote.dto.SourceWithRawDto
@@ -179,9 +181,47 @@ class FakeAcervatimApi : AcervatimApi {
         searchError?.let { throw it }
         return PageDto(data = searchResults)
     }
-    override suspend fun editionMapping(title: String, edition: String?): EditionMappingDto = notImpl()
+    /** Derniers paramètres reçus par `editionMapping` (`title, edition, publisher, mangaId, since`). */
+    val editionMappingCalls = mutableListOf<List<String?>>()
+    var editionMappingResult: EditionMappingDto? = null
+
+    override suspend fun editionMapping(
+        title: String,
+        edition: String?,
+        publisher: String?,
+        mangaId: String?,
+        since: String?
+    ): EditionMappingDto {
+        editionMappingCalls += listOf(title, edition, publisher, mangaId, since)
+        return editionMappingResult ?: notImpl()
+    }
+
+    var editionsResult: SeriesEditionsDto? = null
+    var editionsError: Throwable? = null
+    val editionsCalls = mutableListOf<Pair<String, String?>>()
+
+    override suspend fun searchEditions(mangaId: String, title: String?): SeriesEditionsDto {
+        editionsCalls += mangaId to title
+        editionsError?.let { throw it }
+        return editionsResult ?: notImpl()
+    }
+
+    var seriesUpdatesResult: SeriesUpdatesDto? = null
+    var seriesUpdatesError: Throwable? = null
+
+    override suspend fun seriesUpdates(): SeriesUpdatesDto {
+        seriesUpdatesError?.let { throw it }
+        return seriesUpdatesResult ?: notImpl()
+    }
+
     override suspend fun cover(isbn: String, title: String?, volume: Int?, edition: String?): CoverResponseDto = notImpl()
-    override suspend fun startImportJob(body: CreateImportJobRequest): ImportJobDto = notImpl()
+
+    val importJobRequests = mutableListOf<CreateImportJobRequest>()
+
+    override suspend fun startImportJob(body: CreateImportJobRequest): ImportJobDto {
+        importJobRequests += body
+        return ImportJobDto(jobId = "job-${body.title}", state = "queued")
+    }
     override suspend fun importJobStatus(id: String): ImportJobStatusDto = notImpl()
     override suspend fun startOAuth(provider: String): OAuthStartResponse = notImpl()
     override suspend fun connectedProviders(): PageDto<ConnectedProviderDto> = notImpl()

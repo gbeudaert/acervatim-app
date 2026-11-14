@@ -4,6 +4,8 @@ import app.acervatim.data.local.db.normalizeSeriesKey
 import app.acervatim.domain.model.CollectionType
 import app.acervatim.domain.model.Series
 import app.acervatim.domain.model.SeriesWithCounts
+import app.acervatim.domain.model.normalizeEditionKey
+import app.acervatim.domain.model.normalizePublisherKey
 import app.acervatim.domain.repository.RecordRepository
 import app.acervatim.domain.repository.SeriesRepository
 import kotlinx.coroutines.flow.Flow
@@ -69,20 +71,44 @@ class FakeSeriesRepository(
     override suspend fun findByNaturalKey(
         collectionType: CollectionType,
         title: String,
-        originalAuthor: String?
+        originalAuthor: String?,
+        publisherFr: String?,
+        edition: String?
     ): Series? {
         val nt = normalizeSeriesKey(title)
         val na = normalizeSeriesKey(originalAuthor)
+        val np = normalizePublisherKey(publisherFr)
+        val ne = normalizeEditionKey(edition)
         return state.value.firstOrNull { s ->
             s.collectionType == collectionType &&
                 normalizeSeriesKey(s.title) == nt &&
-                normalizeSeriesKey(s.originalAuthor) == na
+                normalizeSeriesKey(s.originalAuthor) == na &&
+                normalizePublisherKey(s.publisherFr) == np &&
+                normalizeEditionKey(s.edition) == ne
         }
     }
+
+    /** Identifiants serveur programmables (le domaine [Series] ne porte pas son `remoteId`). */
+    val remoteIds: MutableMap<String, String> = mutableMapOf()
+
+    override suspend fun findByRemoteId(remoteId: String): Series? =
+        remoteIds[remoteId]?.let { localId -> state.value.firstOrNull { it.id == localId } }
+
+    /** Lectures de [remoteIdOf] : le rattrapage ne doit en faire qu'une par vérification. */
+    var remoteIdOfCalls: Int = 0
+
+    override suspend fun remoteIdOf(seriesId: String): String? {
+        remoteIdOfCalls++
+        return remoteIds.entries.firstOrNull { it.value == seriesId }?.key
+    }
+
+    /** Échec programmable de [upsert], pour tester les filets d'erreur des appelants. */
+    var failOnUpsert: Throwable? = null
 
     override suspend fun listAll(): List<Series> = state.value
 
     override suspend fun upsert(series: Series) {
+        failOnUpsert?.let { throw it }
         state.update { current ->
             val idx = current.indexOfFirst { it.id == series.id }
             if (idx >= 0) current.toMutableList().apply { set(idx, series) }

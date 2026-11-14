@@ -142,3 +142,59 @@ val MIGRATION_6_7: Migration = object : Migration(6, 7) {
         db.execSQL("ALTER TABLE records ADD COLUMN playCount INTEGER NOT NULL DEFAULT 0")
     }
 }
+
+/**
+ * v7 → v8 : l'édition entre dans l'identité d'une série, et la recherche locale devient
+ * insensible aux accents (sprint AD2).
+ *
+ * - `series` gagne `edition`, `publisherFr`, `mangaId` et leurs clés normalisées
+ *   `normalizedPublisher` / `normalizedEdition` (`''` = éditeur inconnu / édition standard).
+ * - L'index unique `index_series_natural_key` s'étend à ces deux clés : deux éditions d'une même
+ *   série coexistent enfin. Les séries existantes repartent avec `''` partout, leur clé reste donc
+ *   unique — l'ancien index garantissait déjà l'unicité sur un sous-ensemble des colonnes.
+ * - `records.normalized_title` : titre normalisé (`normalizeArtistName`) pour la recherche de la
+ *   liste plate. SQLite ne sait pas retirer un accent, d'où le backfill ligne à ligne en Kotlin,
+ *   avec la même fonction que l'écriture courante (`RecordEntity`) — sinon les anciennes lignes et
+ *   les nouvelles ne se compareraient pas de la même façon.
+ *
+ * Pas de `DEFAULT` déclaré côté entité : comme pour `playCount` (v6 → v7), Room ne compare la
+ * valeur par défaut que si l'entité en déclare une.
+ */
+val MIGRATION_7_8: Migration = object : Migration(7, 8) {
+
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE series ADD COLUMN edition TEXT")
+        db.execSQL("ALTER TABLE series ADD COLUMN publisherFr TEXT")
+        db.execSQL("ALTER TABLE series ADD COLUMN mangaId TEXT")
+        db.execSQL("ALTER TABLE series ADD COLUMN normalizedPublisher TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE series ADD COLUMN normalizedEdition TEXT NOT NULL DEFAULT ''")
+        db.execSQL("DROP INDEX IF EXISTS index_series_natural_key")
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS index_series_natural_key ON series " +
+                "(collectionType, normalizedTitle, normalizedAuthor, normalizedPublisher, normalizedEdition)"
+        )
+
+        db.execSQL("ALTER TABLE records ADD COLUMN normalized_title TEXT NOT NULL DEFAULT ''")
+        backfillNormalizedTitles(db)
+    }
+}
+
+/**
+ * Remplit `records.normalized_title` depuis `records.title`. Extrait de [MIGRATION_7_8] pour être
+ * testable seul. Lecture complète **avant** les `UPDATE` : on n'écrit pas dans une table qu'un
+ * curseur ouvert est en train de parcourir.
+ */
+internal fun backfillNormalizedTitles(db: SupportSQLiteDatabase) {
+    val titles = mutableListOf<Pair<String, String>>()
+    db.query("SELECT id, title FROM records").use { c ->
+        while (c.moveToNext()) {
+            titles += c.getString(0) to (if (c.isNull(1)) "" else c.getString(1))
+        }
+    }
+    for ((id, title) in titles) {
+        db.execSQL(
+            "UPDATE records SET normalized_title = ? WHERE id = ?",
+            arrayOf<Any?>(normalizeArtistName(title), id)
+        )
+    }
+}

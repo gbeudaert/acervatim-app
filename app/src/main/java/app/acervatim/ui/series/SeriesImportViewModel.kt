@@ -6,14 +6,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.acervatim.domain.model.ExternalMatch
 import app.acervatim.domain.model.ImportJobProgress
-import app.acervatim.domain.model.ImportJobState
-import app.acervatim.domain.repository.ExternalSearchRepository
 import app.acervatim.domain.usecase.ImportResult
 import app.acervatim.domain.usecase.ImportScannedSeriesUseCase
+import app.acervatim.domain.usecase.WarmEditionImportUseCase
 import app.acervatim.ui.navigation.AcervatimNavArgs
 import app.acervatim.ui.scan.ScanPrefillHandoff
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,7 +39,7 @@ import javax.inject.Inject
 class SeriesImportViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     prefillHandoff: ScanPrefillHandoff,
-    private val externalSearch: ExternalSearchRepository,
+    private val warmEditionImport: WarmEditionImportUseCase,
     private val importSeries: ImportScannedSeriesUseCase
 ) : ViewModel() {
 
@@ -69,7 +67,7 @@ class SeriesImportViewModel @Inject constructor(
         viewModelScope.launch {
             // Import complet : on réchauffe d'abord le cache serveur via le job async (best-effort).
             if (_state.value.importAll && !current.seriesTitleFr.isNullOrBlank()) {
-                warmCacheViaJob(current.seriesTitleFr, current.edition)
+                warmCacheViaJob(current.seriesTitleFr, current)
             }
             runLocalImport(current)
         }
@@ -81,21 +79,16 @@ class SeriesImportViewModel @Inject constructor(
      * laisse simplement l'import local re-taper `edition-mapping` (cache probablement chaud à ce stade,
      * sinon dégradation « tome seul »).
      */
-    private suspend fun warmCacheViaJob(titleFr: String, edition: String?) {
-        val job = externalSearch.startImportJob(titleFr, edition).getOrNull() ?: return
-        var state = job.state
-        _state.update { it.copy(phase = ScanImportPhase.POLLING, progress = job.progress) }
-
-        var elapsed = 0L
-        var interval = POLL_INITIAL_MS
-        while (state != ImportJobState.DONE && state != ImportJobState.FAILED && elapsed < POLL_MAX_WAIT_MS) {
-            delay(interval)
-            elapsed += interval
-            interval = (interval * 2).coerceAtMost(POLL_MAX_INTERVAL_MS)
-            // `null` = job inconnu (404) OU erreur réseau : on cesse de poll et on tente l'import local.
-            val status = externalSearch.importJobStatus(job.jobId).getOrNull() ?: break
-            state = status.state
-            _state.update { it.copy(progress = status.progress) }
+    private suspend fun warmCacheViaJob(titleFr: String, match: ExternalMatch) {
+        // Éditeur et id MangaDex : le job réchauffe exactement l'énumération que l'import local
+        // relira ensuite (mêmes paramètres, donc même entrée de cache serveur).
+        warmEditionImport(
+            titleFr = titleFr,
+            edition = match.edition,
+            publisher = match.publisherFr,
+            mangaId = match.mangaId
+        ) { progress ->
+            _state.update { it.copy(phase = ScanImportPhase.POLLING, progress = progress) }
         }
     }
 
@@ -107,15 +100,6 @@ class SeriesImportViewModel @Inject constructor(
             importAllKnownTomes = _state.value.importAll
         )
         _state.update { it.copy(phase = ScanImportPhase.DONE, result = result) }
-    }
-
-    private companion object {
-        /** Intervalle de poll initial (ms), doublé à chaque tour jusqu'à [POLL_MAX_INTERVAL_MS]. */
-        const val POLL_INITIAL_MS = 500L
-        const val POLL_MAX_INTERVAL_MS = 2_000L
-
-        /** Garde-fou : au-delà, on bascule sur l'import local sans attendre davantage le job. */
-        const val POLL_MAX_WAIT_MS = 120_000L
     }
 }
 

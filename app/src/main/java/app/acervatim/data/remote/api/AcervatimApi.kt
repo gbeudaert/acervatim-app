@@ -27,6 +27,8 @@ import app.acervatim.data.remote.dto.RedeemInvitationResponse
 import app.acervatim.data.remote.dto.RedeemShareRequest
 import app.acervatim.data.remote.dto.RedeemedShareDto
 import app.acervatim.data.remote.dto.ReceivedShareDto
+import app.acervatim.data.remote.dto.SeriesEditionsDto
+import app.acervatim.data.remote.dto.SeriesUpdatesDto
 import app.acervatim.data.remote.dto.ShareDto
 import app.acervatim.data.remote.dto.UpdateShareLabelRequest
 import app.acervatim.data.remote.dto.SourceWithRawDto
@@ -174,13 +176,34 @@ interface AcervatimApi {
     /**
      * Énumère une édition manga complète (« récupérer toute la série d'un coup ») via la BnF.
      * `title` = titre FR de la série (source : `metadata.scannedTome.titleFr` d'un précédent
-     * `/search`) ; `edition` = mention 205 (absent → édition standard).
+     * `/search`, ou `seriesTitleFr` d'une édition de `search/editions`) ; `edition` = mention 205
+     * (absent → édition standard) ; `publisher` = éditeur de l'édition (absent → le serveur retient
+     * l'éditeur dominant) ; `mangaId` = jointure directe des jaquettes ; `since` (`AAAAMMJJ`) = ne
+     * renvoyer que les tomes dont la notice BnF a été créée à cette date ou après (rattrapage).
      */
     @GET("v1/search/edition-mapping")
     suspend fun editionMapping(
         @Query("title") title: String,
-        @Query("edition") edition: String? = null
+        @Query("edition") edition: String? = null,
+        @Query("publisher") publisher: String? = null,
+        @Query("mangaId") mangaId: String? = null,
+        @Query("since") since: String? = null
     ): EditionMappingDto
+
+    /**
+     * Éditions françaises (BnF) d'une série MangaDex choisie par l'utilisateur. Le serveur relit
+     * lui-même l'identité MangaDex (titres, auteurs) : l'app ne transmet que l'id, plus un titre de
+     * repli facultatif.
+     */
+    @GET("v1/search/editions")
+    suspend fun searchEditions(
+        @Query("mangaId") mangaId: String,
+        @Query("title") title: String? = null
+    ): SeriesEditionsDto
+
+    /** Nouveaux tomes des séries synchronisées (job serveur hebdomadaire, premium). */
+    @GET("v1/series-updates")
+    suspend fun seriesUpdates(): SeriesUpdatesDto
 
     /**
      * Résout la jaquette d'un tome par `isbn` via Google Books côté serveur : résout (réseau) **et**

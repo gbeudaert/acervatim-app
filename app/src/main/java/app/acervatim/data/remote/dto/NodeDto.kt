@@ -24,7 +24,12 @@ data class NodeDto(
     val totalCount: Int? = null,
     val rating: Double? = null,
     val synopsis: String? = null,
-    val coverUrl: String? = null
+    val coverUrl: String? = null,
+    // Édition (SD2) : sans elle, deux éditions d'une même série seraient indiscernables sur un
+    // second appareil. Absents d'un serveur antérieur, d'où les `null` par défaut.
+    val edition: String? = null,
+    val publisherFr: String? = null,
+    val mangaId: String? = null
 )
 
 @Serializable

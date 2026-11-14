@@ -6,6 +6,7 @@ import app.acervatim.domain.model.RecordFilter
 import app.acervatim.domain.model.RecordSort
 import app.acervatim.domain.model.RecordSortField
 import app.acervatim.domain.model.SortDirection
+import app.acervatim.domain.model.normalizeArtistName
 import java.time.Instant
 
 /**
@@ -30,7 +31,10 @@ internal object RecordQueries {
         sort: RecordSort,
         notPlayedSince: Instant?
     ): SupportSQLiteQuery {
-        val query = filter.query.trim()
+        // Saisie normalisée comme les colonnes comparées (`normalized_title`, `normalized_name`) :
+        // insensible à la casse ET aux accents, comme le filtre de la vue séries
+        // (`ObserveSeriesWithCountsUseCase`) — une même saisie donne le même résultat dans les deux vues.
+        val query = normalizeArtistName(filter.query.trim())
         val collectionType = filter.collectionType?.name
         val status = filter.status.toItemStatus()?.name
         val format = filter.format?.name
@@ -44,11 +48,11 @@ internal object RecordQueries {
             INNER JOIN artists a ON a.id = ra.artistId
             WHERE (
                     ? = ''
-                    OR r.title LIKE '%' || ? || '%'
+                    OR r.normalized_title LIKE '%' || ? || '%'
                     OR EXISTS (
                         SELECT 1 FROM record_artists ra2
                         INNER JOIN artists a2 ON a2.id = ra2.artistId
-                        WHERE ra2.recordId = r.id AND a2.name LIKE '%' || ? || '%'
+                        WHERE ra2.recordId = r.id AND a2.normalized_name LIKE '%' || ? || '%'
                     )
                 )
               AND (? IS NULL OR r.collectionType = ?)

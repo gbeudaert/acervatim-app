@@ -23,6 +23,8 @@ import app.acervatim.domain.model.Artist
 import app.acervatim.domain.model.CollectionType
 import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.normalizeArtistName
+import app.acervatim.domain.model.normalizeEditionKey
+import app.acervatim.domain.model.normalizePublisherKey
 import app.acervatim.domain.model.sync.RemoteNode
 import app.acervatim.domain.model.sync.SyncState
 import app.acervatim.domain.model.sync.SyncStatus
@@ -355,15 +357,22 @@ class SyncManagerImpl @Inject constructor(
                 dto.totalCount?.let { put("totalCount", it) }
                 dto.synopsis?.let { put("synopsis", it) }
                 dto.coverUrl?.let { put("coverUrl", it) }
+                dto.edition?.let { put(FacadeMapper.KEY_EDITION, it) }
+                dto.publisherFr?.let { put(FacadeMapper.KEY_PUBLISHER_FR, it) }
+                dto.mangaId?.let { put(FacadeMapper.KEY_MANGA_ID, it) }
             },
             updatedAt = clock.instant()
         )
         val title = dto.title ?: return false
+        // Clé naturelle v8 : l'édition en fait partie. Deux nœuds « Frieren » (standard, colossale)
+        // se retrouvent chacun leur série, au lieu de se fondre dans la première venue.
         val existing = seriesDao.getByRemoteId(dto.id)
             ?: seriesDao.findByNaturalKey(
                 collectionType = type,
                 normalizedTitle = normalizeArtistName(title),
-                normalizedAuthor = normalizeArtistName(dto.author.orEmpty())
+                normalizedAuthor = normalizeArtistName(dto.author.orEmpty()),
+                normalizedPublisher = normalizePublisherKey(dto.publisherFr),
+                normalizedEdition = normalizeEditionKey(dto.edition)
             )
         // LWW : une modification locale non poussée l'emporte sur la version serveur.
         if (existing != null && existing.syncState != SyncState.SYNCED) return false

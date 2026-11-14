@@ -8,6 +8,8 @@ import app.acervatim.domain.model.MangaExtras
 import app.acervatim.domain.model.Record
 import app.acervatim.domain.model.RecordingSpeed
 import app.acervatim.domain.model.Series
+import app.acervatim.domain.model.isFinishedStatus
+import app.acervatim.domain.model.normalizeArtistName
 import app.acervatim.domain.model.readInt
 import app.acervatim.domain.model.readString
 import app.acervatim.domain.model.sync.RemoteItem
@@ -87,6 +89,9 @@ object FacadeMapper {
         put("title", record.title)
         record.coverRemoteUrl?.let { put("coverUrl", it) }
         record.extras.readString(MangaExtras.KEY_PUBLISHER_FR)?.let { put(MangaExtras.KEY_PUBLISHER_FR, it) }
+        // L'édition du tome a un home serveur depuis SD2 (`MangaItemSchema.edition`) : elle ne vit
+        // plus seulement dans le cliché local, et survit donc à une réinstallation.
+        record.extras.readString(MangaExtras.KEY_EDITION)?.let { put(KEY_EDITION, it) }
         record.extras.readInt(MangaExtras.KEY_PAGE_COUNT)?.let { put(MangaExtras.KEY_PAGE_COUNT, it) }
         record.extras.readString(MangaExtras.KEY_SOURCE_VOLUME_RANGE)
             ?.let { put(MangaExtras.KEY_SOURCE_VOLUME_RANGE, it) }
@@ -129,8 +134,8 @@ object FacadeMapper {
      *
      * Ce filet pourra tomber quand tous les items auront été re-poussés au moins une fois après
      * A1bis (le serveur détient alors la vérité) — sauf pour `coverPath` et les extras sans home
-     * serveur (`edition`, `tomeSynopsis`, `demographic`, `originalAuthor`), qui restent locaux
-     * par construction.
+     * serveur (`tomeSynopsis`, `demographic`, `originalAuthor`), qui restent locaux par
+     * construction. `edition` en a un depuis SD2, mais les items poussés avant n'en portent pas.
      */
     private fun Record.toLocalExtras(): JsonObject = buildJsonObject {
         rating?.let { put(KEY_RATING, it) }
@@ -215,13 +220,14 @@ object FacadeMapper {
         (userData.int(KEY_PLAY_COUNT) ?: localExtras.int(KEY_PLAY_COUNT) ?: 0).coerceAtLeast(0)
 
     /**
-     * Extras manga : ce que le serveur modélise (`publisherFr`, `pageCount`, `sourceVolumeRange`)
-     * l'emporte, le cliché local comble le reste — dont les extras **sans home serveur**
-     * (`edition`, `tomeSynopsis`, `demographic`, `originalAuthor`), qui ne survivent que par lui.
+     * Extras manga : ce que le serveur modélise (`publisherFr`, `pageCount`, `sourceVolumeRange`,
+     * `edition`) l'emporte, le cliché local comble le reste — dont les extras **sans home serveur**
+     * (`tomeSynopsis`, `demographic`, `originalAuthor`), qui ne survivent que par lui.
      */
     private fun mergedExtras(unified: JsonObject, localExtras: JsonObject): Map<String, String> {
         val fromServer = buildMap {
             unified.string(MangaExtras.KEY_PUBLISHER_FR)?.let { put(MangaExtras.KEY_PUBLISHER_FR, it) }
+            unified.string(KEY_EDITION)?.let { put(MangaExtras.KEY_EDITION, it) }
             unified.int(MangaExtras.KEY_PAGE_COUNT)?.let { put(MangaExtras.KEY_PAGE_COUNT, it.toString()) }
             unified.string(MangaExtras.KEY_SOURCE_VOLUME_RANGE)
                 ?.let { put(MangaExtras.KEY_SOURCE_VOLUME_RANGE, it) }
@@ -238,6 +244,11 @@ object FacadeMapper {
             put("status", series.publicationStatus.toMangaStatusCode())
             series.totalVolumes?.let { put("totalCount", it) }
             series.synopsis?.let { put("synopsis", it) }
+            // Identité d'édition (SD2) : un second appareil doit reconstruire deux séries
+            // discernables pour deux éditions, pas deux « Frieren » identiques.
+            series.edition?.let { put(KEY_EDITION, it) }
+            series.publisherFr?.let { put(KEY_PUBLISHER_FR, it) }
+            series.mangaId?.let { put(KEY_MANGA_ID, it) }
         }
         val node = RemoteNode(
             localId = series.id,
@@ -265,6 +276,9 @@ object FacadeMapper {
             totalVolumes = unified["totalCount"]?.jsonPrimitive?.intOrNull,
             synopsis = unified.string("synopsis"),
             coverPath = localExtras.string("coverPath"),
+            edition = unified.string(KEY_EDITION),
+            publisherFr = unified.string(KEY_PUBLISHER_FR),
+            mangaId = unified.string(KEY_MANGA_ID),
             createdAt = createdAt,
             updatedAt = node.updatedAt
         )
@@ -287,12 +301,18 @@ object FacadeMapper {
         else -> null
     }
 
-    private fun String?.toMangaStatusCode(): String = when (this?.lowercase()?.trim()) {
-        "en cours", "ongoing" -> "ongoing"
-        "terminée", "termine", "finished", "completed" -> "finished"
-        "hiatus", "pause" -> "hiatus"
-        null, "" -> "unknown"
-        else -> "unknown"
+    /**
+     * Statut libre → code du contrat. « Terminé » passe par [isFinishedStatus], la règle partagée avec
+     * le rattrapage : une série que l'un dit close, l'autre ne doit pas la dire en cours. Les autres
+     * formes sont pliées de la même façon (casse + accents).
+     */
+    private fun String?.toMangaStatusCode(): String = when {
+        isFinishedStatus(this) -> "finished"
+        else -> when (normalizeArtistName(this.orEmpty())) {
+            "en cours", "ongoing" -> "ongoing"
+            "hiatus", "pause" -> "hiatus"
+            else -> "unknown"
+        }
     }
 
     private fun buildJsonArrayOfStrings(values: List<String>): kotlinx.serialization.json.JsonArray =
@@ -322,6 +342,10 @@ object FacadeMapper {
     const val KEY_PLAY_COUNT = "playCount"
     const val KEY_RECORDING_SPEED = "recordingSpeed"
     const val KEY_COUNTRY = "country"
+    // Clés d'édition du contrat manga (SD2), sur le nœud et — pour `edition` — sur l'item.
+    const val KEY_EDITION = MangaExtras.KEY_EDITION
+    const val KEY_PUBLISHER_FR = MangaExtras.KEY_PUBLISHER_FR
+    const val KEY_MANGA_ID = "mangaId"
     const val PROVIDER_ISBN = "isbn"
     const val PROVIDER_BARCODE = "barcode"
     const val PROVIDER_DISCOGS = "discogs"

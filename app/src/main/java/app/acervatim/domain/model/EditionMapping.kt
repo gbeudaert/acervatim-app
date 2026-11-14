@@ -1,5 +1,7 @@
 package app.acervatim.domain.model
 
+import java.time.LocalDate
+
 /**
  * Énumération d'une édition manga « toute la série d'un coup » (backend
  * `GET /v1/search/edition-mapping`, source BnF). Projette le DTO en modèle domaine neutre, prêt à
@@ -15,7 +17,19 @@ data class EditionMapping(
     /** Tomes ordonnés par n° d'édition. */
     val tomes: List<EditionTome>,
     /** Au moins une notice en cours de publication → mapping potentiellement partiel. */
-    val ongoing: Boolean
+    val ongoing: Boolean,
+    /**
+     * Éditeur retenu par le serveur (celui demandé, sinon l'éditeur **dominant** de l'édition) :
+     * c'est ce qui écarte les 2-en-1 France Loisirs d'une standard Pika. `null` sur un serveur
+     * antérieur à SD1.
+     */
+    val publisher: String? = null,
+    /**
+     * `false` quand le serveur n'a pas pu lire toute l'édition (troncature, page BnF en échec) : les
+     * tomes renvoyés sont justes mais la liste peut être trouée. Le rattrapage n'avance alors pas sa
+     * date de vérification, pour retenter la même fenêtre au passage suivant.
+     */
+    val complete: Boolean = true
 )
 
 /** Un tome d'une édition, vu par la BnF. */
@@ -41,5 +55,10 @@ data class EditionTome(
      * Résumé propre au tome (330$a BnF, sinon repli Google Books côté serveur), ou null. Jamais le
      * résumé de série. Stocké par tome à l'import (cf. [MangaExtras.KEY_TOME_SYNOPSIS]).
      */
-    val description: String? = null
+    val description: String? = null,
+    /**
+     * Date de création de la notice BnF (`100$a`). Un tome n'apparaît à la BnF que des semaines après
+     * sa sortie (cf. étude § 2) : cette date dit quand il est devenu **visible**, pas quand il est paru.
+     */
+    val noticeCreatedAt: LocalDate? = null
 )

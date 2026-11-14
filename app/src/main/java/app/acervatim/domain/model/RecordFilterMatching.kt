@@ -20,13 +20,14 @@ import java.time.temporal.ChronoUnit
  * naturellement communs aux deux chemins.
  */
 fun RecordFilter.matches(record: Record, now: Instant): Boolean {
-    // `LIKE '%q%'` sur le titre OU sur le nom d'un artiste quelconque. SQLite est insensible à la
-    // casse sur l'ASCII mais **pas** aux accents : on reproduit ce comportement plutôt que de le
-    // corriger ici, sans quoi une même recherche ne rendrait pas la même chose selon la collection.
-    val q = query.trim()
+    // `LIKE '%q%'` sur le titre OU sur le nom d'un artiste quelconque, tous **normalisés**
+    // ([normalizeArtistName] : minuscules, sans accents) — comme le SQL depuis la v8, qui compare
+    // `normalized_title` / `normalized_name`. Les deux côtés doivent bouger ensemble, sans quoi une
+    // même recherche ne rendrait pas la même chose selon la collection.
+    val q = normalizeArtistName(query.trim())
     if (q.isNotEmpty()) {
-        val inTitle = record.title.contains(q, ignoreCase = true)
-        val inArtist = record.artists.any { it.name.contains(q, ignoreCase = true) }
+        val inTitle = normalizeArtistName(record.title).contains(q)
+        val inArtist = record.artists.any { normalizeArtistName(it.name).contains(q) }
         if (!inTitle && !inArtist) return false
     }
 

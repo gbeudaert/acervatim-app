@@ -1,5 +1,6 @@
 package app.acervatim.data.local.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -8,6 +9,7 @@ import app.acervatim.domain.model.AcervatimFormat
 import app.acervatim.domain.model.CollectionType
 import app.acervatim.domain.model.ItemStatus
 import app.acervatim.domain.model.RecordingSpeed
+import app.acervatim.domain.model.normalizeArtistName
 import app.acervatim.domain.model.sync.SyncState
 import java.time.Instant
 
@@ -81,5 +83,14 @@ data class RecordEntity(
     /** UUID serveur de l'item une fois synchronisé ; `null` tant que local. */
     val remoteId: String? = null,
     val syncState: SyncState = SyncState.LOCAL_ONLY,
-    val serverUpdatedAt: Instant? = null
+    val serverUpdatedAt: Instant? = null,
+    /**
+     * [title] normalisé comme les noms d'artistes ([normalizeArtistName] : minuscules, sans
+     * accents). `LIKE` de SQLite ne replie que l'ASCII : sans cette colonne, « ete » ne trouvait pas
+     * « Été », alors que la vue séries, filtrée en mémoire, le trouvait (audit § 6). Dérivé de
+     * [title] par défaut : les écritures passent toutes par `Record.toEntity`, qui reconstruit
+     * l'entité — jamais par un `copy(title = …)` qui laisserait cette colonne en retard.
+     */
+    @ColumnInfo(name = "normalized_title")
+    val normalizedTitle: String = normalizeArtistName(title)
 )

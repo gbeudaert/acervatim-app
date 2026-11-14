@@ -408,6 +408,7 @@ private fun Source.labelRes(): Int = when (this) {
     Source.DISCOGS -> R.string.source_discogs
     Source.MYANIMELIST -> R.string.source_myanimelist
     Source.BNF -> R.string.source_bnf
+    Source.MANGADEX -> R.string.source_mangadex
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -35,7 +35,14 @@ data class EditionMappingDto(
     val tomeCount: Int,
     val tomes: List<EditionTomeDto> = emptyList(),
     val recordsScanned: Int = 0,
-    val ongoing: Boolean = false
+    val ongoing: Boolean = false,
+    /** Éditeur retenu (demandé, sinon dominant) — absent d'un serveur antérieur à SD1. */
+    val publisher: String? = null,
+    /**
+     * `false` si l'énumération BnF s'est arrêtée en route (troncature, page SRU en échec). Absent
+     * d'un serveur antérieur à SD3 : `true`, l'ancien comportement (on croyait la liste complète).
+     */
+    val complete: Boolean = true
 )
 
 @Serializable
@@ -54,7 +61,9 @@ data class EditionTomeDto(
      * Résumé **propre au tome** : 330$a BnF si présent, sinon repli Google Books côté serveur, sinon
      * `null`. Jamais le résumé de série (celui-ci reste au niveau série). Cf. `EditionTomeWithCover`.
      */
-    val description: String? = null
+    val description: String? = null,
+    /** Création de la notice BnF (`100$a`), `YYYY-MM-DD` ; `null` si illisible ou serveur ancien. */
+    val noticeCreatedAt: String? = null
 )
 
 /** Réponse de `GET /v1/search/cover` : jaquette résolue par ISBN (`null` si aucune trouvée). */
@@ -71,7 +80,71 @@ data class CoverResponseDto(
 @Serializable
 data class CreateImportJobRequest(
     val title: String,
-    val edition: String? = null
+    val edition: String? = null,
+    /**
+     * Éditeur de l'édition (SD1) : il entre dans l'id déterministe du job, sans quoi la standard
+     * Pika et la 2-en-1 France Loisirs partageraient un même job. Omis quand `null`.
+     */
+    val publisher: String? = null,
+    /** Id MangaDex : jointure directe des jaquettes par tome, sans rapprochement par titre. */
+    val mangaId: String? = null
+)
+
+/**
+ * Réponse de `GET /v1/search/editions?mangaId=` : les éditions françaises (BnF) d'une série
+ * MangaDex choisie, groupées par (série, éditeur, mention). Cf. contrat SD1.
+ */
+@Serializable
+data class SeriesEditionsDto(
+    val mangaId: String? = null,
+    val editions: List<SeriesEditionDto> = emptyList(),
+    /**
+     * `false` : la BnF n'a pas répondu en entier (pages manquantes) — la liste peut être tronquée.
+     * Champ additif, absent d'un serveur antérieur : `true` par défaut.
+     */
+    val complete: Boolean = true
+)
+
+@Serializable
+data class SeriesEditionDto(
+    val seriesTitleFr: String,
+    /** `null` quand aucune notice du groupe ne porte d'éditeur (contrat : `string | null`). */
+    val publisher: String? = null,
+    val edition: String? = null,
+    val isArtEdition: Boolean = false,
+    val tomeCount: Int = 0,
+    val firstYear: String? = null,
+    val lastYear: String? = null,
+    val ongoing: Boolean = false,
+    val hasSourceVolumeRange: Boolean = false,
+    val sampleIsbn: String? = null
+)
+
+/**
+ * Réponse de `GET /v1/series-updates` (premium) : nouveaux tomes des séries synchronisées, détectés
+ * par le job serveur hebdomadaire (SD3). `nodeId` = id **serveur** du nœud.
+ */
+@Serializable
+data class SeriesUpdatesDto(
+    val updates: List<SeriesUpdateDto> = emptyList()
+)
+
+@Serializable
+data class SeriesUpdateDto(
+    val nodeId: String,
+    val title: String,
+    val edition: String? = null,
+    val publisherFr: String? = null,
+    val newTomes: List<NewTomeDto> = emptyList()
+)
+
+@Serializable
+data class NewTomeDto(
+    val editionVolume: Int,
+    val isbn: String? = null,
+    val titleFr: String? = null,
+    val noticeCreatedAt: String? = null,
+    val coverUrl: String? = null
 )
 
 /** Réponse `202` de `POST /v1/search/import-jobs` : id (déterministe, dédup inter-user) + état initial. */

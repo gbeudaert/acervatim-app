@@ -5,6 +5,8 @@ import app.acervatim.data.remote.dto.CreateImportJobRequest
 import app.acervatim.data.remote.dto.EditionMappingDto
 import app.acervatim.data.remote.dto.ImportJobDto
 import app.acervatim.data.remote.dto.ImportJobStatusDto
+import app.acervatim.data.remote.dto.SeriesEditionDto
+import app.acervatim.data.remote.dto.SeriesUpdateDto
 import app.acervatim.data.remote.dto.UnifiedItemDto
 import app.acervatim.data.remote.error.ApiException
 import app.acervatim.domain.model.AcervatimFormat
@@ -18,6 +20,9 @@ import app.acervatim.domain.model.ImportJobProgress
 import app.acervatim.domain.model.ImportJobState
 import app.acervatim.domain.model.ImportPhase
 import app.acervatim.domain.model.RecordingSpeed
+import app.acervatim.domain.model.SeriesCandidate
+import app.acervatim.domain.model.SeriesEditionOption
+import app.acervatim.domain.model.SeriesUpdate
 import app.acervatim.domain.repository.ExternalSearchRepository
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -25,6 +30,8 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import java.io.IOException
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -56,10 +63,48 @@ class ExternalSearchRepositoryImpl @Inject constructor(
                 .map { it.toExternalMatch() }
         }.recoverCatching { throw it.toExternalSearchException() }
 
-    override suspend fun editionMapping(titleFr: String, edition: String?): Result<EditionMapping> =
+    override suspend fun searchMangaSeries(query: String): Result<List<SeriesCandidate>> =
         runCatching {
-            api.editionMapping(title = titleFr, edition = edition?.takeIf { it.isNotBlank() })
-                .toDomain()
+            // Même route que la recherche texte vinyle : c'est le `type` qui route vers MangaDex
+            // côté serveur. Les résultats sont des séries, d'où une projection dédiée.
+            api.search(type = MANGA_TYPE, query = query, limit = TEXT_SEARCH_LIMIT)
+                .data
+                .map { it.toSeriesCandidate() }
+        }.recoverCatching { throw it.toExternalSearchException() }
+
+    override suspend fun listEditions(
+        mangaId: String,
+        title: String?
+    ): Result<List<SeriesEditionOption>> =
+        runCatching {
+            val response = api.searchEditions(mangaId = mangaId, title = title?.takeIf { it.isNotBlank() })
+            // Liste vide ET incomplète : la BnF a lâché en route, ce n'est pas « aucune édition ».
+            // Le dire comme une panne réseau (retentable) — sinon l'écran proposerait la création
+            // manuelle d'une série que la BnF connaît peut-être. Une liste incomplète mais non vide
+            // reste montrée : elle contient déjà de quoi choisir.
+            if (!response.complete && response.editions.isEmpty()) {
+                throw ExternalSearchException(ExternalSearchFailure.NETWORK)
+            }
+            response.editions.map { it.toDomain() }
+        }.recoverCatching { throw it.toExternalSearchException() }
+
+    override suspend fun editionMapping(
+        titleFr: String,
+        edition: String?,
+        publisher: String?,
+        mangaId: String?,
+        since: LocalDate?
+    ): Result<EditionMapping> =
+        runCatching {
+            api.editionMapping(
+                title = titleFr,
+                edition = edition?.takeIf { it.isNotBlank() },
+                publisher = publisher?.takeIf { it.isNotBlank() },
+                mangaId = mangaId?.takeIf { it.isNotBlank() },
+                // Format strict `AAAAMMJJ` : la BnF ignore en silence un `AAAA-MM-JJ` (0 notice,
+                // aucune erreur) — c'est le serveur qui le transmet tel quel au SRU.
+                since = since?.format(DateTimeFormatter.BASIC_ISO_DATE)
+            ).toDomain()
         }
 
     override suspend fun resolveCover(
@@ -80,10 +125,20 @@ class ExternalSearchRepositoryImpl @Inject constructor(
             ).coverUrl?.takeIf { it.isNotBlank() }
         }
 
-    override suspend fun startImportJob(titleFr: String, edition: String?): Result<ImportJob> =
+    override suspend fun startImportJob(
+        titleFr: String,
+        edition: String?,
+        publisher: String?,
+        mangaId: String?
+    ): Result<ImportJob> =
         runCatching {
             api.startImportJob(
-                CreateImportJobRequest(title = titleFr, edition = edition?.takeIf { it.isNotBlank() })
+                CreateImportJobRequest(
+                    title = titleFr,
+                    edition = edition?.takeIf { it.isNotBlank() },
+                    publisher = publisher?.takeIf { it.isNotBlank() },
+                    mangaId = mangaId?.takeIf { it.isNotBlank() }
+                )
             ).toDomain()
         }
 
@@ -97,11 +152,99 @@ class ExternalSearchRepositoryImpl @Inject constructor(
             }
         }
 
+    override suspend fun seriesUpdates(): Result<List<SeriesUpdate>> =
+        runCatching { api.seriesUpdates().updates.map { it.toDomain() } }
+            .recoverCatching { throw it.toExternalSearchException() }
+
     private companion object {
         const val SEARCH_LIMIT = 10
         const val TEXT_SEARCH_LIMIT = 25
+
+        /** Code de collection du manga sur le contrat (`CollectionType.MANGA.typeCode`). */
+        const val MANGA_TYPE = "manga"
     }
 }
+
+/**
+ * Projette un résultat de `GET /v1/search?type=manga&q=` en candidat de série. Le nominal est
+ * MangaDex (`metadata.mangaId`, `titleFr`, `titleRomaji`…) ; le repli MAL ne porte que ses propres
+ * champs (`num_volumes`, statut MAL), d'où les replis ci-dessous plutôt qu'un échec.
+ */
+internal fun UnifiedItemDto.toSeriesCandidate(): SeriesCandidate {
+    val meta = metadata
+    return SeriesCandidate(
+        source = source,
+        sourceId = sourceId,
+        // `search/editions` refuse (`400`) tout id qui n'est pas un UUID MangaDex : on ne propage
+        // qu'un id valide, pour que l'écran sache d'avance qu'un candidat n'a pas d'éditions à lister.
+        mangaId = (meta?.stringField("mangaId") ?: sourceId.takeIf { source == SOURCE_MANGADEX })
+            ?.takeIf { UUID_PATTERN.matches(it) },
+        title = title,
+        titleFr = meta?.stringField("titleFr"),
+        titleRomaji = meta?.stringField("titleRomaji"),
+        authors = creators,
+        year = meta?.intField("year") ?: releaseDate?.take(4)?.toIntOrNull(),
+        coverUrl = coverUrl,
+        synopsis = description,
+        status = meta?.stringField("status")?.let(::normalizeSeriesStatus),
+        volumeCount = meta?.intField("num_volumes")?.takeIf { it > 0 },
+        malId = meta?.stringField("malId") ?: sourceId.takeIf { source == SOURCE_MAL },
+        anilistId = meta?.stringField("anilistId")
+    )
+}
+
+/**
+ * Ramène le statut au vocabulaire MangaDex (`ongoing`, `completed`, `hiatus`, `cancelled`) : le
+ * repli MAL parle le sien (`currently_publishing`, `finished`…), et l'écran n'a pas à connaître la
+ * source pour l'afficher.
+ */
+private fun normalizeSeriesStatus(raw: String): String = when (raw) {
+    "currently_publishing" -> "ongoing"
+    "finished" -> "completed"
+    "on_hiatus" -> "hiatus"
+    "discontinued" -> "cancelled"
+    else -> raw
+}
+
+internal fun SeriesEditionDto.toDomain(): SeriesEditionOption = SeriesEditionOption(
+    seriesTitleFr = seriesTitleFr,
+    publisher = publisher,
+    edition = edition?.takeIf { it.isNotBlank() },
+    isArtEdition = isArtEdition,
+    tomeCount = tomeCount,
+    firstYear = firstYear,
+    lastYear = lastYear,
+    ongoing = ongoing,
+    hasSourceVolumeRange = hasSourceVolumeRange,
+    sampleIsbn = sampleIsbn
+)
+
+internal fun SeriesUpdateDto.toDomain(): SeriesUpdate = SeriesUpdate(
+    nodeId = nodeId,
+    title = title,
+    edition = edition?.takeIf { it.isNotBlank() },
+    publisherFr = publisherFr?.takeIf { it.isNotBlank() },
+    newTomes = newTomes.map {
+        EditionTome(
+            editionVolume = it.editionVolume,
+            isbn = it.isbn,
+            titleFr = it.titleFr,
+            coverUrl = it.coverUrl,
+            noticeCreatedAt = parseNoticeDate(it.noticeCreatedAt)
+        )
+    }
+)
+
+/** `YYYY-MM-DD` → [LocalDate] ; `null` si absent ou illisible (jamais d'échec du mapping entier). */
+private fun parseNoticeDate(raw: String?): LocalDate? =
+    raw?.takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
+private const val SOURCE_MANGADEX = "mangadex"
+private const val SOURCE_MAL = "mal"
+
+/** Forme d'un id MangaDex, la seule que `GET /v1/search/editions` accepte. */
+private val UUID_PATTERN =
+    Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 internal fun ImportJobDto.toDomain(): ImportJob = ImportJob(
     jobId = jobId,
@@ -153,7 +296,10 @@ internal fun UnifiedItemDto.toExternalMatch(): ExternalMatch {
         edition = scannedTome?.stringField("edition"),
         publisherFr = scannedTome?.stringField("publisherFr"),
         sourceVolumeRange = scannedTome?.stringField("sourceVolumeRange"),
-        totalVolumes = metadata?.intField("num_volumes")
+        totalVolumes = metadata?.intField("num_volumes"),
+        // Identité MangaDex produite au scan : la série la portera, pour joindre ses jaquettes
+        // ensuite sans rapprochement par titre.
+        mangaId = (metadata?.get("pivot") as? JsonObject)?.stringField("mangaId")
     )
 }
 
@@ -168,10 +314,13 @@ internal fun EditionMappingDto.toDomain(): EditionMapping = EditionMapping(
             titleFr = it.titleFr,
             sourceVolumeRange = it.sourceVolumeRange,
             coverUrl = it.coverUrl,
-            description = it.description
+            description = it.description,
+            noticeCreatedAt = parseNoticeDate(it.noticeCreatedAt)
         )
     },
-    ongoing = ongoing
+    ongoing = ongoing,
+    publisher = publisher?.takeIf { it.isNotBlank() },
+    complete = complete
 )
 
 private fun JsonObject.stringField(key: String): String? =

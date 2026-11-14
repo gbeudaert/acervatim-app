@@ -3,15 +3,18 @@ package app.acervatim.data.local.db
 import app.acervatim.domain.model.Series
 import app.acervatim.domain.model.SeriesWithCounts
 import app.acervatim.domain.model.normalizeArtistName
+import app.acervatim.domain.model.normalizeEditionKey
+import app.acervatim.domain.model.normalizePublisherKey
 import app.acervatim.domain.model.sync.SyncState
 import java.time.Instant
 
 /**
  * Normalisation utilisée pour la clé naturelle d'une série
- * (`collectionType, normalizedTitle, normalizedAuthor`).
+ * (`collectionType, normalizedTitle, normalizedAuthor, normalizedPublisher, normalizedEdition`).
  * Réutilise [normalizeArtistName] (NFD + lowercase + suppression des diacritiques).
  * Pour un auteur null/vide, renvoie `""` afin que l'index unique fonctionne (SQLite
- * traite NULL != NULL dans les contraintes uniques).
+ * traite NULL != NULL dans les contraintes uniques). L'éditeur et l'édition ont leurs propres
+ * normalisations ([normalizePublisherKey], [normalizeEditionKey]), alignées sur le backend.
  */
 internal fun normalizeSeriesKey(value: String?): String =
     normalizeArtistName(value.orEmpty())
@@ -25,6 +28,9 @@ internal fun SeriesEntity.toDomain(): Series = Series(
     totalVolumes = totalVolumes,
     synopsis = synopsis,
     coverPath = coverPath,
+    edition = edition,
+    publisherFr = publisherFr,
+    mangaId = mangaId,
     createdAt = createdAt,
     updatedAt = updatedAt
 )
@@ -47,6 +53,11 @@ internal fun Series.toEntity(
     coverPath = coverPath,
     createdAt = createdAt,
     updatedAt = updatedAt,
+    edition = edition,
+    publisherFr = publisherFr,
+    mangaId = mangaId,
+    normalizedPublisher = normalizePublisherKey(publisherFr),
+    normalizedEdition = normalizeEditionKey(edition),
     collectionId = collectionId,
     remoteId = remoteId,
     syncState = syncState,

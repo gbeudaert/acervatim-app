@@ -13,6 +13,7 @@ import app.acervatim.domain.model.ImportJobState
 import app.acervatim.domain.model.ImportPhase
 import app.acervatim.domain.repository.CoverStorage
 import app.acervatim.domain.usecase.ImportScannedSeriesUseCase
+import app.acervatim.domain.usecase.WarmEditionImportUseCase
 import app.acervatim.ui.scan.ScanPrefillHandoff
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -82,7 +83,7 @@ class SeriesImportViewModelTest {
         if (withMatch && barcode != null) handoff.put(barcode, match)
         val saved = SavedStateHandle(buildMap { barcode?.let { put("barcode", it) } })
         val useCase = ImportScannedSeriesUseCase(series, records, search, NoopCoverStorage, clock)
-        return SeriesImportViewModel(saved, handoff, search, useCase)
+        return SeriesImportViewModel(saved, handoff, WarmEditionImportUseCase(search), useCase)
     }
 
     @Test

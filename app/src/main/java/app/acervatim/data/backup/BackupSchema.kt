@@ -77,7 +77,14 @@ data class BackupSeriesV1(
     @Serializable(with = InstantIsoSerializer::class)
     val createdAt: Instant,
     @Serializable(with = InstantIsoSerializer::class)
-    val updatedAt: Instant
+    val updatedAt: Instant,
+    /**
+     * Identité d'édition (v8). Absente des backups antérieurs, d'où les `null` par défaut : le
+     * format reste lisible dans les deux sens sans changer de version.
+     */
+    val edition: String? = null,
+    val publisherFr: String? = null,
+    val mangaId: String? = null
 )
 
 internal object InstantIsoSerializer : KSerializer<Instant> {

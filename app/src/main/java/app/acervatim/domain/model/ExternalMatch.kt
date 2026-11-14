@@ -59,5 +59,10 @@ data class ExternalMatch(
      */
     val sourceVolumeRange: String? = null,
     /** Nombre total de tomes de la série (MAL `num_volumes`), si connu. */
-    val totalVolumes: Int? = null
+    val totalVolumes: Int? = null,
+    /**
+     * Id MangaDex de l'œuvre identifiée au scan (`metadata.pivot.mangaId`). Porté par la série créée,
+     * il permet ensuite de joindre les jaquettes sans rapprochement par titre.
+     */
+    val mangaId: String? = null
 )

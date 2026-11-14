@@ -13,8 +13,8 @@ import app.acervatim.domain.model.recordComparator
  * `RecordDao.observeFilteredJoinRows`.
  *
  * Deux implémentations d'un même filtre, c'est une dérive qui attend son heure : ces cas fixent la
- * sémantique du SQL — y compris ses aspérités, comme la sensibilité aux accents — pour qu'une même
- * recherche rende la même chose sur sa collection et sur celle qu'on lui partage.
+ * sémantique du SQL — insensibilité aux accents comprise (v8) — pour qu'une même recherche rende la
+ * même chose sur sa collection et sur celle qu'on lui partage.
  */
 class RecordFilterMatchingTest {
 
@@ -70,15 +70,18 @@ class RecordFilterMatchingTest {
     }
 
     /**
-     * `LIKE` de SQLite n'est **pas** insensible aux accents. On reproduit ce comportement plutôt que
-     * de l'améliorer d'un seul côté : une recherche qui trouverait sur une collection partagée et pas
-     * sur la sienne serait pire qu'une recherche imparfaite mais cohérente.
+     * Depuis la v8, le SQL compare des colonnes **normalisées** (`normalized_title`,
+     * `normalized_name`) à une saisie normalisée : insensible aux accents. Le prédicat en mémoire
+     * suit, des deux côtés à la fois — une recherche qui trouverait sur une collection partagée et
+     * pas sur la sienne serait pire qu'une recherche imparfaite mais cohérente.
      */
     @Test
-    fun `sensibilite aux accents - alignee sur SQLite, pas corrigee ici`() {
-        val r = record(title = "Éclat")
-        assertFalse(RecordFilter(query = "eclat").matches(r, now))
+    fun `insensible aux accents - comme le SQL depuis la v8`() {
+        val r = record(title = "Éclat", artists = listOf("Björk"))
+        assertTrue(RecordFilter(query = "eclat").matches(r, now))
         assertTrue(RecordFilter(query = "éclat").matches(r, now))
+        assertTrue(RecordFilter(query = "ÉCLAT").matches(r, now))
+        assertTrue(RecordFilter(query = "bjork").matches(r, now))
     }
 
     @Test

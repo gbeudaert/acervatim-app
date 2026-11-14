@@ -4,7 +4,11 @@ import app.acervatim.domain.model.EditionMapping
 import app.acervatim.domain.model.ExternalMatch
 import app.acervatim.domain.model.ImportJob
 import app.acervatim.domain.model.ImportJobState
+import app.acervatim.domain.model.SeriesCandidate
+import app.acervatim.domain.model.SeriesEditionOption
+import app.acervatim.domain.model.SeriesUpdate
 import app.acervatim.domain.repository.ExternalSearchRepository
+import java.time.LocalDate
 
 /**
  * Fake d'[ExternalSearchRepository] : renvoie un résultat programmé, ou une erreur, et enregistre la
@@ -51,11 +55,59 @@ class FakeExternalSearchRepository : ExternalSearchRepository {
         return textResult
     }
 
-    override suspend fun editionMapping(titleFr: String, edition: String?): Result<EditionMapping> {
+    var lastEditionPublisher: String? = null
+    var lastEditionMangaId: String? = null
+    var lastEditionSince: LocalDate? = null
+
+    override suspend fun editionMapping(
+        titleFr: String,
+        edition: String?,
+        publisher: String?,
+        mangaId: String?,
+        since: LocalDate?
+    ): Result<EditionMapping> {
         editionMappingCallCount++
         lastEditionTitle = titleFr
         lastEditionEdition = edition
+        lastEditionPublisher = publisher
+        lastEditionMangaId = mangaId
+        lastEditionSince = since
         return editionMappingResult
+    }
+
+    /** Recherche de séries manga par titre : programmable, requêtes mémorisées. */
+    var seriesSearchResult: Result<List<SeriesCandidate>> = Result.success(emptyList())
+    val seriesQueries: MutableList<String> = mutableListOf()
+
+    /** Réponse par requête, éventuellement lente (`delay`) : prime sur [seriesSearchResult]. */
+    var seriesSearchHandler: (suspend (String) -> Result<List<SeriesCandidate>>)? = null
+
+    override suspend fun searchMangaSeries(query: String): Result<List<SeriesCandidate>> {
+        seriesQueries += query
+        return seriesSearchHandler?.invoke(query) ?: seriesSearchResult
+    }
+
+    /** Éditions d'une série : programmable ; derniers paramètres mémorisés. */
+    var editionsResult: Result<List<SeriesEditionOption>> = Result.success(emptyList())
+    var lastEditionsMangaId: String? = null
+    var lastEditionsTitle: String? = null
+
+    override suspend fun listEditions(
+        mangaId: String,
+        title: String?
+    ): Result<List<SeriesEditionOption>> {
+        lastEditionsMangaId = mangaId
+        lastEditionsTitle = title
+        return editionsResult
+    }
+
+    /** Nouveautés serveur (premium) : aucune par défaut. */
+    var seriesUpdatesResult: Result<List<SeriesUpdate>> = Result.success(emptyList())
+    var seriesUpdatesCallCount: Int = 0
+
+    override suspend fun seriesUpdates(): Result<List<SeriesUpdate>> {
+        seriesUpdatesCallCount++
+        return seriesUpdatesResult
     }
 
     override suspend fun resolveCover(
@@ -83,10 +135,20 @@ class FakeExternalSearchRepository : ExternalSearchRepository {
     var importJobStatusSequence: List<Result<ImportJob?>> = emptyList()
     var importJobStatusCallCount: Int = 0
 
-    override suspend fun startImportJob(titleFr: String, edition: String?): Result<ImportJob> {
+    var lastImportJobPublisher: String? = null
+    var lastImportJobMangaId: String? = null
+
+    override suspend fun startImportJob(
+        titleFr: String,
+        edition: String?,
+        publisher: String?,
+        mangaId: String?
+    ): Result<ImportJob> {
         startImportJobCallCount++
         lastImportJobTitle = titleFr
         lastImportJobEdition = edition
+        lastImportJobPublisher = publisher
+        lastImportJobMangaId = mangaId
         return startImportJobResult
             ?: Result.success(ImportJob(jobId = "job-$titleFr", state = ImportJobState.DONE))
     }

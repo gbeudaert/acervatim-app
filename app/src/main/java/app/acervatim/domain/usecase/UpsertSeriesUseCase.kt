@@ -40,8 +40,17 @@ class UpsertSeriesUseCase @Inject constructor(
             existing.title != title ||
             existing.originalAuthor != author ||
             existing.collectionType != collectionType
+        // L'édition (éditeur + mention) n'est pas saisissable dans le formulaire : elle vient d'un
+        // import et se conserve telle quelle à l'édition — sinon modifier un synopsis ferait
+        // retomber la série dans la clé « sans édition » et la confondrait avec une autre.
         if (keyChanged) {
-            repository.findByNaturalKey(collectionType, title, author)?.let { other ->
+            repository.findByNaturalKey(
+                collectionType,
+                title,
+                author,
+                publisherFr = existing?.publisherFr,
+                edition = existing?.edition
+            )?.let { other ->
                 if (other.id != existing?.id) throw DuplicateSeriesException(
                     existingSeriesId = other.id,
                     title = title,
@@ -61,6 +70,9 @@ class UpsertSeriesUseCase @Inject constructor(
             totalVolumes = input.totalVolumes,
             synopsis = input.synopsis?.trim()?.takeIf { it.isNotEmpty() },
             coverPath = input.coverPath,
+            edition = existing?.edition,
+            publisherFr = existing?.publisherFr,
+            mangaId = existing?.mangaId,
             createdAt = existing?.createdAt ?: now,
             updatedAt = now
         )

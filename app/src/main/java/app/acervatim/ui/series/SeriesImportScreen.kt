@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.acervatim.R
+import app.acervatim.domain.model.ImportJobProgress
 import app.acervatim.domain.model.ImportPhase
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,7 +80,11 @@ fun SeriesImportScreen(
                     result = state.result!!,
                     onOpenSeries = onOpenSeries
                 )
-                state.importing -> ImportProgressContent(state = state)
+                state.importing -> SeriesImportProgress(
+                    title = state.seriesTitle,
+                    phase = state.phase,
+                    progress = state.progress
+                )
                 else -> ImportOptionsContent(
                     state = state,
                     onToggleImportAll = viewModel::onToggleImportAll,
@@ -154,22 +159,28 @@ private fun ImportOptionsContent(
  * Avancement de l'import complet (job backend async). Affiche une progression **déterminée** pendant
  * la résolution des jaquettes (`done/total` connu), **indéterminée** sinon (lancement, énumération
  * BnF, écriture locale). Cf. [ScanImportPhase].
+ *
+ * Partagé avec la recherche par titre ([SeriesSearchScreen]) : même job, mêmes phases — deux écrans
+ * d'avancement divergeraient au premier changement de libellé.
  */
 @Composable
-private fun ImportProgressContent(state: SeriesImportUiState) {
-    val progress = state.progress
+internal fun SeriesImportProgress(
+    title: String?,
+    phase: ScanImportPhase,
+    progress: ImportJobProgress?
+) {
     val label = when {
-        state.phase == ScanImportPhase.IMPORTING ->
+        phase == ScanImportPhase.IMPORTING ->
             stringResource(R.string.scan_series_import_finalizing)
         progress?.phase == ImportPhase.COVERS ->
             stringResource(R.string.scan_series_import_phase_covers)
-        state.phase == ScanImportPhase.POLLING ->
+        phase == ScanImportPhase.POLLING ->
             stringResource(R.string.scan_series_import_phase_enumerating)
         else -> stringResource(R.string.scan_series_import_launching)
     }
 
     Text(
-        text = state.seriesTitle ?: "",
+        text = title ?: "",
         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
         color = MaterialTheme.colorScheme.onSurface
     )

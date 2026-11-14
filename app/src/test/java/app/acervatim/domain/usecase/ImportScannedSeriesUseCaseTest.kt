@@ -10,6 +10,8 @@ import app.acervatim.domain.model.ExternalMatch
 import app.acervatim.domain.model.ItemStatus
 import app.acervatim.domain.model.MangaExtras
 import app.acervatim.domain.model.Series
+import app.acervatim.domain.model.SeriesCandidate
+import app.acervatim.domain.model.SeriesEditionOption
 import app.acervatim.domain.repository.CoverStorage
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -317,6 +319,223 @@ class ImportScannedSeriesUseCaseTest {
         assertEquals("https://cdn.example/aot-2.jpg", scanned.coverRemoteUrl)
         assertEquals(null, scanned.coverPath)
         assertEquals(null, series.listAll().single().coverPath)
+    }
+
+    // ---- AD2 : l'édition dans l'identité, import par titre -------------------------------------
+
+    private val candidate = SeriesCandidate(
+        source = "mangadex",
+        sourceId = "md-snk",
+        mangaId = "md-snk",
+        title = "L'attaque des titans",
+        titleFr = "L'attaque des titans",
+        titleRomaji = "Shingeki no Kyojin",
+        authors = listOf("Hajime Isayama"),
+        year = 2009,
+        coverUrl = "https://uploads.example/snk.jpg",
+        synopsis = "Les titans attaquent.",
+        status = "completed",
+        volumeCount = 34,
+        malId = "23390",
+        anilistId = "53390"
+    )
+
+    private val pikaStandard = SeriesEditionOption(
+        seriesTitleFr = "L'attaque des titans",
+        publisher = "Pika",
+        edition = null,
+        isArtEdition = false,
+        tomeCount = 3,
+        firstYear = "2013",
+        lastYear = "2021",
+        ongoing = false,
+        hasSourceVolumeRange = false,
+        sampleIsbn = "111"
+    )
+
+    @Test
+    fun `import par titre cree la serie et tous ses tomes en wishlist`() = runTest {
+        externalSearch.editionMappingResult = Result.success(mapping)
+
+        val result = useCase.importFromSearch(candidate, pikaStandard)
+
+        assertEquals(3, result.createdVolumes)
+        assertFalse(result.degradedFullImport)
+        // Aucun tome possédé : c'est le besoin wishlist.
+        assertTrue(records.listAll().all { it.status == ItemStatus.WISHLIST })
+        // Les paramètres de l'édition repartent tels quels vers `edition-mapping`.
+        assertEquals("L'attaque des titans", externalSearch.lastEditionTitle)
+        assertEquals("Pika", externalSearch.lastEditionPublisher)
+        assertEquals("md-snk", externalSearch.lastEditionMangaId)
+
+        val created = series.listAll().single()
+        assertEquals("Pika", created.publisherFr)
+        assertEquals(null, created.edition)
+        assertEquals("md-snk", created.mangaId)
+        assertEquals("Hajime Isayama", created.originalAuthor)
+        assertEquals("Pika", records.findByIsbn("111")!!.extras[MangaExtras.KEY_PUBLISHER_FR])
+    }
+
+    @Test
+    fun `import par titre ne recree pas un tome deja present`() = runTest {
+        externalSearch.editionMappingResult = Result.success(mapping)
+        useCase.importFromList("222", match.copy(publisherFr = "Pika éd."), importAllKnownTomes = false)
+
+        val result = useCase.importFromSearch(candidate, pikaStandard)
+
+        // Le tome 2 scanné existe déjà (dédup ISBN) et reste possédé ; les deux autres arrivent.
+        assertEquals(2, result.createdVolumes)
+        assertEquals(1, result.skippedExisting)
+        assertEquals(ItemStatus.OWNED, records.findByIsbn("222")!!.status)
+        // « Pika éd. » (scan) et « Pika » (recherche) sont le même éditeur : une seule série.
+        assertEquals(1, series.listAll().size)
+    }
+
+    @Test
+    fun `deux editions d'une meme serie donnent deux series`() = runTest {
+        externalSearch.editionMappingResult = Result.success(mapping)
+        useCase.importFromSearch(candidate, pikaStandard)
+
+        val colossale = mapping.copy(
+            edition = "Éd. colossale",
+            tomes = listOf(EditionTome(editionVolume = 1, isbn = "c-1", titleFr = "L'attaque des titans T.1"))
+        )
+        externalSearch.editionMappingResult = Result.success(colossale)
+        useCase.importFromSearch(
+            candidate,
+            pikaStandard.copy(edition = "Éd. colossale", isArtEdition = true, tomeCount = 1)
+        )
+
+        val all = series.listAll()
+        assertEquals(2, all.size)
+        assertEquals(setOf(null, "Éd. colossale"), all.map { it.edition }.toSet())
+        // Deux « tome 1 » sous deux séries distinctes : plus de 409 (série + volume) à la synchro.
+        val tome1s = records.listAll().filter { it.volumeNumber == 1 }
+        assertEquals(2, tome1s.map { it.seriesId }.distinct().size)
+    }
+
+    @Test
+    fun `mapping indisponible - la serie est creee vide et le repli est signale`() = runTest {
+        externalSearch.editionMappingResult = Result.failure(java.io.IOException("BnF down"))
+
+        val result = useCase.importFromSearch(candidate, pikaStandard)
+
+        assertEquals(0, result.createdVolumes)
+        assertTrue(result.degradedFullImport)
+        assertTrue(result.partial)
+        assertEquals("Pika", series.listAll().single().publisherFr)
+    }
+
+    @Test
+    fun `une serie d'avant la v8 est adoptee au lieu d'etre dupliquee`() = runTest {
+        val legacy = Series(
+            id = "legacy",
+            collectionType = CollectionType.MANGA,
+            title = "L'attaque des titans",
+            originalAuthor = "Hajime Isayama",
+            createdAt = fixedInstant,
+            updatedAt = fixedInstant
+        )
+        series.upsert(legacy)
+
+        val result = useCase.importFromList(
+            "222",
+            match.copy(publisherFr = "Pika édition"),
+            importAllKnownTomes = false
+        )
+
+        assertEquals("legacy", result.seriesId)
+        val adopted = series.listAll().single()
+        assertEquals("Pika édition", adopted.publisherFr)
+    }
+
+    private suspend fun seedLegacyWithTome(extras: Map<String, String>) {
+        series.upsert(
+            Series(
+                id = "legacy",
+                collectionType = CollectionType.MANGA,
+                title = "L'attaque des titans",
+                originalAuthor = "Hajime Isayama",
+                createdAt = fixedInstant,
+                updatedAt = fixedInstant
+            )
+        )
+        records.upsert(
+            app.acervatim.domain.model.Record(
+                id = "old-1",
+                collectionType = CollectionType.MANGA,
+                seriesId = "legacy",
+                volumeNumber = 1,
+                artists = emptyList(),
+                title = "L'attaque des titans T.1",
+                isbn = "old-isbn-1",
+                status = ItemStatus.OWNED,
+                extras = extras,
+                createdAt = fixedInstant,
+                updatedAt = fixedInstant
+            )
+        )
+    }
+
+    @Test
+    fun `une serie d'avant la v8 aux tomes Pika n'adopte pas une edition France Loisirs`() = runTest {
+        seedLegacyWithTome(mapOf(MangaExtras.KEY_PUBLISHER_FR to "Pika édition"))
+
+        val result = useCase.importFromList(
+            "222",
+            match.copy(publisherFr = "Éditions France loisirs"),
+            importAllKnownTomes = false
+        )
+
+        // Une autre édition : nouvelle série, la série historique reste intacte.
+        assertTrue(result.seriesId != "legacy")
+        assertEquals(2, series.listAll().size)
+        assertEquals(null, series.listAll().first { it.id == "legacy" }.publisherFr)
+    }
+
+    @Test
+    fun `une serie d'avant la v8 aux tomes d'une autre edition n'est pas adoptee`() = runTest {
+        seedLegacyWithTome(
+            mapOf(MangaExtras.KEY_PUBLISHER_FR to "Pika", MangaExtras.KEY_EDITION to "Éd. colossale")
+        )
+
+        val result = useCase.importFromList("222", match.copy(publisherFr = "Pika"), importAllKnownTomes = false)
+
+        assertTrue(result.seriesId != "legacy")
+    }
+
+    @Test
+    fun `une serie d'avant la v8 aux tomes sans editeur est adoptee`() = runTest {
+        seedLegacyWithTome(emptyMap())
+
+        val result = useCase.importFromList("222", match.copy(publisherFr = "Pika"), importAllKnownTomes = false)
+
+        assertEquals("legacy", result.seriesId)
+        assertEquals("Pika", series.listAll().single().publisherFr)
+    }
+
+    @Test
+    fun `une serie d'avant la v8 aux tomes du meme editeur, autre graphie, est adoptee`() = runTest {
+        seedLegacyWithTome(mapOf(MangaExtras.KEY_PUBLISHER_FR to "Pika éd."))
+
+        val result = useCase.importFromList("222", match.copy(publisherFr = "Pika édition"), importAllKnownTomes = false)
+
+        assertEquals("legacy", result.seriesId)
+    }
+
+    @Test
+    fun `le scan transmet editeur et mangaId a edition-mapping`() = runTest {
+        externalSearch.editionMappingResult = Result.success(mapping)
+
+        useCase.importFromList(
+            "222",
+            match.copy(publisherFr = "Pika", mangaId = "md-snk"),
+            importAllKnownTomes = true
+        )
+
+        assertEquals("Pika", externalSearch.lastEditionPublisher)
+        assertEquals("md-snk", externalSearch.lastEditionMangaId)
+        assertEquals("md-snk", series.listAll().single().mangaId)
     }
 }
 

@@ -172,7 +172,14 @@ class RefreshMetadataUseCase @Inject constructor(
         unchanged: MutableList<String>,
         failed: MutableList<String>
     ) {
-        val mapping = externalSearch.editionMapping(series.title, edition = null).getOrElse {
+        // L'édition de la série (v8) cible la bonne énumération : sans elle, une colossale se
+        // rafraîchissait depuis la standard. Séries d'avant la v8 : `null`, comportement inchangé.
+        val mapping = externalSearch.editionMapping(
+            titleFr = series.title,
+            edition = series.edition,
+            publisher = series.publisherFr,
+            mangaId = series.mangaId
+        ).getOrElse {
             failed += series.id
             return
         }

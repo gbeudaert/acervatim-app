@@ -29,7 +29,9 @@ data class VinylUnifiedDataDto(
 @Serializable
 data class MangaItemUnifiedDataDto(
     val title: String? = null,
-    val coverUrl: String? = null
+    val coverUrl: String? = null,
+    /** Mention d'édition du tome (SD2), `null` = standard. */
+    val edition: String? = null
 )
 
 /** §9.2 — nœud/série `manga` (pré-rempli via MAL, schéma `.strip()` côté back). */
@@ -41,5 +43,9 @@ data class MangaNodeUnifiedDataDto(
     val totalCount: Int? = null,
     val rating: Double? = null,
     val synopsis: String? = null,
-    val coverUrl: String? = null
+    val coverUrl: String? = null,
+    /** Identité d'édition (SD2) : mention 205, éditeur FR, id MangaDex. */
+    val edition: String? = null,
+    val publisherFr: String? = null,
+    val mangaId: String? = null
 )

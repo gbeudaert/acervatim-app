@@ -69,6 +69,29 @@ class RecordDaoTest {
     }
 
     @Test
+    fun `search query ignores accents on title and artist name`() = runTest {
+        // Audit § 6 : la liste plate (SQL `LIKE`) ne repliait que l'ASCII, la vue séries (filtre en
+        // mémoire) repliait aussi les accents — une même saisie donnait deux résultats.
+        val now = Instant.parse("2026-05-16T10:00:00Z")
+        insertRecord("r1", "Été indien", listOf("Joe Dassin"), now)
+        insertRecord("r2", "Debut", listOf("Björk"), now)
+        insertRecord("r3", "Animals", listOf("Pink Floyd"), now)
+
+        filteredRows(RecordFilter(query = "ete")).test {
+            assertEquals(listOf("r1"), awaitItem().map { it.record.id }.distinct())
+            cancelAndIgnoreRemainingEvents()
+        }
+        filteredRows(RecordFilter(query = "ÉTÉ IND")).test {
+            assertEquals(listOf("r1"), awaitItem().map { it.record.id }.distinct())
+            cancelAndIgnoreRemainingEvents()
+        }
+        filteredRows(RecordFilter(query = "bjork")).test {
+            assertEquals(listOf("r2"), awaitItem().map { it.record.id }.distinct())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `search query matches title or any artist name`() = runTest {
         val now = Instant.parse("2026-05-16T10:00:00Z")
         insertRecord("r1", "Animals", listOf("Pink Floyd"), now)
@@ -173,7 +196,11 @@ class RecordDaoTest {
 
     private suspend fun insertArtist(name: String): String {
         val id = "artist-${name.lowercase().replace(' ', '_')}"
-        artistDao.upsert(ArtistEntity(id = id, name = name, normalizedName = name.lowercase()))
+        // Même normalisation que la production (`RecordRepositoryImpl.resolveOrCreateArtist`) : la
+        // recherche compare désormais `normalized_name`, un `lowercase()` seul garderait les accents.
+        artistDao.upsert(
+            ArtistEntity(id = id, name = name, normalizedName = app.acervatim.domain.model.normalizeArtistName(name))
+        )
         return id
     }
 

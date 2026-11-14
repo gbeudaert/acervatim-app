@@ -93,6 +93,9 @@ object RemoteDtoMapper {
         rating?.let { put("rating", it) }
         synopsis?.let { put("synopsis", it) }
         coverUrl?.let { put("coverUrl", it) }
+        edition?.let { put(FacadeMapper.KEY_EDITION, it) }
+        publisherFr?.let { put(FacadeMapper.KEY_PUBLISHER_FR, it) }
+        mangaId?.let { put(FacadeMapper.KEY_MANGA_ID, it) }
     }
 
     // ---- domaine → DTO de requête (push) ----------------------------------------------------

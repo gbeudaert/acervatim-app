@@ -214,6 +214,9 @@ class SharedCollectionRepositoryImpl @Inject constructor(
         totalVolumes = totalCount,
         synopsis = synopsis,
         coverRemoteUrl = coverUrl,
+        edition = edition,
+        publisherFr = publisherFr,
+        mangaId = mangaId,
         createdAt = EPOCH,
         updatedAt = EPOCH
     )

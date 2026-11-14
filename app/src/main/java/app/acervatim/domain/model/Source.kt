@@ -17,7 +17,13 @@ enum class Source(
 ) {
     DISCOGS(providerCode = "discogs", requiresToken = true),
     MYANIMELIST(providerCode = "mal", requiresToken = true),
-    BNF(providerCode = "bnf", requiresToken = false);
+    BNF(providerCode = "bnf", requiresToken = false),
+
+    /**
+     * Source principale des séries manga (identité, synopsis FR, jaquettes, recherche par titre),
+     * publique et sans jeton. Listée pour être **créditée** dans l'app — sa politique d'usage l'exige.
+     */
+    MANGADEX(providerCode = "mangadex", requiresToken = false);
 
     companion object {
         fun fromProviderCode(code: String): Source? = entries.firstOrNull { it.providerCode == code }
@@ -31,5 +37,5 @@ enum class Source(
 val CollectionType.sources: List<Source>
     get() = when (this) {
         CollectionType.VINYL -> listOf(Source.DISCOGS)
-        CollectionType.MANGA -> listOf(Source.MYANIMELIST, Source.BNF)
+        CollectionType.MANGA -> listOf(Source.MANGADEX, Source.BNF, Source.MYANIMELIST)
     }
