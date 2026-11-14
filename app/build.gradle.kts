@@ -36,8 +36,8 @@ android {
         applicationId = "app.acervatim"
         minSdk = 24
         targetSdk = 35
-        versionCode = 6
-        versionName = "0.8.1"
+        versionCode = 8
+        versionName = "0.9.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
